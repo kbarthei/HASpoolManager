@@ -42,8 +42,17 @@ npm run db:studio    # Open Drizzle Studio
 
 ## Conventions
 
-- Dark mode first (workshop environment)
+- Apple Health inspired design, light + dark mode (system preference), teal accent
 - Mobile-first responsive design (use at the printer)
+- Dense layout (compact padding, tight rows)
 - All API routes under /api/v1/
 - API key auth via Authorization: Bearer header
 - German-speaking user, but UI and code in English
+
+## CRITICAL: Bash Commands
+
+**NEVER prefix bash commands with `cd /path/to/project &&`.** The working directory is already the project root. Run commands directly:
+- CORRECT: `npm run build`
+- WRONG: `cd "/Users/kbarthei/Library/..." && npm run build`
+
+This applies to ALL agents, subagents, and sessions. The `cd` prefix breaks auto-approve permission rules and forces manual approval of every command.
