@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { printers } from "@/lib/db/schema";
-import { requireAuth } from "@/lib/auth";
+import { requireAuth, optionalAuth } from "@/lib/auth";
 
 // GET /api/v1/printers — List all printers with amsSlots
 export async function GET(request: NextRequest) {
-  const auth = await requireAuth(request);
+  const auth = await optionalAuth(request);
   if (!auth.authenticated) return auth.response;
 
   try {

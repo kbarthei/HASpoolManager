@@ -1,5 +1,6 @@
 import { TopTabs } from "@/components/layout/top-tabs";
 import { BottomNav } from "@/components/layout/bottom-nav";
+import { Toaster } from "@/components/ui/sonner";
 
 export default function AppLayout({
   children,
@@ -13,6 +14,7 @@ export default function AppLayout({
         {children}
       </main>
       <BottomNav />
+      <Toaster />
     </div>
   );
 }

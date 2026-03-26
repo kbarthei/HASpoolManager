@@ -53,6 +53,18 @@ export type AuthResult =
   | { authenticated: true; keyId: string; name: string }
   | { authenticated: false; response: NextResponse };
 
+/**
+ * Allow unauthenticated GET requests from the web UI.
+ * Still authenticates if a Bearer token is provided.
+ */
+export async function optionalAuth(request: NextRequest): Promise<AuthResult> {
+  const authHeader = request.headers.get("authorization");
+  if (!authHeader) {
+    return { authenticated: true, keyId: "web-ui", name: "web-ui" };
+  }
+  return requireAuth(request);
+}
+
 export async function requireAuth(request: NextRequest): Promise<AuthResult> {
   // Also allow simple password auth via env var (for web UI)
   const envSecret = process.env.API_SECRET_KEY;
