@@ -48,73 +48,110 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/* ─── Light Mode — Apple System Colors ─────────────────────────────────── */
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --radius: 0.75rem;
+
+  /* Surfaces */
+  --background: #F2F2F7;
+  --foreground: #1D1D1F;
+  --card: #FFFFFF;
+  --card-foreground: #1D1D1F;
+  --popover: #FFFFFF;
+  --popover-foreground: #1D1D1F;
+
+  /* Primary — Apple teal */
+  --primary: #30B0C7;
+  --primary-foreground: #FFFFFF;
+
+  /* Secondary — Apple grouped secondary fill */
+  --secondary: #E5E5EA;
+  --secondary-foreground: #1D1D1F;
+
+  /* Muted — Apple tertiary label / fill */
+  --muted: #EBEBF0;
+  --muted-foreground: #8E8E93;
+
+  /* Accent — same as secondary for now */
+  --accent: #E5E5EA;
+  --accent-foreground: #1D1D1F;
+
+  /* Destructive — Apple red */
+  --destructive: #FF3B30;
+
+  /* Borders & inputs */
+  --border: #C6C6C8;
+  --input: #C6C6C8;
+  --ring: #30B0C7;
+
+  /* Charts — Apple system teal / blue / indigo / green / orange */
+  --chart-1: #30B0C7;
+  --chart-2: #007AFF;
+  --chart-3: #5856D6;
+  --chart-4: #34C759;
+  --chart-5: #FF9500;
+
+  /* Sidebar */
+  --sidebar: #FFFFFF;
+  --sidebar-foreground: #1D1D1F;
+  --sidebar-primary: #30B0C7;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #E5E5EA;
+  --sidebar-accent-foreground: #1D1D1F;
+  --sidebar-border: #C6C6C8;
+  --sidebar-ring: #30B0C7;
 }
 
+/* ─── Dark Mode — Apple System Colors ──────────────────────────────────── */
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  /* Surfaces */
+  --background: #000000;
+  --foreground: #F5F5F7;
+  --card: #1C1C1E;
+  --card-foreground: #F5F5F7;
+  --popover: #1C1C1E;
+  --popover-foreground: #F5F5F7;
+
+  /* Primary — Apple teal (slightly brighter for dark bg) */
+  --primary: #40C8E0;
+  --primary-foreground: #000000;
+
+  /* Secondary — Apple dark grouped secondary fill */
+  --secondary: #2C2C2E;
+  --secondary-foreground: #F5F5F7;
+
+  /* Muted — Apple dark tertiary */
+  --muted: #3A3A3C;
+  --muted-foreground: #8D8D93;
+
+  /* Accent */
+  --accent: #2C2C2E;
+  --accent-foreground: #F5F5F7;
+
+  /* Destructive — Apple red (dark) */
+  --destructive: #FF453A;
+
+  /* Borders & inputs */
+  --border: #38383A;
+  --input: #38383A;
+  --ring: #40C8E0;
+
+  /* Charts */
+  --chart-1: #40C8E0;
+  --chart-2: #0A84FF;
+  --chart-3: #5E5CE6;
+  --chart-4: #30D158;
+  --chart-5: #FF9F0A;
+
+  /* Sidebar */
+  --sidebar: #1C1C1E;
+  --sidebar-foreground: #F5F5F7;
+  --sidebar-primary: #40C8E0;
+  --sidebar-primary-foreground: #000000;
+  --sidebar-accent: #2C2C2E;
+  --sidebar-accent-foreground: #F5F5F7;
+  --sidebar-border: #38383A;
+  --sidebar-ring: #40C8E0;
 }
 
 @layer base {
