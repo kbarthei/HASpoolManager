@@ -5,6 +5,22 @@ import { amsSlots, spools } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
+export async function assignSpoolToRack(spoolId: string, row: number, col: number) {
+  await db.update(spools)
+    .set({ location: `rack:${row}-${col}`, updatedAt: new Date() })
+    .where(eq(spools.id, spoolId));
+  revalidatePath("/storage");
+  revalidatePath("/");
+}
+
+export async function removeSpoolFromRack(spoolId: string) {
+  await db.update(spools)
+    .set({ location: "storage", updatedAt: new Date() })
+    .where(eq(spools.id, spoolId));
+  revalidatePath("/storage");
+  revalidatePath("/");
+}
+
 export async function loadSpoolToSlot(slotId: string, spoolId: string) {
   // Get the slot to determine slot_type
   const slot = await db.query.amsSlots.findFirst({
