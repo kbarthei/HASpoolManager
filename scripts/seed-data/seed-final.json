@@ -1062,7 +1062,8 @@
       "bambuType": "ABS-GF",
       "bambuTagUid": "B568B1A400000100",
       "bambuRemain": 70,
-      "isEmpty": false
+      "isEmpty": false,
+      "slotType": "ams"
     },
     {
       "amsIndex": 0,
@@ -1073,7 +1074,8 @@
       "bambuType": "PETG",
       "bambuTagUid": "D7C546ED00000100",
       "bambuRemain": 47,
-      "isEmpty": false
+      "isEmpty": false,
+      "slotType": "ams"
     },
     {
       "amsIndex": 0,
@@ -1084,7 +1086,8 @@
       "bambuType": "PLA",
       "bambuTagUid": null,
       "bambuRemain": 80,
-      "isEmpty": false
+      "isEmpty": false,
+      "slotType": "ams"
     },
     {
       "amsIndex": 0,
@@ -1095,13 +1098,27 @@
       "bambuType": "PLA",
       "bambuTagUid": null,
       "bambuRemain": 80,
-      "isEmpty": false
+      "isEmpty": false,
+      "slotType": "ams"
     },
     {
       "amsIndex": 1,
       "trayIndex": 0,
       "spoolId": null,
       "bambuTrayIdx": 4,
+      "bambuColor": null,
+      "bambuType": null,
+      "bambuTagUid": null,
+      "bambuRemain": null,
+      "isEmpty": true,
+      "slotType": "ams_ht"
+    },
+    {
+      "slotType": "external",
+      "amsIndex": -1,
+      "trayIndex": 0,
+      "spoolId": null,
+      "bambuTrayIdx": null,
       "bambuColor": null,
       "bambuType": null,
       "bambuTagUid": null,

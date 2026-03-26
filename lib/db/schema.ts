@@ -185,6 +185,7 @@ export const amsSlots = pgTable(
     printerId: uuid("printer_id")
       .notNull()
       .references(() => printers.id, { onDelete: "cascade" }),
+    slotType: text("slot_type").notNull().default("ams"),
     amsIndex: integer("ams_index").notNull(),
     trayIndex: integer("tray_index").notNull(),
     spoolId: uuid("spool_id").references(() => spools.id, {
@@ -199,7 +200,8 @@ export const amsSlots = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [
-    uniqueIndex("uq_ams_slot").on(table.printerId, table.amsIndex, table.trayIndex),
+    uniqueIndex("uq_ams_slot").on(table.printerId, table.slotType, table.amsIndex, table.trayIndex),
+    check("chk_slot_type", sql`${table.slotType} IN ('ams','ams_ht','external')`),
   ]
 );
 
