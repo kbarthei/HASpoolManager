@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Circle, Cpu, Grid3X3 } from "lucide-react";
+import { LayoutDashboard, Circle, Cpu, Grid3X3, Printer, Clock } from "lucide-react";
 
 const tabs = [
   {
@@ -29,6 +29,18 @@ const tabs = [
     icon: Grid3X3,
     isActive: (path: string) => path.startsWith("/storage"),
   },
+  {
+    label: "Prints",
+    href: "/prints",
+    icon: Printer,
+    isActive: (path: string) => path.startsWith("/prints"),
+  },
+  {
+    label: "History",
+    href: "/history",
+    icon: Clock,
+    isActive: (path: string) => path.startsWith("/history"),
+  },
 ];
 
 export function TopTabs() {
@@ -40,20 +52,20 @@ export function TopTabs() {
       <span className="font-semibold text-sm shrink-0">HASpoolManager</span>
 
       {/* Center: tabs */}
-      <nav className="flex items-center gap-1">
+      <nav className="flex items-center gap-0.5">
         {tabs.map(({ label, href, icon: Icon, isActive }) => {
           const active = isActive(pathname);
           return (
             <Link
               key={href}
               href={href}
-              className={`flex items-center gap-1.5 px-3 h-12 text-sm transition-colors ${
+              className={`flex items-center gap-1 px-2.5 h-12 text-xs transition-colors ${
                 active
                   ? "border-b-2 border-primary text-foreground"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              <Icon className="h-4 w-4" />
+              <Icon className="h-3.5 w-3.5" />
               {label}
             </Link>
           );

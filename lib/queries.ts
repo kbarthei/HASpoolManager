@@ -62,3 +62,30 @@ export async function getRecentPrints(limit = 8) {
     with: { usage: { with: { spool: { with: { filament: true } } } } },
   });
 }
+
+export async function getAllPrints() {
+  return db.query.prints.findMany({
+    orderBy: [desc(schema.prints.startedAt)],
+    with: {
+      printer: true,
+      usage: { with: { spool: { with: { filament: { with: { vendor: true } } } } } },
+    },
+  });
+}
+
+export async function getAllSpools() {
+  return db.query.spools.findMany({
+    orderBy: [desc(schema.spools.createdAt)],
+    with: { filament: { with: { vendor: true } } },
+  });
+}
+
+export async function getAllPrintUsage() {
+  return db.query.printUsage.findMany({
+    orderBy: [desc(schema.printUsage.createdAt)],
+    with: {
+      print: true,
+      spool: { with: { filament: { with: { vendor: true } } } },
+    },
+  });
+}
