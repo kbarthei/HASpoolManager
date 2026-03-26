@@ -4,7 +4,8 @@ import { useState } from "react";
 import { StorageGrid } from "@/components/storage/storage-grid";
 import { SpoolDetailSheet } from "@/components/spool/spool-detail-sheet";
 import { SpoolPicker } from "@/components/spool/spool-picker";
-import { assignSpoolToRack } from "@/lib/actions";
+import { assignSpoolToRack, moveSpoolInRack } from "@/lib/actions";
+import { toast } from "sonner";
 
 interface StorageClientProps {
   spools: any[];
@@ -37,6 +38,40 @@ export function StorageClient({ spools, rows, cols }: StorageClientProps) {
     await assignSpoolToRack(spoolId, targetRow, targetCol);
   }
 
+  async function handleMove(fromRow: number, fromCol: number, toRow: number, toCol: number) {
+    // Build lookup from current spools list
+    const spoolMap = new Map<string, any>();
+    for (const spool of spools) {
+      const match = spool.location?.match(/^rack:(\d+)-(\d+)$/);
+      if (match) {
+        spoolMap.set(`${match[1]}-${match[2]}`, spool);
+      }
+    }
+
+    const movingSpool = spoolMap.get(`${fromRow}-${fromCol}`);
+    if (!movingSpool) return;
+
+    const swapSpool = spoolMap.get(`${toRow}-${toCol}`);
+
+    try {
+      await moveSpoolInRack(
+        movingSpool.id,
+        toRow,
+        toCol,
+        swapSpool?.id,
+        swapSpool ? fromRow : undefined,
+        swapSpool ? fromCol : undefined,
+      );
+      toast.success(
+        swapSpool
+          ? `Swapped ${movingSpool.filament.name} with ${swapSpool.filament.name}`
+          : `Moved ${movingSpool.filament.name} to R${toRow}S${toCol}`
+      );
+    } catch {
+      toast.error("Failed to move spool");
+    }
+  }
+
   return (
     <>
       <StorageGrid
@@ -44,6 +79,7 @@ export function StorageClient({ spools, rows, cols }: StorageClientProps) {
         rows={rows}
         cols={cols}
         onCellClick={handleCellClick}
+        onMove={handleMove}
       />
 
       <SpoolDetailSheet

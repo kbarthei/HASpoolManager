@@ -19,9 +19,26 @@ interface StorageCellProps {
   row: number;
   col: number;
   onClick: () => void;
+  isDragging?: boolean;
+  isDragOver?: boolean;
+  onDragStart?: (e: React.DragEvent) => void;
+  onDragOver?: (e: React.DragEvent) => void;
+  onDrop?: (e: React.DragEvent) => void;
+  onDragEnd?: (e: React.DragEvent) => void;
 }
 
-export function StorageCell({ spool, row, col, onClick }: StorageCellProps) {
+export function StorageCell({
+  spool,
+  row,
+  col,
+  onClick,
+  isDragging,
+  isDragOver,
+  onDragStart,
+  onDragOver,
+  onDrop,
+  onDragEnd,
+}: StorageCellProps) {
   if (spool) {
     const percent =
       spool.initialWeight > 0
@@ -32,27 +49,37 @@ export function StorageCell({ spool, row, col, onClick }: StorageCellProps) {
     return (
       <button
         type="button"
+        draggable
         onClick={onClick}
+        onDragStart={onDragStart}
+        onDragOver={onDragOver}
+        onDrop={onDrop}
+        onDragEnd={onDragEnd}
         className={cn(
-          "relative aspect-square min-w-[48px] w-full",
-          "flex flex-col items-center justify-center gap-[2px]",
+          "relative min-h-[56px] sm:min-h-[72px] w-full",
+          "flex flex-col items-center justify-center gap-[3px] py-1 px-[2px]",
           "bg-card border border-border rounded-lg",
-          "cursor-pointer hover:bg-accent/50 transition-colors"
+          "cursor-grab hover:bg-accent/50 transition-colors select-none",
+          isDragging && "opacity-50",
+          isDragOver && "ring-2 ring-primary"
         )}
         aria-label={`${spool.filament.name} at R${row}S${col}`}
       >
         {/* Stock level dot — top right */}
         <span
           className={cn(
-            "absolute top-1 right-1 w-[6px] h-[6px] rounded-full",
+            "absolute top-1 right-1 w-[8px] h-[8px] rounded-full",
             stockDotClass
           )}
         />
         <SpoolColorDot
           hex={spool.filament.colorHex ?? "888888"}
-          size="sm"
+          size="md"
         />
-        <span className="text-[7px] leading-tight text-muted-foreground text-center line-clamp-2 px-[2px] w-full">
+        <span className="text-[9px] leading-tight text-foreground text-center line-clamp-2 px-[2px] w-full truncate">
+          {spool.filament.name}
+        </span>
+        <span className="text-[8px] leading-none text-muted-foreground text-center w-full truncate">
           {spool.filament.material}
         </span>
       </button>
@@ -63,11 +90,14 @@ export function StorageCell({ spool, row, col, onClick }: StorageCellProps) {
     <button
       type="button"
       onClick={onClick}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
       className={cn(
-        "aspect-square min-w-[48px] w-full",
+        "min-h-[56px] sm:min-h-[72px] w-full",
         "flex items-center justify-center",
         "border border-dashed border-border rounded-lg",
-        "cursor-pointer hover:border-primary/50 transition-colors"
+        "cursor-pointer hover:border-primary/50 transition-colors",
+        isDragOver && "ring-2 ring-primary border-primary/50"
       )}
       aria-label={`Empty slot R${row}S${col}`}
     >

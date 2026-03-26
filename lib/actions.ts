@@ -5,6 +5,28 @@ import { amsSlots, spools } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
+export async function moveSpoolInRack(
+  spoolId: string,
+  toRow: number,
+  toCol: number,
+  swapSpoolId?: string,
+  fromRow?: number,
+  fromCol?: number,
+) {
+  await db.update(spools)
+    .set({ location: `rack:${toRow}-${toCol}`, updatedAt: new Date() })
+    .where(eq(spools.id, spoolId));
+
+  if (swapSpoolId && fromRow != null && fromCol != null) {
+    await db.update(spools)
+      .set({ location: `rack:${fromRow}-${fromCol}`, updatedAt: new Date() })
+      .where(eq(spools.id, swapSpoolId));
+  }
+
+  revalidatePath("/storage");
+  revalidatePath("/");
+}
+
 export async function assignSpoolToRack(spoolId: string, row: number, col: number) {
   await db.update(spools)
     .set({ location: `rack:${row}-${col}`, updatedAt: new Date() })
