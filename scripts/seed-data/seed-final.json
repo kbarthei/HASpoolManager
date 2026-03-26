@@ -1,0 +1,2344 @@
+{
+  "_meta": {
+    "generated": "2026-03-26",
+    "source": "Consolidated from Spoolman export + AMS live data + manual corrections",
+    "version": "1.0.0",
+    "notes": [
+      "Filament #23 and #27 (PLA Basic Black) merged into filament #23",
+      "Filament #26 (PolyLite PLA White) added for Polymaker spool in AMS",
+      "Spool #40 and #41 added from AMS (not in Spoolman)",
+      "Spool #25 and #26 remaining weights corrected from AMS percentages",
+      "Tag UIDs for spools #25 and #26 are REAL; all others are generated placeholders",
+      "All 'storage-2' locations normalized to 'storage'",
+      "Filament #6 (Glow Green) confirmed as R3D vendor, bambuIdx cleared"
+    ]
+  },
+  "vendors": [
+    {
+      "id": 1,
+      "name": "Bambu Lab",
+      "website": "https://bambulab.com",
+      "emptySpoolWeight": 250
+    },
+    {
+      "id": 2,
+      "name": "Polymaker",
+      "website": "https://polymaker.com",
+      "emptySpoolWeight": 140
+    },
+    {
+      "id": 3,
+      "name": "GEEETECH",
+      "website": "https://geeetech.com",
+      "emptySpoolWeight": 180
+    },
+    {
+      "id": 4,
+      "name": "Creality",
+      "website": "https://creality.com",
+      "emptySpoolWeight": 225
+    },
+    {
+      "id": 5,
+      "name": "R3D",
+      "website": "https://r3d.eu",
+      "emptySpoolWeight": 200
+    },
+    {
+      "id": 6,
+      "name": "Sunlu",
+      "website": "https://sunlu.com",
+      "emptySpoolWeight": 162
+    }
+  ],
+  "shops": [
+    {
+      "id": 1,
+      "name": "Bambu Lab Store EU",
+      "url": "https://eu.store.bambulab.com",
+      "country": "DE"
+    },
+    {
+      "id": 2,
+      "name": "3DJake",
+      "url": "https://3djake.de",
+      "country": "DE"
+    },
+    {
+      "id": 3,
+      "name": "3DDruckBoss",
+      "url": "https://3ddruckboss.de",
+      "country": "DE"
+    },
+    {
+      "id": 4,
+      "name": "Amazon.de",
+      "url": "https://amazon.de",
+      "country": "DE"
+    }
+  ],
+  "filaments": [
+    {
+      "id": 1,
+      "vendorId": 1,
+      "name": "HF Dark Gray",
+      "material": "PETG",
+      "diameter": 1.75,
+      "density": 1.28,
+      "colorName": "Dark Gray",
+      "colorHex": "515151",
+      "nozzleTempDefault": 245,
+      "nozzleTempMin": 230,
+      "nozzleTempMax": 260,
+      "bedTempDefault": 70,
+      "bedTempMin": 60,
+      "bedTempMax": 80,
+      "spoolWeight": 250,
+      "bambuIdx": "GFG02",
+      "externalId": 1
+    },
+    {
+      "id": 2,
+      "vendorId": 1,
+      "name": "HF Gray",
+      "material": "PETG",
+      "diameter": 1.75,
+      "density": 1.28,
+      "colorName": "Gray",
+      "colorHex": "ADB1B2",
+      "nozzleTempDefault": 245,
+      "nozzleTempMin": 230,
+      "nozzleTempMax": 260,
+      "bedTempDefault": 70,
+      "bedTempMin": 60,
+      "bedTempMax": 80,
+      "spoolWeight": 250,
+      "bambuIdx": "GFG02",
+      "externalId": 2
+    },
+    {
+      "id": 3,
+      "vendorId": 1,
+      "name": "Clear",
+      "material": "PETG",
+      "diameter": 1.75,
+      "density": 1.25,
+      "colorName": "Clear",
+      "colorHex": "FFFFFF",
+      "nozzleTempDefault": 250,
+      "nozzleTempMin": 235,
+      "nozzleTempMax": 265,
+      "bedTempDefault": 70,
+      "bedTempMin": 60,
+      "bedTempMax": 80,
+      "spoolWeight": 250,
+      "bambuIdx": null,
+      "externalId": 3
+    },
+    {
+      "id": 4,
+      "vendorId": 1,
+      "name": "Iron Gray Metallic",
+      "material": "PLA",
+      "diameter": 1.75,
+      "density": 1.25,
+      "colorName": "Iron Gray Metallic",
+      "colorHex": "43403D",
+      "nozzleTempDefault": 220,
+      "nozzleTempMin": 200,
+      "nozzleTempMax": 230,
+      "bedTempDefault": 60,
+      "bedTempMin": 50,
+      "bedTempMax": 65,
+      "spoolWeight": 250,
+      "bambuIdx": "GFA02",
+      "externalId": 4
+    },
+    {
+      "id": 5,
+      "vendorId": 1,
+      "name": "Matte Ivory White",
+      "material": "PLA",
+      "diameter": 1.75,
+      "density": 1.31,
+      "colorName": "Ivory White",
+      "colorHex": "FFFFFF",
+      "nozzleTempDefault": 220,
+      "nozzleTempMin": 200,
+      "nozzleTempMax": 230,
+      "bedTempDefault": 60,
+      "bedTempMin": 50,
+      "bedTempMax": 65,
+      "spoolWeight": 250,
+      "bambuIdx": "GFA01",
+      "externalId": 5
+    },
+    {
+      "id": 6,
+      "vendorId": 5,
+      "name": "Glow Green",
+      "material": "PLA",
+      "diameter": 1.75,
+      "density": 1.26,
+      "colorName": "Glow Green",
+      "colorHex": "A1FFAC",
+      "nozzleTempDefault": 220,
+      "nozzleTempMin": 200,
+      "nozzleTempMax": 230,
+      "bedTempDefault": 60,
+      "bedTempMin": 50,
+      "bedTempMax": 65,
+      "spoolWeight": 250,
+      "bambuIdx": null,
+      "externalId": 6
+    },
+    {
+      "id": 7,
+      "vendorId": 1,
+      "name": "Silk+ Candy Red",
+      "material": "PLA",
+      "diameter": 1.75,
+      "density": 1.27,
+      "colorName": "Candy Red",
+      "colorHex": "D02727",
+      "nozzleTempDefault": 230,
+      "nozzleTempMin": 210,
+      "nozzleTempMax": 240,
+      "bedTempDefault": 55,
+      "bedTempMin": 45,
+      "bedTempMax": 60,
+      "spoolWeight": 250,
+      "bambuIdx": "GFA05",
+      "externalId": 7
+    },
+    {
+      "id": 8,
+      "vendorId": 1,
+      "name": "Gray",
+      "material": "ABS-GF",
+      "diameter": 1.75,
+      "density": 1.08,
+      "colorName": "Gray",
+      "colorHex": "C6C6C6",
+      "nozzleTempDefault": 250,
+      "nozzleTempMin": 240,
+      "nozzleTempMax": 270,
+      "bedTempDefault": 90,
+      "bedTempMin": 80,
+      "bedTempMax": 100,
+      "spoolWeight": 250,
+      "bambuIdx": "GFB50",
+      "externalId": 8
+    },
+    {
+      "id": 9,
+      "vendorId": 1,
+      "name": "Black",
+      "material": "ABS",
+      "diameter": 1.75,
+      "density": 1.05,
+      "colorName": "Black",
+      "colorHex": "000000",
+      "nozzleTempDefault": 250,
+      "nozzleTempMin": 240,
+      "nozzleTempMax": 270,
+      "bedTempDefault": 90,
+      "bedTempMin": 80,
+      "bedTempMax": 100,
+      "spoolWeight": 250,
+      "bambuIdx": null,
+      "externalId": 9
+    },
+    {
+      "id": 10,
+      "vendorId": 1,
+      "name": "White",
+      "material": "ABS",
+      "diameter": 1.75,
+      "density": 1.05,
+      "colorName": "White",
+      "colorHex": "FFFFFF",
+      "nozzleTempDefault": 250,
+      "nozzleTempMin": 240,
+      "nozzleTempMax": 270,
+      "bedTempDefault": 90,
+      "bedTempMin": 80,
+      "bedTempMax": 100,
+      "spoolWeight": 250,
+      "bambuIdx": null,
+      "externalId": 10
+    },
+    {
+      "id": 11,
+      "vendorId": 1,
+      "name": "Orange",
+      "material": "ABS-GF",
+      "diameter": 1.75,
+      "density": 1.08,
+      "colorName": "Orange",
+      "colorHex": "F48438",
+      "nozzleTempDefault": 250,
+      "nozzleTempMin": 240,
+      "nozzleTempMax": 270,
+      "bedTempDefault": 90,
+      "bedTempMin": 80,
+      "bedTempMax": 100,
+      "spoolWeight": 250,
+      "bambuIdx": "GFB50",
+      "externalId": 11
+    },
+    {
+      "id": 12,
+      "vendorId": 1,
+      "name": "Silk+ Pink",
+      "material": "PLA",
+      "diameter": 1.75,
+      "density": 1.27,
+      "colorName": "Pink",
+      "colorHex": "F7ADA6",
+      "nozzleTempDefault": 230,
+      "nozzleTempMin": 210,
+      "nozzleTempMax": 240,
+      "bedTempDefault": 55,
+      "bedTempMin": 45,
+      "bedTempMax": 60,
+      "spoolWeight": 250,
+      "bambuIdx": "GFA05",
+      "externalId": 12
+    },
+    {
+      "id": 13,
+      "vendorId": 1,
+      "name": "Silk+ White",
+      "material": "PLA",
+      "diameter": 1.75,
+      "density": 1.27,
+      "colorName": "White",
+      "colorHex": "FFFFFF",
+      "nozzleTempDefault": 230,
+      "nozzleTempMin": 210,
+      "nozzleTempMax": 240,
+      "bedTempDefault": 55,
+      "bedTempMin": 45,
+      "bedTempMax": 60,
+      "spoolWeight": 250,
+      "bambuIdx": "GFA05",
+      "externalId": 13
+    },
+    {
+      "id": 14,
+      "vendorId": 1,
+      "name": "Matte Bone White",
+      "material": "PLA",
+      "diameter": 1.75,
+      "density": 1.31,
+      "colorName": "Bone White",
+      "colorHex": "CBC6B8",
+      "nozzleTempDefault": 220,
+      "nozzleTempMin": 200,
+      "nozzleTempMax": 230,
+      "bedTempDefault": 60,
+      "bedTempMin": 50,
+      "bedTempMax": 65,
+      "spoolWeight": 250,
+      "bambuIdx": "GFA01",
+      "externalId": 14
+    },
+    {
+      "id": 15,
+      "vendorId": 2,
+      "name": "PolyTerra Charcoal Black",
+      "material": "PLA",
+      "diameter": 1.75,
+      "density": 1.24,
+      "colorName": "Charcoal Black",
+      "colorHex": "1C1C1C",
+      "nozzleTempDefault": 210,
+      "nozzleTempMin": 190,
+      "nozzleTempMax": 220,
+      "bedTempDefault": 50,
+      "bedTempMin": 40,
+      "bedTempMax": 60,
+      "spoolWeight": 140,
+      "bambuIdx": null,
+      "externalId": 15
+    },
+    {
+      "id": 16,
+      "vendorId": 2,
+      "name": "PolyTerra Cotton White",
+      "material": "PLA",
+      "diameter": 1.75,
+      "density": 1.24,
+      "colorName": "Cotton White",
+      "colorHex": "E6DDDB",
+      "nozzleTempDefault": 210,
+      "nozzleTempMin": 190,
+      "nozzleTempMax": 220,
+      "bedTempDefault": 50,
+      "bedTempMin": 40,
+      "bedTempMax": 60,
+      "spoolWeight": 140,
+      "bambuIdx": null,
+      "externalId": 16
+    },
+    {
+      "id": 17,
+      "vendorId": 2,
+      "name": "PolyTerra Fossil Grey",
+      "material": "PLA",
+      "diameter": 1.75,
+      "density": 1.24,
+      "colorName": "Fossil Grey",
+      "colorHex": "6F727E",
+      "nozzleTempDefault": 210,
+      "nozzleTempMin": 190,
+      "nozzleTempMax": 220,
+      "bedTempDefault": 50,
+      "bedTempMin": 40,
+      "bedTempMax": 60,
+      "spoolWeight": 140,
+      "bambuIdx": null,
+      "externalId": 17
+    },
+    {
+      "id": 18,
+      "vendorId": 2,
+      "name": "PolyTerra Sapphire Blue",
+      "material": "PLA",
+      "diameter": 1.75,
+      "density": 1.24,
+      "colorName": "Sapphire Blue",
+      "colorHex": "005AA2",
+      "nozzleTempDefault": 210,
+      "nozzleTempMin": 190,
+      "nozzleTempMax": 220,
+      "bedTempDefault": 50,
+      "bedTempMin": 40,
+      "bedTempMax": 60,
+      "spoolWeight": 140,
+      "bambuIdx": null,
+      "externalId": 18
+    },
+    {
+      "id": 19,
+      "vendorId": 1,
+      "name": "Frozen",
+      "material": "TPU-90A",
+      "diameter": 1.75,
+      "density": 1.24,
+      "colorName": "Frozen",
+      "colorHex": "00FFD5",
+      "nozzleTempDefault": 230,
+      "nozzleTempMin": 210,
+      "nozzleTempMax": 240,
+      "bedTempDefault": 30,
+      "bedTempMin": 25,
+      "bedTempMax": 40,
+      "spoolWeight": 250,
+      "bambuIdx": null,
+      "externalId": 19
+    },
+    {
+      "id": 20,
+      "vendorId": 3,
+      "name": "Black Walnut",
+      "material": "PLA",
+      "diameter": 1.75,
+      "density": 1.21,
+      "colorName": "Black Walnut",
+      "colorHex": "4F3F24",
+      "nozzleTempDefault": 215,
+      "nozzleTempMin": 200,
+      "nozzleTempMax": 230,
+      "bedTempDefault": 40,
+      "bedTempMin": 35,
+      "bedTempMax": 50,
+      "spoolWeight": 180,
+      "bambuIdx": null,
+      "externalId": 20
+    },
+    {
+      "id": 21,
+      "vendorId": 4,
+      "name": "CR-PETG Blue",
+      "material": "PETG",
+      "diameter": 1.75,
+      "density": 1.25,
+      "colorName": "Blue",
+      "colorHex": "0000FF",
+      "nozzleTempDefault": 240,
+      "nozzleTempMin": 220,
+      "nozzleTempMax": 250,
+      "bedTempDefault": 60,
+      "bedTempMin": 50,
+      "bedTempMax": 70,
+      "spoolWeight": 225,
+      "bambuIdx": null,
+      "externalId": 21
+    },
+    {
+      "id": 22,
+      "vendorId": 5,
+      "name": "Fluorescent Green",
+      "material": "PLA",
+      "diameter": 1.75,
+      "density": 1.24,
+      "colorName": "Fluorescent Green",
+      "colorHex": "4B9C7B",
+      "nozzleTempDefault": 210,
+      "nozzleTempMin": 190,
+      "nozzleTempMax": 220,
+      "bedTempDefault": 60,
+      "bedTempMin": 50,
+      "bedTempMax": 65,
+      "spoolWeight": 200,
+      "bambuIdx": null,
+      "externalId": 22
+    },
+    {
+      "id": 23,
+      "vendorId": 1,
+      "name": "PLA Basic",
+      "material": "PLA",
+      "diameter": 1.75,
+      "density": 1.24,
+      "colorName": "Black",
+      "colorHex": "161616",
+      "nozzleTempDefault": 220,
+      "nozzleTempMin": 200,
+      "nozzleTempMax": 230,
+      "bedTempDefault": 60,
+      "bedTempMin": 50,
+      "bedTempMax": 65,
+      "spoolWeight": 250,
+      "bambuIdx": "GFA00",
+      "externalId": 23
+    },
+    {
+      "id": 24,
+      "vendorId": 1,
+      "name": "Matte Charcoal",
+      "material": "PLA",
+      "diameter": 1.75,
+      "density": 1.31,
+      "colorName": "Charcoal",
+      "colorHex": "000000",
+      "nozzleTempDefault": 220,
+      "nozzleTempMin": 200,
+      "nozzleTempMax": 230,
+      "bedTempDefault": 60,
+      "bedTempMin": 50,
+      "bedTempMax": 65,
+      "spoolWeight": 250,
+      "bambuIdx": "GFA01",
+      "externalId": 24
+    },
+    {
+      "id": 25,
+      "vendorId": 6,
+      "name": "Black",
+      "material": "PLA",
+      "diameter": 1.75,
+      "density": 1.23,
+      "colorName": "Black",
+      "colorHex": "2B2B2D",
+      "nozzleTempDefault": 210,
+      "nozzleTempMin": 190,
+      "nozzleTempMax": 220,
+      "bedTempDefault": 60,
+      "bedTempMin": 50,
+      "bedTempMax": 65,
+      "spoolWeight": 162,
+      "bambuIdx": null,
+      "externalId": 25
+    },
+    {
+      "id": 26,
+      "vendorId": 2,
+      "name": "PolyLite PLA White",
+      "material": "PLA",
+      "diameter": 1.75,
+      "density": 1.24,
+      "colorName": "White",
+      "colorHex": "FFFFFF",
+      "nozzleTempDefault": 210,
+      "nozzleTempMin": 190,
+      "nozzleTempMax": 220,
+      "bedTempDefault": 50,
+      "bedTempMin": 40,
+      "bedTempMax": 60,
+      "spoolWeight": 140,
+      "bambuIdx": "GFL00",
+      "externalId": null
+    }
+  ],
+  "spools": [
+    {
+      "id": 3,
+      "filamentId": 6,
+      "lotNumber": null,
+      "purchasePrice": 15.99,
+      "currency": "EUR",
+      "initialWeight": 1000,
+      "remainingWeight": 900,
+      "location": "storage",
+      "status": "active",
+      "externalId": 3
+    },
+    {
+      "id": 5,
+      "filamentId": 3,
+      "lotNumber": null,
+      "purchasePrice": 19.99,
+      "currency": "EUR",
+      "initialWeight": 1000,
+      "remainingWeight": 1000,
+      "location": "storage",
+      "status": "active",
+      "externalId": 5
+    },
+    {
+      "id": 7,
+      "filamentId": 1,
+      "lotNumber": null,
+      "purchasePrice": 19.99,
+      "currency": "EUR",
+      "initialWeight": 1000,
+      "remainingWeight": 1000,
+      "location": "storage",
+      "status": "active",
+      "externalId": 7
+    },
+    {
+      "id": 8,
+      "filamentId": 1,
+      "lotNumber": null,
+      "purchasePrice": 19.99,
+      "currency": "EUR",
+      "initialWeight": 1000,
+      "remainingWeight": 1000,
+      "location": "storage",
+      "status": "active",
+      "externalId": 8
+    },
+    {
+      "id": 9,
+      "filamentId": 4,
+      "lotNumber": null,
+      "purchasePrice": 21.99,
+      "currency": "EUR",
+      "initialWeight": 1000,
+      "remainingWeight": 1000,
+      "location": "storage",
+      "status": "active",
+      "externalId": 9
+    },
+    {
+      "id": 12,
+      "filamentId": 7,
+      "lotNumber": null,
+      "purchasePrice": 27.99,
+      "currency": "EUR",
+      "initialWeight": 1000,
+      "remainingWeight": 605,
+      "location": "storage",
+      "status": "active",
+      "externalId": 12
+    },
+    {
+      "id": 13,
+      "filamentId": 19,
+      "lotNumber": null,
+      "purchasePrice": 31.99,
+      "currency": "EUR",
+      "initialWeight": 1000,
+      "remainingWeight": 910,
+      "location": "storage",
+      "status": "active",
+      "externalId": 13
+    },
+    {
+      "id": 14,
+      "filamentId": 20,
+      "lotNumber": null,
+      "purchasePrice": 15.99,
+      "currency": "EUR",
+      "initialWeight": 1000,
+      "remainingWeight": 1000,
+      "location": "storage",
+      "status": "active",
+      "externalId": 14
+    },
+    {
+      "id": 15,
+      "filamentId": 21,
+      "lotNumber": null,
+      "purchasePrice": 16.99,
+      "currency": "EUR",
+      "initialWeight": 1000,
+      "remainingWeight": 1000,
+      "location": "storage",
+      "status": "active",
+      "externalId": 15
+    },
+    {
+      "id": 16,
+      "filamentId": 11,
+      "lotNumber": null,
+      "purchasePrice": 29.99,
+      "currency": "EUR",
+      "initialWeight": 1000,
+      "remainingWeight": 1000,
+      "location": "storage",
+      "status": "active",
+      "externalId": 16
+    },
+    {
+      "id": 17,
+      "filamentId": 18,
+      "lotNumber": null,
+      "purchasePrice": 18.99,
+      "currency": "EUR",
+      "initialWeight": 1000,
+      "remainingWeight": 1000,
+      "location": "storage",
+      "status": "active",
+      "externalId": 17
+    },
+    {
+      "id": 19,
+      "filamentId": 16,
+      "lotNumber": null,
+      "purchasePrice": 18.99,
+      "currency": "EUR",
+      "initialWeight": 1000,
+      "remainingWeight": 1000,
+      "location": "storage",
+      "status": "active",
+      "externalId": 19
+    },
+    {
+      "id": 20,
+      "filamentId": 16,
+      "lotNumber": null,
+      "purchasePrice": 18.99,
+      "currency": "EUR",
+      "initialWeight": 1000,
+      "remainingWeight": 1000,
+      "location": "storage",
+      "status": "active",
+      "externalId": 20
+    },
+    {
+      "id": 21,
+      "filamentId": 14,
+      "lotNumber": null,
+      "purchasePrice": 19.99,
+      "currency": "EUR",
+      "initialWeight": 1000,
+      "remainingWeight": 950,
+      "location": "storage",
+      "status": "active",
+      "externalId": 21
+    },
+    {
+      "id": 22,
+      "filamentId": 13,
+      "lotNumber": null,
+      "purchasePrice": 27.99,
+      "currency": "EUR",
+      "initialWeight": 1000,
+      "remainingWeight": 1000,
+      "location": "storage",
+      "status": "active",
+      "externalId": 22
+    },
+    {
+      "id": 23,
+      "filamentId": 12,
+      "lotNumber": null,
+      "purchasePrice": 27.99,
+      "currency": "EUR",
+      "initialWeight": 1000,
+      "remainingWeight": 1000,
+      "location": "storage",
+      "status": "active",
+      "externalId": 23
+    },
+    {
+      "id": 24,
+      "filamentId": 17,
+      "lotNumber": null,
+      "purchasePrice": 18.99,
+      "currency": "EUR",
+      "initialWeight": 1000,
+      "remainingWeight": 1000,
+      "location": "storage",
+      "status": "active",
+      "externalId": 24
+    },
+    {
+      "id": 25,
+      "filamentId": 8,
+      "lotNumber": null,
+      "purchasePrice": 29.99,
+      "currency": "EUR",
+      "initialWeight": 1000,
+      "remainingWeight": 700,
+      "location": "ams",
+      "status": "active",
+      "externalId": 25
+    },
+    {
+      "id": 26,
+      "filamentId": 2,
+      "lotNumber": null,
+      "purchasePrice": 19.99,
+      "currency": "EUR",
+      "initialWeight": 1000,
+      "remainingWeight": 470,
+      "location": "ams",
+      "status": "active",
+      "externalId": 26
+    },
+    {
+      "id": 27,
+      "filamentId": 8,
+      "lotNumber": null,
+      "purchasePrice": 29.99,
+      "currency": "EUR",
+      "initialWeight": 1000,
+      "remainingWeight": 342,
+      "location": "storage",
+      "status": "active",
+      "externalId": 27
+    },
+    {
+      "id": 29,
+      "filamentId": 2,
+      "lotNumber": null,
+      "purchasePrice": 19.99,
+      "currency": "EUR",
+      "initialWeight": 1000,
+      "remainingWeight": 1000,
+      "location": "storage",
+      "status": "active",
+      "externalId": 29
+    },
+    {
+      "id": 30,
+      "filamentId": 9,
+      "lotNumber": null,
+      "purchasePrice": 19.99,
+      "currency": "EUR",
+      "initialWeight": 1000,
+      "remainingWeight": 1000,
+      "location": "storage",
+      "status": "active",
+      "externalId": 30
+    },
+    {
+      "id": 31,
+      "filamentId": 10,
+      "lotNumber": null,
+      "purchasePrice": 19.99,
+      "currency": "EUR",
+      "initialWeight": 1000,
+      "remainingWeight": 1000,
+      "location": "storage",
+      "status": "active",
+      "externalId": 31
+    },
+    {
+      "id": 35,
+      "filamentId": 24,
+      "lotNumber": null,
+      "purchasePrice": 19.99,
+      "currency": "EUR",
+      "initialWeight": 1000,
+      "remainingWeight": 534,
+      "location": "storage",
+      "status": "active",
+      "externalId": 35
+    },
+    {
+      "id": 36,
+      "filamentId": 24,
+      "lotNumber": null,
+      "purchasePrice": 19.99,
+      "currency": "EUR",
+      "initialWeight": 1000,
+      "remainingWeight": 1000,
+      "location": "storage",
+      "status": "active",
+      "externalId": 36
+    },
+    {
+      "id": 37,
+      "filamentId": 25,
+      "lotNumber": null,
+      "purchasePrice": 12.99,
+      "currency": "EUR",
+      "initialWeight": 1000,
+      "remainingWeight": 1000,
+      "location": "storage",
+      "status": "active",
+      "externalId": 37
+    },
+    {
+      "id": 38,
+      "filamentId": 25,
+      "lotNumber": null,
+      "purchasePrice": 12.99,
+      "currency": "EUR",
+      "initialWeight": 1000,
+      "remainingWeight": 1000,
+      "location": "storage",
+      "status": "active",
+      "externalId": 38
+    },
+    {
+      "id": 39,
+      "filamentId": 25,
+      "lotNumber": null,
+      "purchasePrice": 12.99,
+      "currency": "EUR",
+      "initialWeight": 1000,
+      "remainingWeight": 1000,
+      "location": "storage",
+      "status": "active",
+      "externalId": 39
+    },
+    {
+      "id": 40,
+      "filamentId": 26,
+      "lotNumber": null,
+      "purchasePrice": 18.99,
+      "currency": "EUR",
+      "initialWeight": 1000,
+      "remainingWeight": 800,
+      "location": "ams",
+      "status": "active",
+      "externalId": null
+    },
+    {
+      "id": 41,
+      "filamentId": 23,
+      "lotNumber": null,
+      "purchasePrice": 16.99,
+      "currency": "EUR",
+      "initialWeight": 1000,
+      "remainingWeight": 800,
+      "location": "ams",
+      "status": "active",
+      "externalId": null
+    }
+  ],
+  "tagMappings": [
+    {
+      "spoolId": 5,
+      "tagUid": "08C76ACCB0750100",
+      "source": "bambu",
+      "isReal": false
+    },
+    {
+      "spoolId": 7,
+      "tagUid": "F9E8E39C22ED0100",
+      "source": "bambu",
+      "isReal": false
+    },
+    {
+      "spoolId": 8,
+      "tagUid": "D575C3FCE1D60100",
+      "source": "bambu",
+      "isReal": false
+    },
+    {
+      "spoolId": 9,
+      "tagUid": "A56496F59FE50100",
+      "source": "bambu",
+      "isReal": false
+    },
+    {
+      "spoolId": 12,
+      "tagUid": "2DE148BCBE4C0100",
+      "source": "bambu",
+      "isReal": false
+    },
+    {
+      "spoolId": 13,
+      "tagUid": "6F61B2AA7B1E0100",
+      "source": "bambu",
+      "isReal": false
+    },
+    {
+      "spoolId": 16,
+      "tagUid": "4FF5E481E3C40100",
+      "source": "bambu",
+      "isReal": false
+    },
+    {
+      "spoolId": 21,
+      "tagUid": "5910B428356A0100",
+      "source": "bambu",
+      "isReal": false
+    },
+    {
+      "spoolId": 22,
+      "tagUid": "0242389345CC0100",
+      "source": "bambu",
+      "isReal": false
+    },
+    {
+      "spoolId": 23,
+      "tagUid": "26D671440A990100",
+      "source": "bambu",
+      "isReal": false
+    },
+    {
+      "spoolId": 25,
+      "tagUid": "B568B1A400000100",
+      "source": "bambu",
+      "isReal": true
+    },
+    {
+      "spoolId": 26,
+      "tagUid": "D7C546ED00000100",
+      "source": "bambu",
+      "isReal": true
+    },
+    {
+      "spoolId": 27,
+      "tagUid": "B3646F3D2ACD0100",
+      "source": "bambu",
+      "isReal": false
+    },
+    {
+      "spoolId": 29,
+      "tagUid": "E516DA84D3370100",
+      "source": "bambu",
+      "isReal": false
+    },
+    {
+      "spoolId": 30,
+      "tagUid": "931E5D3E485C0100",
+      "source": "bambu",
+      "isReal": false
+    },
+    {
+      "spoolId": 31,
+      "tagUid": "65093AD987600100",
+      "source": "bambu",
+      "isReal": false
+    },
+    {
+      "spoolId": 35,
+      "tagUid": "8B119623B9CC0100",
+      "source": "bambu",
+      "isReal": false
+    },
+    {
+      "spoolId": 36,
+      "tagUid": "0A46208590E90100",
+      "source": "bambu",
+      "isReal": false
+    }
+  ],
+  "printer": {
+    "name": "H2S",
+    "model": "Bambu Lab H2S",
+    "haDeviceId": "1910f4da8324623b36d95efc4fec1c89",
+    "ipAddress": "192.168.178.99",
+    "amsCount": 2
+  },
+  "amsSlots": [
+    {
+      "amsIndex": 0,
+      "trayIndex": 0,
+      "spoolId": 25,
+      "bambuTrayIdx": 0,
+      "bambuColor": "C6C6C6FF",
+      "bambuType": "ABS-GF",
+      "bambuTagUid": "B568B1A400000100",
+      "bambuRemain": 70,
+      "isEmpty": false
+    },
+    {
+      "amsIndex": 0,
+      "trayIndex": 1,
+      "spoolId": 26,
+      "bambuTrayIdx": 1,
+      "bambuColor": "ADB1B2FF",
+      "bambuType": "PETG",
+      "bambuTagUid": "D7C546ED00000100",
+      "bambuRemain": 47,
+      "isEmpty": false
+    },
+    {
+      "amsIndex": 0,
+      "trayIndex": 2,
+      "spoolId": 41,
+      "bambuTrayIdx": 2,
+      "bambuColor": "161616FF",
+      "bambuType": "PLA",
+      "bambuTagUid": null,
+      "bambuRemain": 80,
+      "isEmpty": false
+    },
+    {
+      "amsIndex": 0,
+      "trayIndex": 3,
+      "spoolId": 40,
+      "bambuTrayIdx": 3,
+      "bambuColor": "FFFFFFFF",
+      "bambuType": "PLA",
+      "bambuTagUid": null,
+      "bambuRemain": 80,
+      "isEmpty": false
+    },
+    {
+      "amsIndex": 1,
+      "trayIndex": 0,
+      "spoolId": null,
+      "bambuTrayIdx": 4,
+      "bambuColor": null,
+      "bambuType": null,
+      "bambuTagUid": null,
+      "bambuRemain": null,
+      "isEmpty": true
+    }
+  ],
+  "orders": [
+    {
+      "id": 1,
+      "shopId": 1,
+      "vendorId": 1,
+      "orderNumber": "BL-EU-2026-0115",
+      "orderDate": "2026-01-15",
+      "actualDelivery": "2026-01-22",
+      "status": "delivered",
+      "shippingCost": 0,
+      "currency": "EUR",
+      "sourceUrl": "https://eu.store.bambulab.com",
+      "notes": "Initial filament stock with H2S purchase",
+      "items": [
+        {
+          "spoolId": 5,
+          "filamentId": 3,
+          "quantity": 1,
+          "unitPrice": 19.99
+        },
+        {
+          "spoolId": 7,
+          "filamentId": 1,
+          "quantity": 1,
+          "unitPrice": 19.99
+        },
+        {
+          "spoolId": 8,
+          "filamentId": 1,
+          "quantity": 1,
+          "unitPrice": 19.99
+        },
+        {
+          "spoolId": 9,
+          "filamentId": 4,
+          "quantity": 1,
+          "unitPrice": 21.99
+        },
+        {
+          "spoolId": 12,
+          "filamentId": 7,
+          "quantity": 1,
+          "unitPrice": 27.99
+        },
+        {
+          "spoolId": 13,
+          "filamentId": 19,
+          "quantity": 1,
+          "unitPrice": 31.99
+        },
+        {
+          "spoolId": 16,
+          "filamentId": 11,
+          "quantity": 1,
+          "unitPrice": 29.99
+        },
+        {
+          "spoolId": 25,
+          "filamentId": 8,
+          "quantity": 1,
+          "unitPrice": 29.99
+        },
+        {
+          "spoolId": 26,
+          "filamentId": 2,
+          "quantity": 1,
+          "unitPrice": 19.99
+        }
+      ],
+      "totalCost": 221.91,
+      "itemCount": 9,
+      "spoolCount": 9
+    },
+    {
+      "id": 2,
+      "shopId": 4,
+      "vendorId": null,
+      "orderNumber": "302-1234567-8901234",
+      "orderDate": "2026-01-18",
+      "actualDelivery": "2026-01-20",
+      "status": "delivered",
+      "shippingCost": 0,
+      "currency": "EUR",
+      "sourceUrl": "https://www.amazon.de",
+      "notes": "Amazon Prime order - budget filaments to test",
+      "items": [
+        {
+          "spoolId": 3,
+          "filamentId": 6,
+          "quantity": 1,
+          "unitPrice": 15.99
+        },
+        {
+          "spoolId": 14,
+          "filamentId": 20,
+          "quantity": 1,
+          "unitPrice": 15.99
+        },
+        {
+          "spoolId": 15,
+          "filamentId": 21,
+          "quantity": 1,
+          "unitPrice": 16.99
+        }
+      ],
+      "totalCost": 48.97,
+      "itemCount": 3,
+      "spoolCount": 3
+    },
+    {
+      "id": 3,
+      "shopId": 2,
+      "vendorId": 2,
+      "orderNumber": "3DJ-2026-00842",
+      "orderDate": "2026-01-25",
+      "actualDelivery": "2026-01-29",
+      "status": "delivered",
+      "shippingCost": 4.99,
+      "currency": "EUR",
+      "sourceUrl": "https://www.3djake.de",
+      "notes": "PolyTerra sample pack from 3DJake",
+      "items": [
+        {
+          "spoolId": 17,
+          "filamentId": 18,
+          "quantity": 1,
+          "unitPrice": 18.99
+        },
+        {
+          "spoolId": 24,
+          "filamentId": 17,
+          "quantity": 1,
+          "unitPrice": 18.99
+        },
+        {
+          "spoolId": 40,
+          "filamentId": 26,
+          "quantity": 1,
+          "unitPrice": 18.99
+        }
+      ],
+      "totalCost": 61.96,
+      "itemCount": 3,
+      "spoolCount": 3
+    },
+    {
+      "id": 4,
+      "shopId": 1,
+      "vendorId": 1,
+      "orderNumber": "BL-EU-2026-0203",
+      "orderDate": "2026-02-03",
+      "actualDelivery": "2026-02-07",
+      "status": "delivered",
+      "shippingCost": 0,
+      "currency": "EUR",
+      "sourceUrl": "https://eu.store.bambulab.com",
+      "notes": "Restock Bambu staples + new colors",
+      "items": [
+        {
+          "spoolId": 21,
+          "filamentId": 14,
+          "quantity": 1,
+          "unitPrice": 19.99
+        },
+        {
+          "spoolId": 22,
+          "filamentId": 13,
+          "quantity": 1,
+          "unitPrice": 27.99
+        },
+        {
+          "spoolId": 23,
+          "filamentId": 12,
+          "quantity": 1,
+          "unitPrice": 27.99
+        },
+        {
+          "spoolId": 27,
+          "filamentId": 8,
+          "quantity": 1,
+          "unitPrice": 29.99
+        },
+        {
+          "spoolId": 29,
+          "filamentId": 2,
+          "quantity": 1,
+          "unitPrice": 19.99
+        },
+        {
+          "spoolId": 30,
+          "filamentId": 9,
+          "quantity": 1,
+          "unitPrice": 19.99
+        },
+        {
+          "spoolId": 31,
+          "filamentId": 10,
+          "quantity": 1,
+          "unitPrice": 19.99
+        },
+        {
+          "spoolId": 41,
+          "filamentId": 23,
+          "quantity": 1,
+          "unitPrice": 16.99
+        }
+      ],
+      "totalCost": 182.92,
+      "itemCount": 8,
+      "spoolCount": 8
+    },
+    {
+      "id": 5,
+      "shopId": 4,
+      "vendorId": 6,
+      "orderNumber": "302-9876543-2109876",
+      "orderDate": "2026-02-10",
+      "actualDelivery": "2026-02-12",
+      "status": "delivered",
+      "shippingCost": 0,
+      "currency": "EUR",
+      "sourceUrl": "https://www.amazon.de",
+      "notes": "Sunlu bulk order - cheap PLA for prototyping",
+      "items": [
+        {
+          "spoolId": 37,
+          "filamentId": 25,
+          "quantity": 1,
+          "unitPrice": 12.99
+        },
+        {
+          "spoolId": 38,
+          "filamentId": 25,
+          "quantity": 1,
+          "unitPrice": 12.99
+        },
+        {
+          "spoolId": 39,
+          "filamentId": 25,
+          "quantity": 1,
+          "unitPrice": 12.99
+        }
+      ],
+      "totalCost": 38.97,
+      "itemCount": 3,
+      "spoolCount": 3
+    },
+    {
+      "id": 6,
+      "shopId": 3,
+      "vendorId": 1,
+      "orderNumber": "3DB-INV-2026-1847",
+      "orderDate": "2026-02-20",
+      "actualDelivery": "2026-02-24",
+      "status": "delivered",
+      "shippingCost": 3.99,
+      "currency": "EUR",
+      "sourceUrl": "https://www.3ddruckboss.de",
+      "notes": "3DDruckBoss had Matte Charcoal in stock when Bambu Store was sold out",
+      "items": [
+        {
+          "spoolId": 35,
+          "filamentId": 24,
+          "quantity": 1,
+          "unitPrice": 21.99
+        },
+        {
+          "spoolId": 36,
+          "filamentId": 24,
+          "quantity": 1,
+          "unitPrice": 21.99
+        }
+      ],
+      "totalCost": 47.97,
+      "itemCount": 2,
+      "spoolCount": 2
+    },
+    {
+      "id": 7,
+      "shopId": 4,
+      "vendorId": 2,
+      "orderNumber": "302-5555555-1234567",
+      "orderDate": "2026-03-05",
+      "actualDelivery": "2026-03-07",
+      "status": "delivered",
+      "shippingCost": 0,
+      "currency": "EUR",
+      "sourceUrl": "https://www.amazon.de",
+      "notes": "Restock PolyTerra Cotton White - printing a lot of it",
+      "items": [
+        {
+          "spoolId": 19,
+          "filamentId": 16,
+          "quantity": 1,
+          "unitPrice": 19.99
+        },
+        {
+          "spoolId": 20,
+          "filamentId": 16,
+          "quantity": 1,
+          "unitPrice": 19.99
+        }
+      ],
+      "totalCost": 39.98,
+      "itemCount": 2,
+      "spoolCount": 2
+    }
+  ],
+  "prints": [
+    {
+      "id": 1,
+      "name": "Power Strip Mount",
+      "status": "finished",
+      "startedAt": "2026-01-28T20:43:00Z",
+      "finishedAt": "2026-01-29T04:36:53Z",
+      "durationSeconds": 28433,
+      "totalLayers": 211,
+      "printWeight": 85.3,
+      "totalCost": 1.71,
+      "haEventId": "evt_0015_20260128",
+      "usage": [
+        {
+          "spoolId": 26,
+          "weightUsed": 85.3,
+          "cost": 1.71
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "Desk Cable Organizer",
+      "status": "failed",
+      "startedAt": "2026-01-29T22:02:00Z",
+      "finishedAt": "2026-01-30T03:28:41Z",
+      "durationSeconds": 7594,
+      "totalLayers": 123,
+      "printWeight": 25.0,
+      "totalCost": 0.75,
+      "haEventId": "evt_0026_20260129",
+      "usage": [
+        {
+          "spoolId": 27,
+          "weightUsed": 25.0,
+          "cost": 0.75
+        }
+      ],
+      "notes": "First layer adhesion failure"
+    },
+    {
+      "id": 3,
+      "name": "Multicolor Sign - Werkstatt",
+      "status": "finished",
+      "startedAt": "2026-01-29T22:36:00Z",
+      "finishedAt": "2026-01-30T01:50:57Z",
+      "durationSeconds": 11697,
+      "totalLayers": 85,
+      "printWeight": 39.3,
+      "totalCost": 0.79,
+      "haEventId": "evt_0037_20260129",
+      "usage": [
+        {
+          "spoolId": 35,
+          "weightUsed": 25.2,
+          "cost": 0.5
+        },
+        {
+          "spoolId": 26,
+          "weightUsed": 14.1,
+          "cost": 0.28
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "name": "Filament Guide Clip",
+      "status": "finished",
+      "startedAt": "2026-01-30T17:16:00Z",
+      "finishedAt": "2026-01-30T23:42:19Z",
+      "durationSeconds": 23179,
+      "totalLayers": 268,
+      "printWeight": 96.2,
+      "totalCost": 2.69,
+      "haEventId": "evt_0005_20260130",
+      "usage": [
+        {
+          "spoolId": 12,
+          "weightUsed": 96.2,
+          "cost": 2.69
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "name": "Headphone Hook",
+      "status": "finished",
+      "startedAt": "2026-02-01T17:35:00Z",
+      "finishedAt": "2026-02-01T23:38:16Z",
+      "durationSeconds": 21796,
+      "totalLayers": 209,
+      "printWeight": 101.1,
+      "totalCost": 3.03,
+      "haEventId": "evt_0025_20260201",
+      "usage": [
+        {
+          "spoolId": 27,
+          "weightUsed": 101.1,
+          "cost": 3.03
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "name": "Articulated Dragon",
+      "status": "finished",
+      "startedAt": "2026-02-01T20:41:00Z",
+      "finishedAt": "2026-02-02T08:30:21Z",
+      "durationSeconds": 42561,
+      "totalLayers": 377,
+      "printWeight": 142.4,
+      "totalCost": 2.85,
+      "haEventId": "evt_0017_20260201",
+      "usage": [
+        {
+          "spoolId": 26,
+          "weightUsed": 142.4,
+          "cost": 2.85
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "name": "ESP32 Case",
+      "status": "finished",
+      "startedAt": "2026-02-04T20:11:00Z",
+      "finishedAt": "2026-02-05T00:38:26Z",
+      "durationSeconds": 16046,
+      "totalLayers": 186,
+      "printWeight": 62.9,
+      "totalCost": 1.26,
+      "haEventId": "evt_0018_20260204",
+      "usage": [
+        {
+          "spoolId": 26,
+          "weightUsed": 62.9,
+          "cost": 1.26
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "name": "Desk Cable Organizer",
+      "status": "cancelled",
+      "startedAt": "2026-02-06T16:03:00Z",
+      "finishedAt": "2026-02-06T20:26:12Z",
+      "durationSeconds": 4938,
+      "totalLayers": 169,
+      "printWeight": 22.0,
+      "totalCost": 0.44,
+      "haEventId": "evt_0035_20260206",
+      "usage": [
+        {
+          "spoolId": 35,
+          "weightUsed": 22.0,
+          "cost": 0.44
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "name": "Coaster Set x4",
+      "status": "finished",
+      "startedAt": "2026-02-06T18:23:00Z",
+      "finishedAt": "2026-02-07T04:27:10Z",
+      "durationSeconds": 36250,
+      "totalLayers": 355,
+      "printWeight": 118.9,
+      "totalCost": 3.57,
+      "haEventId": "evt_0024_20260206",
+      "usage": [
+        {
+          "spoolId": 27,
+          "weightUsed": 118.9,
+          "cost": 3.57
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "name": "Desk Cable Organizer",
+      "status": "finished",
+      "startedAt": "2026-02-07T08:24:00Z",
+      "finishedAt": "2026-02-07T10:52:04Z",
+      "durationSeconds": 8884,
+      "totalLayers": 48,
+      "printWeight": 26.6,
+      "totalCost": 0.53,
+      "haEventId": "evt_0033_20260207",
+      "usage": [
+        {
+          "spoolId": 35,
+          "weightUsed": 26.6,
+          "cost": 0.53
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "name": "Two-Tone Coaster Set",
+      "status": "finished",
+      "startedAt": "2026-02-07T13:13:00Z",
+      "finishedAt": "2026-02-07T20:47:54Z",
+      "durationSeconds": 27294,
+      "totalLayers": 224,
+      "printWeight": 79.5,
+      "totalCost": 2.38,
+      "haEventId": "evt_0012_20260207",
+      "usage": [
+        {
+          "spoolId": 25,
+          "weightUsed": 54.5,
+          "cost": 1.63
+        },
+        {
+          "spoolId": 13,
+          "weightUsed": 25.0,
+          "cost": 0.8
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "name": "Flexible Hinge Test",
+      "status": "finished",
+      "startedAt": "2026-02-07T18:04:00Z",
+      "finishedAt": "2026-02-07T19:10:45Z",
+      "durationSeconds": 4005,
+      "totalLayers": 39,
+      "printWeight": 13.5,
+      "totalCost": 0.38,
+      "haEventId": "evt_0009_20260207",
+      "usage": [
+        {
+          "spoolId": 12,
+          "weightUsed": 13.5,
+          "cost": 0.38
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "name": "Nozzle Wiper Mount",
+      "status": "finished",
+      "startedAt": "2026-02-08T18:53:00Z",
+      "finishedAt": "2026-02-08T22:21:58Z",
+      "durationSeconds": 12538,
+      "totalLayers": 74,
+      "printWeight": 37.5,
+      "totalCost": 1.05,
+      "haEventId": "evt_0008_20260208",
+      "usage": [
+        {
+          "spoolId": 12,
+          "weightUsed": 37.5,
+          "cost": 1.05
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "name": "Light Switch Frame",
+      "status": "finished",
+      "startedAt": "2026-02-09T10:46:00Z",
+      "finishedAt": "2026-02-09T15:23:34Z",
+      "durationSeconds": 16654,
+      "totalLayers": 142,
+      "printWeight": 75.2,
+      "totalCost": 2.26,
+      "haEventId": "evt_0027_20260209",
+      "usage": [
+        {
+          "spoolId": 27,
+          "weightUsed": 75.2,
+          "cost": 2.26
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "name": "Mini Planter Succulent",
+      "status": "finished",
+      "startedAt": "2026-02-10T11:59:00Z",
+      "finishedAt": "2026-02-10T20:01:58Z",
+      "durationSeconds": 28978,
+      "totalLayers": 235,
+      "printWeight": 107.6,
+      "totalCost": 3.23,
+      "haEventId": "evt_0023_20260210",
+      "usage": [
+        {
+          "spoolId": 27,
+          "weightUsed": 107.6,
+          "cost": 3.23
+        }
+      ]
+    },
+    {
+      "id": 16,
+      "name": "Filament Guide Clip",
+      "status": "failed",
+      "startedAt": "2026-02-10T22:15:00Z",
+      "finishedAt": "2026-02-10T23:14:19Z",
+      "durationSeconds": 1707,
+      "totalLayers": 52,
+      "printWeight": 8.8,
+      "totalCost": 0.17,
+      "haEventId": "evt_0041_20260210",
+      "usage": [
+        {
+          "spoolId": 40,
+          "weightUsed": 8.8,
+          "cost": 0.17
+        }
+      ],
+      "notes": "First layer adhesion failure"
+    },
+    {
+      "id": 17,
+      "name": "Drawer Organizer Insert",
+      "status": "finished",
+      "startedAt": "2026-02-11T18:47:00Z",
+      "finishedAt": "2026-02-11T22:51:45Z",
+      "durationSeconds": 14685,
+      "totalLayers": 179,
+      "printWeight": 68.3,
+      "totalCost": 1.09,
+      "haEventId": "evt_0001_20260211",
+      "usage": [
+        {
+          "spoolId": 3,
+          "weightUsed": 68.3,
+          "cost": 1.09
+        }
+      ]
+    },
+    {
+      "id": 18,
+      "name": "Desk Cable Organizer",
+      "status": "failed",
+      "startedAt": "2026-02-14T08:51:00Z",
+      "finishedAt": "2026-02-14T13:25:51Z",
+      "durationSeconds": 9670,
+      "totalLayers": 96,
+      "printWeight": 29.3,
+      "totalCost": 0.59,
+      "haEventId": "evt_0011_20260214",
+      "usage": [
+        {
+          "spoolId": 21,
+          "weightUsed": 29.3,
+          "cost": 0.59
+        }
+      ],
+      "notes": "Layer shift at layer 44"
+    },
+    {
+      "id": 19,
+      "name": "Headphone Hook",
+      "status": "finished",
+      "startedAt": "2026-02-17T11:49:00Z",
+      "finishedAt": "2026-02-17T17:01:46Z",
+      "durationSeconds": 18766,
+      "totalLayers": 111,
+      "printWeight": 67.3,
+      "totalCost": 1.88,
+      "haEventId": "evt_0007_20260217",
+      "usage": [
+        {
+          "spoolId": 12,
+          "weightUsed": 67.3,
+          "cost": 1.88
+        }
+      ]
+    },
+    {
+      "id": 20,
+      "name": "Soap Dish",
+      "status": "finished",
+      "startedAt": "2026-02-18T16:55:00Z",
+      "finishedAt": "2026-02-18T22:41:53Z",
+      "durationSeconds": 20813,
+      "totalLayers": 172,
+      "printWeight": 73.7,
+      "totalCost": 1.47,
+      "haEventId": "evt_0016_20260218",
+      "usage": [
+        {
+          "spoolId": 26,
+          "weightUsed": 73.7,
+          "cost": 1.47
+        }
+      ]
+    },
+    {
+      "id": 21,
+      "name": "USB Hub Mount",
+      "status": "finished",
+      "startedAt": "2026-02-21T16:38:00Z",
+      "finishedAt": "2026-02-21T18:09:59Z",
+      "durationSeconds": 5519,
+      "totalLayers": 60,
+      "printWeight": 31.7,
+      "totalCost": 0.51,
+      "haEventId": "evt_0002_20260221",
+      "usage": [
+        {
+          "spoolId": 3,
+          "weightUsed": 31.7,
+          "cost": 0.51
+        }
+      ]
+    },
+    {
+      "id": 22,
+      "name": "Desk Cable Organizer",
+      "status": "finished",
+      "startedAt": "2026-02-21T18:06:00Z",
+      "finishedAt": "2026-02-21T19:30:22Z",
+      "durationSeconds": 5062,
+      "totalLayers": 52,
+      "printWeight": 20.5,
+      "totalCost": 0.41,
+      "haEventId": "evt_0029_20260221",
+      "usage": [
+        {
+          "spoolId": 35,
+          "weightUsed": 20.5,
+          "cost": 0.41
+        }
+      ]
+    },
+    {
+      "id": 23,
+      "name": "Bag Clip x8",
+      "status": "finished",
+      "startedAt": "2026-02-22T09:04:00Z",
+      "finishedAt": "2026-02-22T12:40:51Z",
+      "durationSeconds": 13011,
+      "totalLayers": 113,
+      "printWeight": 47.5,
+      "totalCost": 0.81,
+      "haEventId": "evt_0047_20260222",
+      "usage": [
+        {
+          "spoolId": 41,
+          "weightUsed": 47.5,
+          "cost": 0.81
+        }
+      ]
+    },
+    {
+      "id": 24,
+      "name": "Flexible Hinge Test",
+      "status": "finished",
+      "startedAt": "2026-02-23T20:35:00Z",
+      "finishedAt": "2026-02-23T22:46:03Z",
+      "durationSeconds": 7863,
+      "totalLayers": 103,
+      "printWeight": 35.3,
+      "totalCost": 0.71,
+      "haEventId": "evt_0034_20260223",
+      "usage": [
+        {
+          "spoolId": 35,
+          "weightUsed": 35.3,
+          "cost": 0.71
+        }
+      ]
+    },
+    {
+      "id": 25,
+      "name": "Headphone Hook",
+      "status": "finished",
+      "startedAt": "2026-02-23T21:54:00Z",
+      "finishedAt": "2026-02-23T23:21:27Z",
+      "durationSeconds": 5247,
+      "totalLayers": 53,
+      "printWeight": 24.3,
+      "totalCost": 0.49,
+      "haEventId": "evt_0031_20260223",
+      "usage": [
+        {
+          "spoolId": 35,
+          "weightUsed": 24.3,
+          "cost": 0.49
+        }
+      ]
+    },
+    {
+      "id": 26,
+      "name": "Kitchen Utensil Hook x4",
+      "status": "finished",
+      "startedAt": "2026-02-24T11:06:00Z",
+      "finishedAt": "2026-02-24T16:43:22Z",
+      "durationSeconds": 20242,
+      "totalLayers": 257,
+      "printWeight": 94.3,
+      "totalCost": 1.89,
+      "haEventId": "evt_0028_20260224",
+      "usage": [
+        {
+          "spoolId": 35,
+          "weightUsed": 94.3,
+          "cost": 1.89
+        }
+      ]
+    },
+    {
+      "id": 27,
+      "name": "Articulated Dragon",
+      "status": "finished",
+      "startedAt": "2026-02-25T10:42:00Z",
+      "finishedAt": "2026-02-26T03:53:55Z",
+      "durationSeconds": 61915,
+      "totalLayers": 509,
+      "printWeight": 190.7,
+      "totalCost": 5.72,
+      "haEventId": "evt_0022_20260225",
+      "usage": [
+        {
+          "spoolId": 27,
+          "weightUsed": 190.7,
+          "cost": 5.72
+        }
+      ]
+    },
+    {
+      "id": 28,
+      "name": "Nozzle Wiper Mount",
+      "status": "finished",
+      "startedAt": "2026-02-28T12:53:00Z",
+      "finishedAt": "2026-02-28T17:18:33Z",
+      "durationSeconds": 15933,
+      "totalLayers": 141,
+      "printWeight": 83.0,
+      "totalCost": 2.32,
+      "haEventId": "evt_0006_20260228",
+      "usage": [
+        {
+          "spoolId": 12,
+          "weightUsed": 83.0,
+          "cost": 2.32
+        }
+      ]
+    },
+    {
+      "id": 29,
+      "name": "Two-Part Assembly",
+      "status": "finished",
+      "startedAt": "2026-02-28T21:15:00Z",
+      "finishedAt": "2026-03-01T02:45:42Z",
+      "durationSeconds": 19842,
+      "totalLayers": 174,
+      "printWeight": 60.4,
+      "totalCost": 1.21,
+      "haEventId": "evt_0032_20260228",
+      "usage": [
+        {
+          "spoolId": 35,
+          "weightUsed": 40.5,
+          "cost": 0.81
+        },
+        {
+          "spoolId": 12,
+          "weightUsed": 19.9,
+          "cost": 0.56
+        }
+      ]
+    },
+    {
+      "id": 30,
+      "name": "ABS-GF Structural Bracket",
+      "status": "finished",
+      "startedAt": "2026-03-01T22:08:00Z",
+      "finishedAt": "2026-03-02T01:47:50Z",
+      "durationSeconds": 13190,
+      "totalLayers": 102,
+      "printWeight": 58.5,
+      "totalCost": 0.99,
+      "haEventId": "evt_0043_20260301",
+      "usage": [
+        {
+          "spoolId": 41,
+          "weightUsed": 58.5,
+          "cost": 0.99
+        }
+      ]
+    },
+    {
+      "id": 31,
+      "name": "Lithophane Frame",
+      "status": "finished",
+      "startedAt": "2026-03-03T11:08:00Z",
+      "finishedAt": "2026-03-03T16:46:16Z",
+      "durationSeconds": 20296,
+      "totalLayers": 175,
+      "printWeight": 81.1,
+      "totalCost": 2.43,
+      "haEventId": "evt_0014_20260303",
+      "usage": [
+        {
+          "spoolId": 25,
+          "weightUsed": 81.1,
+          "cost": 2.43
+        }
+      ]
+    },
+    {
+      "id": 32,
+      "name": "Benchy",
+      "status": "finished",
+      "startedAt": "2026-03-03T16:05:00Z",
+      "finishedAt": "2026-03-03T21:41:32Z",
+      "durationSeconds": 20192,
+      "totalLayers": 141,
+      "printWeight": 77.8,
+      "totalCost": 1.56,
+      "haEventId": "evt_0036_20260303",
+      "usage": [
+        {
+          "spoolId": 35,
+          "weightUsed": 77.8,
+          "cost": 1.56
+        }
+      ]
+    },
+    {
+      "id": 33,
+      "name": "ABS-GF Structural Bracket",
+      "status": "finished",
+      "startedAt": "2026-03-05T16:20:00Z",
+      "finishedAt": "2026-03-05T18:03:12Z",
+      "durationSeconds": 6192,
+      "totalLayers": 81,
+      "printWeight": 33.7,
+      "totalCost": 0.64,
+      "haEventId": "evt_0038_20260305",
+      "usage": [
+        {
+          "spoolId": 40,
+          "weightUsed": 33.7,
+          "cost": 0.64
+        }
+      ]
+    },
+    {
+      "id": 34,
+      "name": "Multicolor Sign - Werkstatt",
+      "status": "finished",
+      "startedAt": "2026-03-06T11:09:00Z",
+      "finishedAt": "2026-03-06T16:28:10Z",
+      "durationSeconds": 19150,
+      "totalLayers": 196,
+      "printWeight": 85.0,
+      "totalCost": 1.7,
+      "haEventId": "evt_0019_20260306",
+      "usage": [
+        {
+          "spoolId": 26,
+          "weightUsed": 85.0,
+          "cost": 1.7
+        }
+      ]
+    },
+    {
+      "id": 35,
+      "name": "Plant Pot Saucer 12cm",
+      "status": "finished",
+      "startedAt": "2026-03-07T17:17:00Z",
+      "finishedAt": "2026-03-07T18:29:07Z",
+      "durationSeconds": 4327,
+      "totalLayers": 27,
+      "printWeight": 14.3,
+      "totalCost": 0.4,
+      "haEventId": "evt_0003_20260307",
+      "usage": [
+        {
+          "spoolId": 12,
+          "weightUsed": 14.3,
+          "cost": 0.4
+        }
+      ]
+    },
+    {
+      "id": 36,
+      "name": "ESP32 Case",
+      "status": "finished",
+      "startedAt": "2026-03-11T18:41:00Z",
+      "finishedAt": "2026-03-12T00:39:50Z",
+      "durationSeconds": 21530,
+      "totalLayers": 203,
+      "printWeight": 94.3,
+      "totalCost": 1.79,
+      "haEventId": "evt_0039_20260311",
+      "usage": [
+        {
+          "spoolId": 40,
+          "weightUsed": 94.3,
+          "cost": 1.79
+        }
+      ]
+    },
+    {
+      "id": 37,
+      "name": "Soap Dish",
+      "status": "finished",
+      "startedAt": "2026-03-12T22:40:00Z",
+      "finishedAt": "2026-03-13T04:02:30Z",
+      "durationSeconds": 19350,
+      "totalLayers": 191,
+      "printWeight": 90,
+      "totalCost": 2.88,
+      "haEventId": "evt_0010_20260312",
+      "usage": [
+        {
+          "spoolId": 13,
+          "weightUsed": 90,
+          "cost": 2.88
+        }
+      ]
+    },
+    {
+      "id": 38,
+      "name": "Zigbee Dongle Mount",
+      "status": "finished",
+      "startedAt": "2026-03-13T11:45:00Z",
+      "finishedAt": "2026-03-13T14:26:19Z",
+      "durationSeconds": 9679,
+      "totalLayers": 70,
+      "printWeight": 35.3,
+      "totalCost": 0.6,
+      "haEventId": "evt_0044_20260313",
+      "usage": [
+        {
+          "spoolId": 41,
+          "weightUsed": 35.3,
+          "cost": 0.6
+        }
+      ]
+    },
+    {
+      "id": 39,
+      "name": "Cable Management Clip x6",
+      "status": "finished",
+      "startedAt": "2026-03-14T17:06:00Z",
+      "finishedAt": "2026-03-14T20:48:30Z",
+      "durationSeconds": 13350,
+      "totalLayers": 86,
+      "printWeight": 38.4,
+      "totalCost": 0.73,
+      "haEventId": "evt_0040_20260314",
+      "usage": [
+        {
+          "spoolId": 40,
+          "weightUsed": 38.4,
+          "cost": 0.73
+        }
+      ]
+    },
+    {
+      "id": 40,
+      "name": "Cable Management Clip x6",
+      "status": "finished",
+      "startedAt": "2026-03-15T15:01:00Z",
+      "finishedAt": "2026-03-15T21:28:40Z",
+      "durationSeconds": 23260,
+      "totalLayers": 164,
+      "printWeight": 67.4,
+      "totalCost": 1.35,
+      "haEventId": "evt_0020_20260315",
+      "usage": [
+        {
+          "spoolId": 26,
+          "weightUsed": 67.4,
+          "cost": 1.35
+        }
+      ]
+    },
+    {
+      "id": 41,
+      "name": "Two-Tone Coaster Set",
+      "status": "failed",
+      "startedAt": "2026-03-17T10:13:00Z",
+      "finishedAt": "2026-03-17T14:48:28Z",
+      "durationSeconds": 5880,
+      "totalLayers": 172,
+      "printWeight": 29.6,
+      "totalCost": 0.75,
+      "haEventId": "evt_0004_20260317",
+      "usage": [
+        {
+          "spoolId": 12,
+          "weightUsed": 19.9,
+          "cost": 0.56
+        },
+        {
+          "spoolId": 26,
+          "weightUsed": 9.7,
+          "cost": 0.19
+        }
+      ],
+      "notes": "First layer adhesion failure"
+    },
+    {
+      "id": 42,
+      "name": "Sensor Housing - Aqara T1",
+      "status": "finished",
+      "startedAt": "2026-03-17T16:28:00Z",
+      "finishedAt": "2026-03-17T18:04:08Z",
+      "durationSeconds": 5768,
+      "totalLayers": 32,
+      "printWeight": 17.3,
+      "totalCost": 0.35,
+      "haEventId": "evt_0030_20260317",
+      "usage": [
+        {
+          "spoolId": 35,
+          "weightUsed": 17.3,
+          "cost": 0.35
+        }
+      ]
+    },
+    {
+      "id": 43,
+      "name": "Cable Management Clip x6",
+      "status": "finished",
+      "startedAt": "2026-03-19T10:40:00Z",
+      "finishedAt": "2026-03-19T11:40:48Z",
+      "durationSeconds": 3648,
+      "totalLayers": 34,
+      "printWeight": 16.5,
+      "totalCost": 0.28,
+      "haEventId": "evt_0046_20260319",
+      "usage": [
+        {
+          "spoolId": 41,
+          "weightUsed": 16.5,
+          "cost": 0.28
+        }
+      ]
+    },
+    {
+      "id": 44,
+      "name": "NFC Tag Holder x10",
+      "status": "finished",
+      "startedAt": "2026-03-19T20:41:00Z",
+      "finishedAt": "2026-03-19T21:49:58Z",
+      "durationSeconds": 4138,
+      "totalLayers": 37,
+      "printWeight": 15.2,
+      "totalCost": 0.29,
+      "haEventId": "evt_0042_20260319",
+      "usage": [
+        {
+          "spoolId": 40,
+          "weightUsed": 15.2,
+          "cost": 0.29
+        }
+      ]
+    },
+    {
+      "id": 45,
+      "name": "Sensor Housing - Aqara T1",
+      "status": "finished",
+      "startedAt": "2026-03-19T22:36:00Z",
+      "finishedAt": "2026-03-19T23:47:34Z",
+      "durationSeconds": 4294,
+      "totalLayers": 22,
+      "printWeight": 13.3,
+      "totalCost": 0.27,
+      "haEventId": "evt_0021_20260319",
+      "usage": [
+        {
+          "spoolId": 26,
+          "weightUsed": 13.3,
+          "cost": 0.27
+        }
+      ]
+    },
+    {
+      "id": 46,
+      "name": "Multicolor Sign - Werkstatt",
+      "status": "finished",
+      "startedAt": "2026-03-20T22:54:00Z",
+      "finishedAt": "2026-03-21T01:27:48Z",
+      "durationSeconds": 9228,
+      "totalLayers": 82,
+      "printWeight": 42.2,
+      "totalCost": 0.72,
+      "haEventId": "evt_0045_20260320",
+      "usage": [
+        {
+          "spoolId": 41,
+          "weightUsed": 33.1,
+          "cost": 0.56
+        },
+        {
+          "spoolId": 13,
+          "weightUsed": 9.1,
+          "cost": 0.29
+        }
+      ]
+    },
+    {
+      "id": 47,
+      "name": "Power Strip Mount",
+      "status": "finished",
+      "startedAt": "2026-03-24T11:47:00Z",
+      "finishedAt": "2026-03-24T23:04:05Z",
+      "durationSeconds": 40625,
+      "totalLayers": 274,
+      "printWeight": 139.4,
+      "totalCost": 4.18,
+      "haEventId": "evt_0013_20260324",
+      "usage": [
+        {
+          "spoolId": 25,
+          "weightUsed": 139.4,
+          "cost": 4.18
+        }
+      ]
+    }
+  ]
+}
