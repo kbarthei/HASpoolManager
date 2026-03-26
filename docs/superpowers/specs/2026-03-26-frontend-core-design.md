@@ -21,37 +21,77 @@ Build the core frontend for HASpoolManager: 4 pages covering the daily workflow 
 - shadcn/ui components (already initialized)
 - Tailwind CSS v4 (already configured)
 - Geist Sans + Geist Mono fonts (already configured)
-- Dark mode primary (already set via `className="dark"` on `<html>`)
+- Light + dark mode via `prefers-color-scheme` + manual toggle
+- Apple system color palette with teal accent
 
 ## Design System
 
-### Colors
-- Background: `zinc-950` (#09090b)
-- Surface: `zinc-900` (#18181b) — cards, panels
-- Surface elevated: `zinc-800` (#27272a) — hover, modals
-- Border: `zinc-700/50`
-- Text primary: `zinc-50`
-- Text secondary: `zinc-400`
-- Accent: `blue-500` — active tab, links, interactive
+### Visual Style
+Apple Health inspired: clean card-based layout, generous rounded corners (12px cards, 8px inner elements), system background colors, bold headline hierarchy, dense but readable.
 
-### Stock Level Indicators
-- OK (>30%): `emerald-500` (#10b981)
-- Warning (10-30%): `amber-500` (#f59e0b)
-- Critical (<10%): `red-500` (#ef4444)
-- Empty (0%): `zinc-600` with strikethrough
+### Theme
+Light + dark mode, auto-switching via `prefers-color-scheme` (system preference). User can override in settings. Uses CSS custom properties for seamless switching.
+
+### Colors (Apple System Colors)
+
+**Light mode:**
+- Background: `#F2F2F7` (systemGroupedBackground)
+- Surface/cards: `#FFFFFF` (systemBackground)
+- Surface elevated: `#F2F2F7`
+- Border: `#C6C6C8` (separator)
+- Text primary: `#1D1D1F` (label)
+- Text secondary: `#86868B` (secondaryLabel)
+
+**Dark mode:**
+- Background: `#000000` (systemBackground)
+- Surface/cards: `#1C1C1E` (secondarySystemBackground)
+- Surface elevated: `#2C2C2E` (tertiarySystemBackground)
+- Border: `#38383A` (separator)
+- Text primary: `#F5F5F7` (label)
+- Text secondary: `#98989D` (secondaryLabel)
+
+**Accent: Teal**
+- Light: `#30B0C7` (systemTeal)
+- Dark: `#40C8E0` (systemTeal dark)
+
+### Stock Level Indicators (same in both modes)
+- OK (>30%): `#34C759` / `#30D158` (systemGreen)
+- Warning (10-30%): `#FF9500` / `#FF9F0A` (systemOrange)
+- Critical (<10%): `#FF3B30` / `#FF453A` (systemRed)
+- Empty (0%): `#8E8E93` (systemGray) with strikethrough
+
+### Card Style
+- Light mode: white background, subtle shadow (`0 1px 3px rgba(0,0,0,0.08)`), no border
+- Dark mode: `#1C1C1E` background, no shadow, subtle `#38383A` border
+- Border radius: 12px
+- Padding: 10px (dense)
 
 ### Filament Color Display
 - Filled circle with actual filament hex color
-- Dark filaments (luminance < 0.15): 1px `zinc-600` ring for visibility
+- Dark filaments on light background (luminance < 0.15): 1px gray ring for visibility
+- Light filaments on dark background: 1px ring for visibility
 - Sizes: sm=16px, md=20px, lg=80px
 
 ### Material Badges
-Muted tint backgrounds: PLA=`sky-900/40`, PETG=`emerald-900/40`, ABS=`rose-900/40`, ABS-GF=`orange-900/40`, TPU=`violet-900/40`
+Muted tint backgrounds adapting to theme:
+- PLA: teal tint
+- PETG: green tint
+- ABS: red tint
+- ABS-GF: orange tint
+- TPU: purple tint
 
 ### Typography
 - Geist Sans for UI text
 - Geist Mono for numbers, weights, percentages, costs, IDs
+- Dense text sizes: 13px body, 11px secondary, 20px+ headlines
 - Touch targets: minimum 44×44px on mobile
+
+### Density
+- Compact padding: 8-10px on cards, 4-6px gaps in lists
+- Tight table rows (32px height)
+- Small grid gaps (6-8px)
+- More columns where possible (4+ on desktop, 2 on mobile)
+- Minimal whitespace between sections (12px)
 
 ### Breakpoints
 - Mobile (<640px): single column, bottom nav
@@ -66,13 +106,13 @@ Top tab bar with horizontal tabs:
 - **Dashboard** | **Spools** | **AMS** | **Storage** (center tabs)
 - **⌘K** search trigger (right)
 
-Active tab: `blue-500` bottom border + `zinc-50` text. Inactive: `zinc-400`.
+Active tab: teal accent bottom border + primary text. Inactive: secondary text color.
 
 ### Mobile (<768px)
 - Top bar: app title + search icon
 - Bottom tab bar (4 tabs): Dashboard, Spools, AMS, Storage
 - 56px height, safe-area-inset-bottom
-- Active: `blue-500` icon + label. Inactive: `zinc-500` icon only.
+- Active: teal icon + label. Inactive: gray icon only.
 
 ### HA Integration Modes
 - `?mode=panel`: full app, top tabs only (no sidebar), matches HA panel iframe
