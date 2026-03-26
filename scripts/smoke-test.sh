@@ -66,6 +66,8 @@ check "Dashboard" "$BASE" "Active Spools"
 check "Spools" "$BASE/spools" "spools"
 check "AMS" "$BASE/ams" "AMS"
 check "Storage" "$BASE/storage" "Spool Rack"
+check "Print History" "$BASE/prints" "Print History"
+check "Spool History" "$BASE/history" "Spool History"
 
 echo ""
 echo "Result: $PASS passed, $FAIL failed"
