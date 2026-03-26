@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { SpoolColorDot } from "@/components/spool/spool-color-dot";
 import { getStockLevelColor } from "@/lib/theme";
@@ -28,13 +29,17 @@ export function LowStockList({ spools }: { spools: SpoolWithFilament[] }) {
                 : `${filament.vendor?.name ?? ""} ${filament.name}`;
 
               return (
-                <div key={spool.id} className="flex items-center gap-2">
+                <Link
+                  key={spool.id}
+                  href={`/spools/${spool.id}`}
+                  className="flex items-center gap-2 rounded px-1 -mx-1 hover:bg-accent/50 transition cursor-pointer"
+                >
                   <SpoolColorDot hex={hex} size="sm" />
                   <span className="text-xs flex-1 truncate">{name.trim()}</span>
                   <span className={`text-xs font-mono shrink-0 ${colorClass}`}>
                     {spool.remainingWeight}g
                   </span>
-                </div>
+                </Link>
               );
             })}
           </div>

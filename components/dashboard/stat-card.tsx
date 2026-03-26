@@ -1,21 +1,27 @@
+import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
-export function StatCard({
-  label,
-  value,
-  valueClassName,
-}: {
+interface StatCardProps {
   label: string;
   value: string | number;
   valueClassName?: string;
-}) {
-  return (
-    <Card className="rounded-xl shadow-sm dark:shadow-none p-3">
+  href?: string;
+}
+
+export function StatCard({ label, value, valueClassName, href }: StatCardProps) {
+  const card = (
+    <Card className={cn("rounded-xl shadow-sm dark:shadow-none p-3", href && "cursor-pointer hover:bg-accent/50 transition")}>
       <div className="text-2xl font-bold font-[family-name:var(--font-geist-mono)] tabular-nums leading-none mb-1">
         <span className={cn(valueClassName)}>{value}</span>
       </div>
       <div className="text-xs text-muted-foreground">{label}</div>
     </Card>
   );
+
+  if (href) {
+    return <Link href={href}>{card}</Link>;
+  }
+
+  return card;
 }

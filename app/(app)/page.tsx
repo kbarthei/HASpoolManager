@@ -16,13 +16,14 @@ export default async function Dashboard() {
     <div className="space-y-3">
       {/* Stats row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-        <StatCard label="Active Spools" value={stats.activeSpools} />
+        <StatCard label="Active Spools" value={stats.activeSpools} href="/spools" />
         <StatCard label="Printer" value="Idle" valueClassName="text-emerald-500" />
         <StatCard label="This Month" value={`${stats.monthCost}€`} />
         <StatCard
           label="Low Stock"
           value={stats.lowStockCount}
           valueClassName={stats.lowStockCount > 0 ? "text-amber-500" : undefined}
+          href="/spools?status=low"
         />
       </div>
 
