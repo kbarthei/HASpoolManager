@@ -13,8 +13,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { assignSpoolToRack, moveSpoolInRack, moveSpoolTo } from "@/lib/actions";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 interface SpoolData {
   id: string;
@@ -51,9 +53,32 @@ export function StorageClient({ spools, surplusSpools, workbenchSpools, rows, co
   const [targetRow, setTargetRow] = useState<number>(1);
   const [targetCol, setTargetCol] = useState<number>(1);
 
+  // Move-to-rack state (for surplus/workbench → rack)
+  const [moveToRackSpoolId, setMoveToRackSpoolId] = useState<string | null>(null);
+  const [moveToRackOpen, setMoveToRackOpen] = useState(false);
+
   function openDetail(spoolId: string) {
     setDetailSpoolId(spoolId);
     setDetailOpen(true);
+  }
+
+  function handleMoveToRack(spoolId: string) {
+    setMoveToRackSpoolId(spoolId);
+    setMoveToRackOpen(true);
+  }
+
+  async function handleRackSlotSelected(row: number, col: number) {
+    if (!moveToRackSpoolId) return;
+    try {
+      await assignSpoolToRack(moveToRackSpoolId, row, col);
+      const spool = [...surplusSpools, ...workbenchSpools].find(s => s.id === moveToRackSpoolId);
+      toast.success(spool ? `Moved ${spoolLabel(spool)} to R${row}S${col}` : `Moved to R${row}S${col}`);
+    } catch {
+      toast.error("Failed to move spool to rack");
+    } finally {
+      setMoveToRackSpoolId(null);
+      setMoveToRackOpen(false);
+    }
   }
 
   function handleCellClick(row: number, col: number, spool?: SpoolData | null) {
@@ -176,6 +201,9 @@ export function StorageClient({ spools, surplusSpools, workbenchSpools, rows, co
                   <DropdownMenuItem onClick={() => handleMoveToWorkbench(spool.id)}>
                     Move to Workbench
                   </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleMoveToRack(spool.id)}>
+                    Move to Rack
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             ))}
@@ -214,6 +242,9 @@ export function StorageClient({ spools, surplusSpools, workbenchSpools, rows, co
                   <DropdownMenuItem onClick={() => handleMoveToSurplus(spool.id)}>
                     Move to Surplus
                   </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleMoveToRack(spool.id)}>
+                    Move to Rack
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             ))}
@@ -232,6 +263,58 @@ export function StorageClient({ spools, surplusSpools, workbenchSpools, rows, co
         onSelect={handlePickerSelect}
         onClose={() => setPickerOpen(false)}
       />
+
+      {/* Move to Rack dialog — pick an empty slot */}
+      <Dialog open={moveToRackOpen} onOpenChange={(v) => !v && setMoveToRackOpen(false)}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Pick a Rack Slot</DialogTitle>
+          </DialogHeader>
+          <div className="overflow-x-auto">
+            <div
+              style={{ display: "grid", gridTemplateColumns: `32px repeat(${cols}, 1fr)`, gap: "4px" }}
+            >
+              {/* Column headers */}
+              <div />
+              {Array.from({ length: cols }, (_, c) => (
+                <div key={c} className="text-center text-[9px] text-muted-foreground">S{c + 1}</div>
+              ))}
+
+              {/* Rows */}
+              {Array.from({ length: rows }, (_, r) => {
+                const row = r + 1;
+                return [
+                  <div key={`label-${row}`} className="flex items-center justify-center text-[9px] text-muted-foreground">R{row}</div>,
+                  ...Array.from({ length: cols }, (_, c) => {
+                    const col = c + 1;
+                    const pos = `${row}-${col}`;
+                    const occupied = spools.some(s => s.location === `rack:${pos}`);
+                    return (
+                      <button
+                        key={pos}
+                        disabled={occupied}
+                        onClick={() => handleRackSlotSelected(row, col)}
+                        className={cn(
+                          "aspect-square min-h-[40px] rounded-md border transition",
+                          occupied
+                            ? "bg-muted border-border cursor-not-allowed opacity-50"
+                            : "border-dashed border-primary/50 hover:bg-primary/10 hover:border-primary cursor-pointer"
+                        )}
+                      >
+                        {occupied ? (
+                          <span className="text-[8px] text-muted-foreground">●</span>
+                        ) : (
+                          <span className="text-primary text-sm">+</span>
+                        )}
+                      </button>
+                    );
+                  }),
+                ];
+              })}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
