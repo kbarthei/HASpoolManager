@@ -26,6 +26,12 @@ Return ONLY valid JSON with this exact structure:
 }
 
 Rules:
+- ALWAYS return colorName in English, even if the input is in German or another language
+  - "Kohlschwarz" → "Charcoal Black"
+  - "Jade-Weiß" → "Jade White"
+  - "Milchkaffee-Braun" → "Coffee Brown"
+  - "Champagner" → "Champagne"
+- Use the official English product name when known (e.g., Bambu Lab "Matte Charcoal", not "Matte Kohlschwarz")
 - weight is net filament weight in grams (usually 1000 for a standard spool)
 - price is per unit, not total
 - For Bambu Lab filaments, the vendor is always "Bambu Lab"
