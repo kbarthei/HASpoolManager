@@ -19,9 +19,11 @@
     "test:smoke": "bash scripts/smoke-test.sh"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.64",
     "@base-ui/react": "^1.3.0",
     "@neondatabase/serverless": "^1.0.2",
     "@tanstack/react-query": "^5.95.2",
+    "ai": "^6.0.140",
     "bcryptjs": "^3.0.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

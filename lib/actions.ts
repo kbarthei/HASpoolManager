@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { amsSlots, spools } from "@/lib/db/schema";
+import { amsSlots, spools, shops, orders, orderItems, filaments, vendors } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
@@ -86,4 +86,135 @@ export async function unloadSlotSpool(slotId: string) {
 
   revalidatePath("/ams");
   revalidatePath("/");
+}
+
+export async function createOrderFromParsed(data: {
+  shop: string | null;
+  orderNumber: string | null;
+  orderDate: string | null;
+  items: Array<{
+    name: string;
+    vendor: string;
+    material: string;
+    colorName: string | null;
+    colorHex: string | null;
+    weight: number;
+    quantity: number;
+    price: number | null;
+    currency: string;
+    url: string | null;
+    matchedFilamentId: string | null;
+  }>;
+}) {
+  // Find or create shop
+  let shopId: string | null = null;
+  if (data.shop) {
+    let shop = await db.query.shops.findFirst({
+      where: eq(shops.name, data.shop),
+    });
+    if (!shop) {
+      [shop] = await db.insert(shops).values({ name: data.shop }).returning();
+    }
+    shopId = shop.id;
+  }
+
+  // Calculate total cost
+  const totalCost = data.items.reduce(
+    (sum, item) => sum + (item.price || 0) * item.quantity,
+    0,
+  );
+
+  // Create order
+  const [order] = await db
+    .insert(orders)
+    .values({
+      shopId,
+      orderNumber: data.orderNumber,
+      orderDate: data.orderDate ?? new Date().toISOString().slice(0, 10),
+      status: "ordered",
+      totalCost: totalCost > 0 ? String(totalCost) : null,
+      currency: data.items[0]?.currency || "EUR",
+    })
+    .returning();
+
+  // Process each line item
+  for (const item of data.items) {
+    let filamentId = item.matchedFilamentId;
+
+    if (!filamentId) {
+      // Find or create vendor
+      let vendor = await db.query.vendors.findFirst({
+        where: eq(vendors.name, item.vendor),
+      });
+      if (!vendor) {
+        [vendor] = await db
+          .insert(vendors)
+          .values({ name: item.vendor })
+          .returning();
+      }
+
+      // Create filament
+      const [filament] = await db
+        .insert(filaments)
+        .values({
+          vendorId: vendor.id,
+          name: item.name,
+          material: item.material,
+          colorName: item.colorName,
+          colorHex: item.colorHex,
+          spoolWeight: item.weight || 1000,
+        })
+        .returning();
+      filamentId = filament.id;
+    }
+
+    // Create order item
+    await db.insert(orderItems).values({
+      orderId: order.id,
+      filamentId,
+      quantity: item.quantity,
+      unitPrice: item.price ? String(item.price) : null,
+    });
+
+    // Create one spool per quantity unit
+    for (let i = 0; i < item.quantity; i++) {
+      await db.insert(spools).values({
+        filamentId,
+        initialWeight: item.weight || 1000,
+        remainingWeight: item.weight || 1000,
+        purchasePrice: item.price ? String(item.price) : null,
+        currency: item.currency || "EUR",
+        purchaseDate: data.orderDate ?? new Date().toISOString().slice(0, 10),
+        location: "ordered",
+        status: "active",
+      });
+    }
+  }
+
+  revalidatePath("/");
+  revalidatePath("/spools");
+  revalidatePath("/storage");
+
+  return { orderId: order.id };
+}
+
+export async function receiveOrder(
+  orderId: string,
+  placements: Array<{ spoolId: string; location: string }>,
+) {
+  for (const { spoolId, location } of placements) {
+    await db
+      .update(spools)
+      .set({ location, updatedAt: new Date() })
+      .where(eq(spools.id, spoolId));
+  }
+
+  await db
+    .update(orders)
+    .set({ status: "delivered", updatedAt: new Date() })
+    .where(eq(orders.id, orderId));
+
+  revalidatePath("/");
+  revalidatePath("/spools");
+  revalidatePath("/storage");
 }
