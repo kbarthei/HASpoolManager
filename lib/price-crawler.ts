@@ -40,6 +40,15 @@ export async function fetchProductPrice(url: string): Promise<PriceResult> {
 
 /** Bambu Lab Store parser */
 function parseBambuLab(html: string): PriceResult {
+  // EU store: extract EUR price from HTML body (JSON-LD has USD only)
+  const eurMatch = html.match(/From\s*€([\d.,]+)/i) || html.match(/€([\d.,]+)\s*EUR/i);
+  if (eurMatch) {
+    const price = parseFloat(eurMatch[1].replace(",", "."));
+    if (!isNaN(price)) {
+      return { price, currency: "EUR", inStock: true, source: "parser" };
+    }
+  }
+
   // Try JSON-LD — Bambu uses ProductGroup with hasVariant
   const jsonLdMatches = html.match(/<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi);
   if (jsonLdMatches) {
