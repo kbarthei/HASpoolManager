@@ -49,6 +49,22 @@ export default async function SpoolsPage({
   const materials = [...new Set(allData.map((s) => s.filament.material))].sort();
   const vendors = [...new Set(allData.map((s) => s.filament.vendor.name))].sort();
 
+  // Extract unique colors with names
+  const colorMap = new Map<string, string>();
+  for (const s of allData) {
+    if (s.filament.colorHex && !colorMap.has(s.filament.colorHex)) {
+      colorMap.set(s.filament.colorHex, s.filament.colorName || s.filament.name);
+    }
+  }
+  const colors = Array.from(colorMap.entries())
+    .map(([hex, name]) => ({ hex, name }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  // Apply color filter
+  if (params.color) {
+    allSpools = allSpools.filter((s) => s.filament.colorHex === params.color);
+  }
+
   const view = (params.view === "list" ? "list" : "grid") as "grid" | "list";
 
   return (
@@ -56,6 +72,7 @@ export default async function SpoolsPage({
       spools={JSON.parse(JSON.stringify(allSpools))}
       materials={materials}
       vendors={vendors}
+      colors={colors}
       initialView={view}
     />
   );

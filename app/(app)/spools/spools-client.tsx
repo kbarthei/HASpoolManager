@@ -39,11 +39,13 @@ export function SpoolsClient({
   spools,
   materials,
   vendors,
+  colors,
   initialView,
 }: {
   spools: Spool[];
   materials: string[];
   vendors: string[];
+  colors: { hex: string; name: string }[];
   initialView: "grid" | "list";
 }) {
   const router = useRouter();
@@ -59,7 +61,7 @@ export function SpoolsClient({
     <div className="space-y-3">
       {/* Toolbar */}
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <SpoolFilters materials={materials} vendors={vendors} />
+        <SpoolFilters materials={materials} vendors={vendors} colors={colors} />
         <div className="flex items-center gap-2">
           <ViewToggle view={initialView} onViewChange={handleViewChange} />
           <Button size="sm" disabled className="h-7 text-xs px-2.5">
