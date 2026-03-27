@@ -206,6 +206,7 @@ export async function getShoppingListWithPrices() {
         shopUrl: listing?.productUrl || null,
         shopName: listing?.shop?.name || null,
         currentShopPrice: listing?.currentPrice ? parseFloat(listing.currentPrice) : null,
+        shopCurrency: listing?.currency || "EUR",
       };
     })
   );

@@ -40,7 +40,7 @@ export async function fetchProductPrice(url: string): Promise<PriceResult> {
 
 /** Bambu Lab Store parser */
 function parseBambuLab(html: string): PriceResult {
-  // EU store: extract EUR price from HTML body (JSON-LD has USD only)
+  // Try EUR price from HTML body first (only works when accessed from EU IP)
   const eurMatch = html.match(/From\s*€([\d.,]+)/i) || html.match(/€([\d.,]+)\s*EUR/i);
   if (eurMatch) {
     const price = parseFloat(eurMatch[1].replace(",", "."));

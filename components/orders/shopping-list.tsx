@@ -49,6 +49,7 @@ interface ShoppingListItem {
   shopUrl: string | null;
   shopName: string | null;
   currentShopPrice: number | null;
+  shopCurrency?: string;
 }
 
 interface ShoppingListProps {
@@ -180,8 +181,11 @@ function ShoppingListItemCard({
               <span className="text-xs font-mono text-muted-foreground">
                 Shop:{" "}
                 <span className="text-foreground">
-                  {currentShopPrice.toFixed(2)}€
+                  {currentShopPrice.toFixed(2)}{item.shopCurrency === "USD" ? "$" : "€"}
                 </span>
+                {item.shopCurrency === "USD" && (
+                  <span className="text-[9px] text-muted-foreground/60 ml-0.5">(US)</span>
+                )}
               </span>
             )}
           </>
@@ -192,8 +196,8 @@ function ShoppingListItemCard({
         )}
       </div>
 
-      {/* Price indicator */}
-      {currentShopPrice != null && priceHistory.avgPrice != null && (
+      {/* Price indicator — only compare when same currency (EUR) */}
+      {currentShopPrice != null && priceHistory.avgPrice != null && item.shopCurrency !== "USD" && (
         <PriceIndicator
           shopPrice={currentShopPrice}
           avgPrice={priceHistory.avgPrice}
