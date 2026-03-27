@@ -1,5 +1,29 @@
 {
   "permissions": {
+    "allow": [
+      "Bash(npm:*)",
+      "Bash(npx:*)",
+      "Bash(node:*)",
+      "Bash(curl:*)",
+      "Bash(git:*)",
+      "Bash(mkdir:*)",
+      "Bash(ls:*)",
+      "Bash(wc:*)",
+      "Bash(rm:*)",
+      "Bash(cat:*)",
+      "Bash(cp:*)",
+      "Bash(mv:*)",
+      "Bash(python3:*)",
+      "Bash(sleep:*)",
+      "Bash(echo:*)",
+      "Bash(grep:*)",
+      "Bash(sed:*)",
+      "Bash(vercel:*)",
+      "Bash(chmod:*)",
+      "Bash(kill:*)",
+      "Bash(pkill:*)",
+      "Bash(gh:*)"
+    ],
     "deny": [
       "Bash(cd :*)",
       "Bash(cd\":*)",
