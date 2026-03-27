@@ -24,9 +24,9 @@ jobs:
         run: npm run lint
 
       - name: Type check
-        run: npx tsc --noEmit
         env:
           DATABASE_URL: postgresql://dummy:dummy@localhost:5432/dummy
+        run: npx tsc --noEmit
 
       - name: Unit tests
         run: npm run test:unit
@@ -38,14 +38,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Wait for Vercel deployment
-        uses: patrickedqvist/wait-for-vercel-preview@v1.3.2
-        id: vercel
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          max_timeout: 300
+      - name: Wait for deployment to propagate
+        run: sleep 90
 
-      - name: Run smoke tests
-        env:
-          DEPLOY_URL: ${{ steps.vercel.outputs.url }}
-        run: bash scripts/smoke-test.sh "$DEPLOY_URL"
+      - name: Run smoke tests against production
+        run: bash scripts/smoke-test.sh https://haspoolmanager.vercel.app
