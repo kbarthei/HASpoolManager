@@ -53,8 +53,8 @@ describe("Matching scoring concepts", () => {
     });
 
     it("empty string index does not match a valid index", () => {
-      const idx1 = "";
-      const idx2 = "GFA00";
+      const idx1: string = "";
+      const idx2: string = "GFA00";
       expect(idx1 === idx2).toBe(false);
     });
   });
