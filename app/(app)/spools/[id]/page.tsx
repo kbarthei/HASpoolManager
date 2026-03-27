@@ -7,6 +7,7 @@ import { SpoolColorDot } from "@/components/spool/spool-color-dot";
 import { SpoolMaterialBadge } from "@/components/spool/spool-material-badge";
 import { SpoolProgressBar } from "@/components/spool/spool-progress-bar";
 import { getStockLevelColor } from "@/lib/theme";
+import { ExternalLink } from "lucide-react";
 
 export default async function SpoolDetailPage({
   params,
@@ -28,6 +29,16 @@ export default async function SpoolDetailPage({
   });
 
   if (!spool) notFound();
+
+  // Find order for this spool
+  const orderItem = await db.query.orderItems.findFirst({
+    where: eq(schema.orderItems.spoolId, id),
+    with: {
+      order: {
+        with: { shop: true, vendor: true },
+      },
+    },
+  });
 
   const percent = Math.round((spool.remainingWeight / spool.initialWeight) * 100);
   const usedWeight = spool.initialWeight - spool.remainingWeight;
@@ -92,6 +103,37 @@ export default async function SpoolDetailPage({
           )}
         </div>
       </Card>
+
+      {/* Purchase Info */}
+      {orderItem?.order && (
+        <Card className="p-3 rounded-xl">
+          <div className="flex justify-between items-start">
+            <div>
+              <div className="text-xs text-muted-foreground">Purchased from</div>
+              <div className="text-sm font-medium">
+                {orderItem.order.shop?.name || orderItem.order.vendor?.name || "Unknown"}
+              </div>
+              {orderItem.order.orderDate && (
+                <div className="text-xs text-muted-foreground mt-0.5">
+                  {new Date(orderItem.order.orderDate).toLocaleDateString("de-DE")}
+                  {orderItem.order.orderNumber && ` · #${orderItem.order.orderNumber}`}
+                </div>
+              )}
+            </div>
+            {orderItem.order.sourceUrl && (
+              <a
+                href={orderItem.order.sourceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-primary hover:underline flex items-center gap-1"
+              >
+                <ExternalLink className="h-3 w-3" />
+                Shop
+              </a>
+            )}
+          </div>
+        </Card>
+      )}
 
       {/* Usage History */}
       <Card className="p-3 rounded-xl">
