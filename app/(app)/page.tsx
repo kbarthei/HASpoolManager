@@ -4,6 +4,7 @@ import { AmsMiniView } from "@/components/dashboard/ams-mini-view";
 import { LowStockList } from "@/components/dashboard/low-stock-list";
 import { RecentPrints } from "@/components/dashboard/recent-prints";
 import { FilamentSummary } from "@/components/dashboard/filament-summary";
+import { AddOrderButton } from "@/components/orders/add-order-button";
 
 export default async function Dashboard() {
   const [stats, slots, lowStock, prints, printerStatus, filamentSummary] = await Promise.all([
@@ -18,6 +19,10 @@ export default async function Dashboard() {
   return (
     <div className="space-y-3">
       {/* Stats row */}
+      <div className="flex items-center justify-between gap-2 mb-0.5">
+        <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Dashboard</h2>
+        <AddOrderButton />
+      </div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
         <StatCard label="Active Spools" value={stats.activeSpools} href="/spools" />
         <StatCard

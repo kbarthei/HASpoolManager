@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Circle, Cpu, Grid3X3, Printer, Clock } from "lucide-react";
+import { useState } from "react";
+import { LayoutDashboard, Circle, Cpu, Grid3X3, Printer, Clock, Plus } from "lucide-react";
+import { AddOrderDialog } from "@/components/orders/add-order-dialog";
 
 const tabs = [
   {
@@ -45,35 +47,52 @@ const tabs = [
 
 export function TopTabs() {
   const pathname = usePathname();
+  const [orderOpen, setOrderOpen] = useState(false);
 
   return (
-    <header className="hidden md:flex h-12 items-center justify-between bg-card border-b border-border px-4">
-      {/* Left: title */}
-      <span className="font-semibold text-sm shrink-0">HASpoolManager</span>
+    <>
+      <header className="hidden md:flex h-12 items-center justify-between bg-card border-b border-border px-4">
+        {/* Left: title */}
+        <span className="font-semibold text-sm shrink-0">HASpoolManager</span>
 
-      {/* Center: tabs */}
-      <nav className="flex items-center gap-0.5">
-        {tabs.map(({ label, href, icon: Icon, isActive }) => {
-          const active = isActive(pathname);
-          return (
-            <Link
-              key={href}
-              href={href}
-              className={`flex items-center gap-1 px-2.5 h-12 text-xs transition-colors ${
-                active
-                  ? "border-b-2 border-primary text-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <Icon className="h-3.5 w-3.5" />
-              {label}
-            </Link>
-          );
-        })}
-      </nav>
+        {/* Center: tabs */}
+        <nav className="flex items-center gap-0.5">
+          {tabs.map(({ label, href, icon: Icon, isActive }) => {
+            const active = isActive(pathname);
+            return (
+              <Link
+                key={href}
+                href={href}
+                className={`flex items-center gap-1 px-2.5 h-12 text-xs transition-colors ${
+                  active
+                    ? "border-b-2 border-primary text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                {label}
+              </Link>
+            );
+          })}
+        </nav>
 
-      {/* Right: search placeholder */}
-      <span className="text-xs text-muted-foreground shrink-0">⌘K</span>
-    </header>
+        {/* Right: + Order + search hint */}
+        <div className="flex items-center gap-3 shrink-0">
+          <button
+            onClick={() => setOrderOpen(true)}
+            className="flex items-center gap-1 h-7 px-2.5 rounded-md bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors"
+          >
+            <Plus className="h-3 w-3" />
+            Order
+          </button>
+          <span className="text-xs text-muted-foreground">⌘K</span>
+        </div>
+      </header>
+
+      <AddOrderDialog
+        open={orderOpen}
+        onClose={() => setOrderOpen(false)}
+      />
+    </>
   );
 }
