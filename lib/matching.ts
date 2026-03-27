@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { spools, filaments, vendors, tagMappings, amsSlots } from "@/lib/db/schema";
+import { spools, tagMappings, amsSlots } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { deltaEHex } from "@/lib/color";
 

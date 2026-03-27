@@ -7,8 +7,28 @@ import { SpoolDetailSheet } from "@/components/spool/spool-detail-sheet";
 import { SpoolPicker } from "@/components/spool/spool-picker";
 import { loadSpoolToSlot, unloadSlotSpool } from "@/lib/actions";
 
+interface SlotData {
+  id: string;
+  slotType: string;
+  amsIndex: number;
+  trayIndex: number;
+  isEmpty: boolean;
+  bambuRemain: number;
+  spool?: {
+    id: string;
+    remainingWeight: number;
+    initialWeight: number;
+    filament: {
+      name: string;
+      material: string;
+      colorHex: string | null;
+      vendor: { name: string };
+    };
+  } | null;
+}
+
 interface AmsClientProps {
-  initialSlots: any[]; // passed from server component
+  initialSlots: SlotData[];
   printerId: string;
 }
 
@@ -31,7 +51,8 @@ export function AmsClient({ initialSlots, printerId }: AmsClientProps) {
     refetchInterval: 30000,
   });
 
-  const groupedSlots = (slots as any[]).reduce<Record<string, any[]>>((acc, slot) => {
+  const typedSlots = slots as SlotData[];
+  const groupedSlots = typedSlots.reduce<Record<string, SlotData[]>>((acc, slot) => {
     const key: string = slot.slotType ?? "ams";
     if (!acc[key]) acc[key] = [];
     acc[key].push(slot);

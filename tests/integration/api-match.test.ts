@@ -36,9 +36,9 @@ describe.skipIf(!process.env.DATABASE_URL)("Match API Integration Tests", () => 
         body: JSON.stringify({ tag_uid: "AAAAAAAAAAAAAAAA" }),
       });
       expect(res.status).toBe(200);
-      const data = await res.json();
       // Falls through to fuzzy match with no data — might still find candidates
       // but with tag_uid only, no fuzzy criteria, so likely no match
+      await res.json(); // consume response body
     });
 
     it("skips RFID match for zero tag_uid", async () => {

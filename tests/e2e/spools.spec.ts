@@ -12,10 +12,10 @@ test.describe("Spools Inventory", () => {
   });
 
   test("can switch to list view", async ({ page }) => {
-    // Find and click the list view toggle
-    const listButton = page.locator("button").filter({ has: page.locator("svg") }).last();
-    // After switching, should see a table
-    // The exact selector depends on implementation
+    // Find and click the list view toggle button
+    const toggleButtons = page.locator("button").filter({ has: page.locator("svg") });
+    await toggleButtons.last().click();
+    // After switching, should see a table or different layout
   });
 
   test("spool card links to detail page", async ({ page }) => {

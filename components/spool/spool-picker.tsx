@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useReducer, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Command, CommandInput, CommandList, CommandItem, CommandEmpty } from "@/components/ui/command";
 import { SpoolColorDot } from "@/components/spool/spool-color-dot";
@@ -24,16 +24,40 @@ interface SpoolPickerProps {
   onClose: () => void;
 }
 
+type State = {
+  spools: SpoolOption[];
+  loading: boolean;
+  error: string | null;
+};
+
+type Action =
+  | { type: "FETCH_START" }
+  | { type: "FETCH_SUCCESS"; spools: SpoolOption[] }
+  | { type: "FETCH_ERROR"; error: string };
+
+function reducer(state: State, action: Action): State {
+  switch (action.type) {
+    case "FETCH_START":
+      return { spools: [], loading: true, error: null };
+    case "FETCH_SUCCESS":
+      return { spools: action.spools, loading: false, error: null };
+    case "FETCH_ERROR":
+      return { spools: [], loading: false, error: action.error };
+  }
+}
+
 export function SpoolPicker({ open, onSelect, onClose }: SpoolPickerProps) {
-  const [spools, setSpools] = useState<SpoolOption[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [{ spools, loading, error }, dispatch] = useReducer(reducer, {
+    spools: [],
+    loading: false,
+    error: null,
+  });
 
   useEffect(() => {
     if (!open) return;
 
-    setLoading(true);
-    setError(null);
+    let cancelled = false;
+    dispatch({ type: "FETCH_START" });
 
     fetch("/api/v1/spools?status=active")
       .then((res) => {
@@ -41,19 +65,26 @@ export function SpoolPicker({ open, onSelect, onClose }: SpoolPickerProps) {
         return res.json();
       })
       .then((data) => {
-        // Filter out spools already loaded in AMS (location != storage)
+        if (cancelled) return;
         const available = Array.isArray(data)
-          ? data.filter((s: SpoolOption & { location?: string }) =>
-              s.location === "storage" || s.location == null
+          ? data.filter(
+              (s: SpoolOption & { location?: string }) =>
+                s.location === "storage" || s.location == null
             )
           : [];
-        setSpools(available);
+        dispatch({ type: "FETCH_SUCCESS", spools: available });
       })
       .catch((err) => {
-        setError(err.message);
-        setSpools([]);
-      })
-      .finally(() => setLoading(false));
+        if (cancelled) return;
+        dispatch({
+          type: "FETCH_ERROR",
+          error: err instanceof Error ? err.message : "Unknown error",
+        });
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [open]);
 
   return (

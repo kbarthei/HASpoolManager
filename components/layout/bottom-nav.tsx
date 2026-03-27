@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { LayoutDashboard, Circle, Cpu, Grid3X3, MoreHorizontal, Printer, Clock, X } from "lucide-react";
-import { useState, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 
 const primaryTabs = [
   {
@@ -39,27 +39,24 @@ const moreItems = [
 
 export function BottomNav() {
   const pathname = usePathname();
-  const router = useRouter();
   const [moreOpen, setMoreOpen] = useState(false);
   const moreRef = useRef<HTMLDivElement>(null);
 
   const isMoreActive = moreItems.some((item) => item.isActive(pathname));
 
-  // Close popover on outside click
+  // Close popover on outside click (external system: DOM events)
   useEffect(() => {
+    if (!moreOpen) return;
     function handleClick(e: MouseEvent) {
       if (moreRef.current && !moreRef.current.contains(e.target as Node)) {
         setMoreOpen(false);
       }
     }
-    if (moreOpen) document.addEventListener("mousedown", handleClick);
+    document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, [moreOpen]);
 
-  // Close popover on route change
-  useEffect(() => {
-    setMoreOpen(false);
-  }, [pathname]);
+  const closeMore = useCallback(() => setMoreOpen(false), []);
 
   return (
     <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border pb-[env(safe-area-inset-bottom)]">
@@ -101,6 +98,7 @@ export function BottomNav() {
                   <Link
                     key={href}
                     href={href}
+                    onClick={closeMore}
                     className={`flex items-center gap-3 px-4 py-3 text-sm transition-colors hover:bg-muted ${
                       active ? "text-primary font-medium" : "text-foreground"
                     }`}

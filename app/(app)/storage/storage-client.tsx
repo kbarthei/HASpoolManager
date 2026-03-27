@@ -7,8 +7,21 @@ import { SpoolPicker } from "@/components/spool/spool-picker";
 import { assignSpoolToRack, moveSpoolInRack } from "@/lib/actions";
 import { toast } from "sonner";
 
+interface SpoolData {
+  id: string;
+  location: string | null;
+  remainingWeight: number;
+  initialWeight: number;
+  filament: {
+    name: string;
+    material: string;
+    colorHex: string | null;
+    vendor: { name: string };
+  };
+}
+
 interface StorageClientProps {
-  spools: any[];
+  spools: SpoolData[];
   rows: number;
   cols: number;
 }
@@ -23,7 +36,7 @@ export function StorageClient({ spools, rows, cols }: StorageClientProps) {
   const [targetRow, setTargetRow] = useState<number>(1);
   const [targetCol, setTargetCol] = useState<number>(1);
 
-  function handleCellClick(row: number, col: number, spool?: any | null) {
+  function handleCellClick(row: number, col: number, spool?: SpoolData | null) {
     if (spool) {
       setDetailSpoolId(spool.id);
       setDetailOpen(true);
@@ -40,7 +53,7 @@ export function StorageClient({ spools, rows, cols }: StorageClientProps) {
 
   async function handleMove(fromRow: number, fromCol: number, toRow: number, toCol: number) {
     // Build lookup from current spools list
-    const spoolMap = new Map<string, any>();
+    const spoolMap = new Map<string, SpoolData>();
     for (const spool of spools) {
       const match = spool.location?.match(/^rack:(\d+)-(\d+)$/);
       if (match) {
