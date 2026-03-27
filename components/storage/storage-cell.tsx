@@ -96,19 +96,19 @@ export function StorageCell({
           </span>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="center" side="bottom" className="w-44">
-          <DropdownMenuItem onSelect={onClick}>
+          <DropdownMenuItem onClick={onClick}>
             View Details
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onSelect={() => onMoveToSurplus?.(spool.id)}>
+          <DropdownMenuItem onClick={() => onMoveToSurplus?.(spool.id)}>
             Move to Surplus
           </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => onMoveToWorkbench?.(spool.id)}>
+          <DropdownMenuItem onClick={() => onMoveToWorkbench?.(spool.id)}>
             Move to Workbench
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem
-            onSelect={() => onRemoveFromRack?.(spool.id)}
+            onClick={() => onRemoveFromRack?.(spool.id)}
             className="text-destructive focus:text-destructive"
           >
             Remove from Rack

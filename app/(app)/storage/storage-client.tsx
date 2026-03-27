@@ -169,11 +169,11 @@ export function StorageClient({ spools, surplusSpools, workbenchSpools, rows, co
                   </div>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="w-44">
-                  <DropdownMenuItem onSelect={() => openDetail(spool.id)}>
+                  <DropdownMenuItem onClick={() => openDetail(spool.id)}>
                     View Details
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onSelect={() => handleMoveToWorkbench(spool.id)}>
+                  <DropdownMenuItem onClick={() => handleMoveToWorkbench(spool.id)}>
                     Move to Workbench
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -207,11 +207,11 @@ export function StorageClient({ spools, surplusSpools, workbenchSpools, rows, co
                   </div>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="w-44">
-                  <DropdownMenuItem onSelect={() => openDetail(spool.id)}>
+                  <DropdownMenuItem onClick={() => openDetail(spool.id)}>
                     View Details
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onSelect={() => handleMoveToSurplus(spool.id)}>
+                  <DropdownMenuItem onClick={() => handleMoveToSurplus(spool.id)}>
                     Move to Surplus
                   </DropdownMenuItem>
                 </DropdownMenuContent>
