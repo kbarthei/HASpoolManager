@@ -2,6 +2,44 @@ import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { eq, desc, sql, and } from "drizzle-orm";
 
+export async function getOrders() {
+  return db.query.orders.findMany({
+    orderBy: [desc(schema.orders.orderDate)],
+    with: {
+      shop: true,
+      items: {
+        with: {
+          filament: { with: { vendor: true } },
+        },
+      },
+    },
+  });
+}
+
+export async function getOrderWithSpools(orderId: string) {
+  const order = await db.query.orders.findFirst({
+    where: eq(schema.orders.id, orderId),
+    with: {
+      shop: true,
+      items: {
+        with: {
+          filament: { with: { vendor: true } },
+          spool: true,
+        },
+      },
+    },
+  });
+  if (!order) return null;
+
+  // Get spools linked to this order's items (location "ordered" = awaiting placement)
+  const orderSpools = await db.query.spools.findMany({
+    where: eq(schema.spools.location, "ordered"),
+    with: { filament: true },
+  });
+
+  return { ...order, spools: orderSpools };
+}
+
 export async function getDashboardStats() {
   // Count active spools
   const [spoolCount] = await db.select({ count: sql<number>`count(*)::int` })
