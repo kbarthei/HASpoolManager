@@ -38,6 +38,24 @@ export async function getDashboardStats() {
   };
 }
 
+export async function getPrinterStatus() {
+  const printer = await db.query.printers.findFirst({
+    where: eq(schema.printers.isActive, true),
+  });
+  if (!printer) return { name: "No Printer", status: "offline" };
+
+  // Check if there's a running print
+  const runningPrint = await db.query.prints.findFirst({
+    where: eq(schema.prints.status, "running"),
+  });
+
+  return {
+    name: printer.name,
+    status: runningPrint ? "printing" : "idle",
+    printName: runningPrint?.name || null,
+  };
+}
+
 export async function getAmsSlots() {
   return db.query.amsSlots.findMany({
     with: { spool: { with: { filament: { with: { vendor: true } } } } },
@@ -88,4 +106,34 @@ export async function getAllPrintUsage() {
       spool: { with: { filament: { with: { vendor: true } } } },
     },
   });
+}
+
+export async function getFilamentSummary() {
+  const allActive = await db.query.spools.findMany({
+    where: eq(schema.spools.status, "active"),
+    with: { filament: { with: { vendor: true } } },
+  });
+
+  // Group by vendor, then count by material
+  const byVendor = new Map<string, { count: number; materials: Map<string, number> }>();
+  for (const spool of allActive) {
+    const vendor = spool.filament.vendor.name;
+    if (!byVendor.has(vendor)) {
+      byVendor.set(vendor, { count: 0, materials: new Map() });
+    }
+    const v = byVendor.get(vendor)!;
+    v.count++;
+    const mat = spool.filament.material;
+    v.materials.set(mat, (v.materials.get(mat) || 0) + 1);
+  }
+
+  return Array.from(byVendor.entries())
+    .map(([vendor, data]) => ({
+      vendor,
+      count: data.count,
+      materials: Array.from(data.materials.entries())
+        .map(([material, count]) => ({ material, count }))
+        .sort((a, b) => b.count - a.count),
+    }))
+    .sort((a, b) => b.count - a.count);
 }

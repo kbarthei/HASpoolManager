@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import type { getRecentPrints } from "@/lib/queries";
@@ -40,10 +41,11 @@ export function RecentPrints({ prints }: { prints: PrintData[] }) {
               const totalCost = print.totalCost ? parseFloat(String(print.totalCost)) : 0;
 
               return (
-                <div
+                <Link
                   key={print.id}
+                  href="/prints"
                   className={cn(
-                    "flex items-center gap-2",
+                    "flex items-center gap-2 hover:bg-accent/50 rounded-md px-1 -mx-1 py-0.5 transition",
                     isFailed && "text-muted-foreground"
                   )}
                 >
@@ -83,7 +85,7 @@ export function RecentPrints({ prints }: { prints: PrintData[] }) {
                   <span className="text-xs font-mono shrink-0 text-muted-foreground/70">
                     {timeAgo(print.startedAt)}
                   </span>
-                </div>
+                </Link>
               );
             })}
           </div>
