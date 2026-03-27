@@ -153,19 +153,30 @@ export async function createOrderFromParsed(data: {
           .returning();
       }
 
-      // Create filament
-      const [filament] = await db
-        .insert(filaments)
-        .values({
-          vendorId: vendor.id,
-          name: item.name,
-          material: item.material,
-          colorName: item.colorName,
-          colorHex: item.colorHex,
-          spoolWeight: item.weight || 1000,
-        })
-        .returning();
-      filamentId = filament.id;
+      // Find existing filament by vendor + name, or create new
+      const allVendorFilaments = await db.query.filaments.findMany({
+        where: eq(filaments.vendorId, vendor.id),
+      });
+      const nameMatch = allVendorFilaments.find(
+        (f) => f.name.toLowerCase() === item.name.toLowerCase()
+      );
+
+      if (nameMatch) {
+        filamentId = nameMatch.id;
+      } else {
+        const [filament] = await db
+          .insert(filaments)
+          .values({
+            vendorId: vendor.id,
+            name: item.name,
+            material: item.material,
+            colorName: item.colorName,
+            colorHex: item.colorHex,
+            spoolWeight: item.weight || 1000,
+          })
+          .returning();
+        filamentId = filament.id;
+      }
     }
 
     // Create order item
@@ -194,8 +205,19 @@ export async function createOrderFromParsed(data: {
   revalidatePath("/");
   revalidatePath("/spools");
   revalidatePath("/storage");
+  revalidatePath("/orders");
 
   return { orderId: order.id };
+}
+
+// Wrapper with error logging for client calls
+export async function createOrderSafe(data: Parameters<typeof createOrderFromParsed>[0]) {
+  try {
+    return await createOrderFromParsed(data);
+  } catch (error) {
+    console.error("createOrderFromParsed failed:", error);
+    throw error;
+  }
 }
 
 export async function receiveOrder(

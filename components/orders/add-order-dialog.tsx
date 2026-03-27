@@ -235,17 +235,17 @@ export function AddOrderDialog({ open, onClose, onOrderCreated }: AddOrderDialog
         orderNumber: orderNumber || null,
         orderDate: orderDate || null,
         items: items.map((item) => ({
-          name: item.name,
-          vendor: item.vendor,
-          material: item.material,
+          name: item.name || "Unknown",
+          vendor: item.vendor || "Unknown",
+          material: item.material || "PLA",
           colorName: item.colorName || null,
           colorHex: item.colorHex || null,
           weight: Number(item.weight) || 1000,
           quantity: Number(item.quantity) || 1,
-          price: item.price !== "" ? Number(item.price) : null,
+          price: item.price !== "" && item.price != null ? Number(item.price) : null,
           currency: item.currency || "EUR",
-          url: item.url,
-          matchedFilamentId: item.matchedFilamentId,
+          url: item.url || null,
+          matchedFilamentId: item.matchedFilamentId || null,
         })),
       });
       const totalSpools = items.reduce((sum, i) => sum + (Number(i.quantity) || 1), 0);
