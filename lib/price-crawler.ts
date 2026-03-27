@@ -38,22 +38,49 @@ export async function fetchProductPrice(url: string): Promise<PriceResult> {
 
 /** Bambu Lab Store parser */
 function parseBambuLab(html: string): PriceResult {
-  // Bambu Lab uses structured data (JSON-LD) or meta tags
-  // Try JSON-LD first
-  const jsonLdMatch = html.match(/<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/i);
-  if (jsonLdMatch) {
-    try {
-      const data = JSON.parse(jsonLdMatch[1]);
-      if (data["@type"] === "Product" && data.offers) {
-        const offer = Array.isArray(data.offers) ? data.offers[0] : data.offers;
-        return {
-          price: parseFloat(offer.price),
-          currency: offer.priceCurrency || "EUR",
-          inStock: offer.availability?.includes("InStock") ?? null,
-          source: "parser",
-        };
-      }
-    } catch {}
+  // Try JSON-LD — Bambu uses ProductGroup with hasVariant
+  const jsonLdMatches = html.match(/<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi);
+  if (jsonLdMatches) {
+    for (const match of jsonLdMatches) {
+      try {
+        const jsonStr = match.replace(/<\/?script[^>]*>/gi, "");
+        const data = JSON.parse(jsonStr);
+
+        // Handle Product type
+        if (data["@type"] === "Product" && data.offers) {
+          const offer = Array.isArray(data.offers) ? data.offers[0] : data.offers;
+          return {
+            price: parseFloat(offer.price),
+            currency: offer.priceCurrency || "EUR",
+            inStock: offer.availability?.includes("InStock") ?? null,
+            source: "parser",
+          };
+        }
+
+        // Handle ProductGroup type (Bambu Lab uses this)
+        if (data["@type"] === "ProductGroup" && data.hasVariant) {
+          const variants = Array.isArray(data.hasVariant) ? data.hasVariant : [data.hasVariant];
+          // Find lowest price among variants
+          let lowestPrice = Infinity;
+          let currency = "EUR";
+          let inStock = false;
+          for (const variant of variants) {
+            const offers = variant.offers ? (Array.isArray(variant.offers) ? variant.offers : [variant.offers]) : [];
+            for (const offer of offers) {
+              const price = parseFloat(offer.price);
+              if (!isNaN(price) && price < lowestPrice) {
+                lowestPrice = price;
+                currency = offer.priceCurrency || "EUR";
+              }
+              if (offer.availability?.includes("InStock")) inStock = true;
+            }
+          }
+          if (lowestPrice < Infinity) {
+            return { price: lowestPrice, currency, inStock, source: "parser" };
+          }
+        }
+      } catch {}
+    }
   }
 
   // Fallback: meta tags

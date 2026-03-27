@@ -1,8 +1,8 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { amsSlots, spools, shops, orders, orderItems, filaments, vendors, shoppingListItems } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { amsSlots, spools, shops, orders, orderItems, filaments, vendors, shoppingListItems, shopListings } from "@/lib/db/schema";
+import { eq, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 export async function moveSpoolInRack(
@@ -195,6 +195,34 @@ export async function createOrderFromParsed(data: {
       quantity: item.quantity,
       unitPrice: item.price ? String(item.price) : null,
     });
+
+    // Create or update shop listing (links filament to shop product URL for price tracking)
+    if (shopId && item.url && filamentId) {
+      const existingListing = await db.query.shopListings.findFirst({
+        where: and(
+          eq(shopListings.shopId, shopId),
+          eq(shopListings.filamentId, filamentId)
+        ),
+      });
+      if (existingListing) {
+        await db.update(shopListings).set({
+          productUrl: item.url,
+          currentPrice: item.price ? String(item.price) : existingListing.currentPrice,
+          pricePerSpool: item.price ? String(item.price) : existingListing.pricePerSpool,
+          lastCheckedAt: new Date(),
+        }).where(eq(shopListings.id, existingListing.id));
+      } else {
+        await db.insert(shopListings).values({
+          shopId,
+          filamentId,
+          productUrl: item.url,
+          currentPrice: item.price ? String(item.price) : null,
+          pricePerSpool: item.price ? String(item.price) : null,
+          currency: item.currency || "EUR",
+          lastCheckedAt: new Date(),
+        });
+      }
+    }
 
     // Create one spool per quantity unit
     for (let i = 0; i < item.quantity; i++) {
