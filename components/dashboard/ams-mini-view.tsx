@@ -33,7 +33,11 @@ export function AmsMiniView({ slots }: { slots: AmsSlotData[] }) {
                 : `${filament.vendor?.name ?? ""} ${filament.name}`;
 
               return (
-                <div key={slot.id} className="flex items-center gap-2">
+                <Link
+                  key={slot.id}
+                  href={`/spools/${spool.id}`}
+                  className="flex items-center gap-2 rounded-md px-1 -mx-1 py-0.5 hover:bg-accent/50 transition"
+                >
                   <SpoolColorDot hex={hex} size="sm" />
                   <span className="text-xs flex-1 truncate">{name.trim()}</span>
                   <SpoolProgressBar
@@ -44,7 +48,7 @@ export function AmsMiniView({ slots }: { slots: AmsSlotData[] }) {
                   <span className="text-xs font-mono w-8 text-right shrink-0">
                     {percent}%
                   </span>
-                </div>
+                </Link>
               );
             })}
           </div>
