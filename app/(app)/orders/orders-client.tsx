@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { AddOrderDialog } from "@/components/orders/add-order-dialog";
+import { OrderDetailSheet } from "@/components/orders/order-detail-sheet";
 import { ReceiveWizard } from "@/components/orders/receive-wizard";
 import { SpoolColorDot } from "@/components/spool/spool-color-dot";
 import { Badge } from "@/components/ui/badge";
@@ -61,10 +62,12 @@ function PendingOrderCard({
   order,
   now,
   onReceive,
+  onCardClick,
 }: {
   order: Order;
   now: number;
   onReceive: (o: Order) => void;
+  onCardClick: (o: Order) => void;
 }) {
   const totalItems = order.items.reduce((sum, i) => sum + i.quantity, 0);
   const daysAgo = Math.floor(
@@ -72,7 +75,10 @@ function PendingOrderCard({
   );
 
   return (
-    <div className="rounded-xl border-l-[3px] border-l-primary border border-border bg-card p-3 space-y-2">
+    <div
+      className="rounded-xl border-l-[3px] border-l-primary border border-border bg-card p-3 space-y-2 cursor-pointer hover:bg-muted/30 transition"
+      onClick={() => onCardClick(order)}
+    >
       <div className="flex items-start justify-between">
         <div>
           <span className="text-sm font-semibold">
@@ -122,7 +128,7 @@ function PendingOrderCard({
         <Button
           size="sm"
           className="h-7 text-xs gap-1"
-          onClick={() => onReceive(order)}
+          onClick={(e) => { e.stopPropagation(); onReceive(order); }}
         >
           <Check className="h-3 w-3" /> Mark Received
         </Button>
@@ -133,7 +139,7 @@ function PendingOrderCard({
 
 // ─── Delivered Order Card ─────────────────────────────────────────────────────
 
-function DeliveredOrderCard({ order }: { order: Order }) {
+function DeliveredOrderCard({ order, onCardClick }: { order: Order; onCardClick: (o: Order) => void }) {
   const itemSummary = order.items
     .map(
       (i) => `${i.quantity > 1 ? i.quantity + "× " : ""}${i.filament.name}`
@@ -141,7 +147,7 @@ function DeliveredOrderCard({ order }: { order: Order }) {
     .join(", ");
 
   return (
-    <div className="flex items-center gap-3 rounded-lg bg-card px-3 py-2 hover:bg-muted/50 transition cursor-pointer">
+    <div className="flex items-center gap-3 rounded-lg bg-card px-3 py-2 hover:bg-muted/50 transition cursor-pointer" onClick={() => onCardClick(order)}>
       <div className="flex -space-x-1">
         {order.items.slice(0, 3).map((item) => (
           <SpoolColorDot
@@ -204,11 +210,18 @@ export function OrdersClient({ orders, rack }: OrdersClientProps) {
   const [addOpen, setAddOpen] = useState(false);
   const [receiveOrder, setReceiveOrder] = useState<Order | null>(null);
   const [receiveOpen, setReceiveOpen] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [selectedShop, setSelectedShop] = useState<string>("all");
 
   // Stable timestamp initialised once at mount via lazy useState initialiser
   const [now] = useState<number>(() => Date.now());
+
+  const handleCardClick = useCallback((order: Order) => {
+    setSelectedOrder(order);
+    setDetailOpen(true);
+  }, []);
 
   const handleReceive = useCallback((order: Order) => {
     setReceiveOrder(order);
@@ -347,7 +360,7 @@ export function OrdersClient({ orders, rack }: OrdersClientProps) {
           </div>
           <div className="space-y-2">
             {pendingOrders.map((o) => (
-              <PendingOrderCard key={o.id} order={o} now={now} onReceive={handleReceive} />
+              <PendingOrderCard key={o.id} order={o} now={now} onReceive={handleReceive} onCardClick={handleCardClick} />
             ))}
           </div>
         </div>
@@ -413,7 +426,7 @@ export function OrdersClient({ orders, rack }: OrdersClientProps) {
                 />
                 <div className="space-y-1 mt-1">
                   {monthOrders.map((o) => (
-                    <DeliveredOrderCard key={o.id} order={o} />
+                    <DeliveredOrderCard key={o.id} order={o} onCardClick={handleCardClick} />
                   ))}
                 </div>
               </div>
@@ -444,6 +457,13 @@ export function OrdersClient({ orders, rack }: OrdersClientProps) {
           occupiedPositions={rack.occupiedPositions}
         />
       )}
+
+      {/* Order Detail Sheet */}
+      <OrderDetailSheet
+        order={selectedOrder}
+        open={detailOpen}
+        onClose={() => setDetailOpen(false)}
+      />
     </>
   );
 }
