@@ -239,4 +239,5 @@ export async function receiveOrder(
   revalidatePath("/");
   revalidatePath("/spools");
   revalidatePath("/storage");
+  revalidatePath("/orders");
 }
