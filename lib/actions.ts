@@ -43,6 +43,15 @@ export async function removeSpoolFromRack(spoolId: string) {
   revalidatePath("/");
 }
 
+export async function moveSpoolTo(spoolId: string, location: string) {
+  await db.update(spools)
+    .set({ location, updatedAt: new Date() })
+    .where(eq(spools.id, spoolId));
+  revalidatePath("/storage");
+  revalidatePath("/spools");
+  revalidatePath("/");
+}
+
 export async function loadSpoolToSlot(slotId: string, spoolId: string) {
   // Get the slot to determine slot_type
   const slot = await db.query.amsSlots.findFirst({
@@ -218,6 +227,29 @@ export async function createOrderSafe(data: Parameters<typeof createOrderFromPar
     console.error("createOrderFromParsed failed:", error);
     throw error;
   }
+}
+
+export async function adjustSpoolWeight(spoolId: string, newWeight: number) {
+  if (newWeight < 0) throw new Error("Weight cannot be negative");
+
+  const spool = await db.query.spools.findFirst({
+    where: eq(spools.id, spoolId),
+  });
+  if (!spool) throw new Error("Spool not found");
+
+  await db.update(spools)
+    .set({
+      remainingWeight: Math.round(newWeight),
+      status: newWeight <= 0 ? "empty" : "active",
+      updatedAt: new Date(),
+    })
+    .where(eq(spools.id, spoolId));
+
+  revalidatePath("/");
+  revalidatePath("/spools");
+  revalidatePath(`/spools/${spoolId}`);
+  revalidatePath("/storage");
+  revalidatePath("/ams");
 }
 
 export async function receiveOrder(

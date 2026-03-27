@@ -3,6 +3,13 @@
 import { SpoolColorDot } from "@/components/spool/spool-color-dot";
 import { getStockLevelBg } from "@/lib/theme";
 import { cn } from "@/lib/utils";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface StorageCellProps {
   spool?: {
@@ -19,6 +26,9 @@ interface StorageCellProps {
   row: number;
   col: number;
   onClick: () => void;
+  onMoveToSurplus?: (spoolId: string) => void;
+  onMoveToWorkbench?: (spoolId: string) => void;
+  onRemoveFromRack?: (spoolId: string) => void;
   isDragging?: boolean;
   isDragOver?: boolean;
   onDragStart?: (e: React.DragEvent) => void;
@@ -32,6 +42,9 @@ export function StorageCell({
   row,
   col,
   onClick,
+  onMoveToSurplus,
+  onMoveToWorkbench,
+  onRemoveFromRack,
   isDragging,
   isDragOver,
   onDragStart,
@@ -47,42 +60,61 @@ export function StorageCell({
     const stockDotClass = getStockLevelBg(percent);
 
     return (
-      <button
-        type="button"
-        draggable
-        onClick={onClick}
-        onDragStart={onDragStart}
-        onDragOver={onDragOver}
-        onDrop={onDrop}
-        onDragEnd={onDragEnd}
-        className={cn(
-          "relative min-h-[56px] sm:min-h-[72px] w-full",
-          "flex flex-col items-center justify-center gap-[3px] py-1 px-[2px]",
-          "bg-card border border-border rounded-lg",
-          "cursor-grab hover:bg-accent/50 transition-colors select-none",
-          isDragging && "opacity-50",
-          isDragOver && "ring-2 ring-primary"
-        )}
-        aria-label={`${spool.filament.name} at R${row}S${col}`}
-      >
-        {/* Stock level dot — top right */}
-        <span
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          draggable
+          onDragStart={onDragStart}
+          onDragOver={onDragOver}
+          onDrop={onDrop}
+          onDragEnd={onDragEnd}
           className={cn(
-            "absolute top-1 right-1 w-[8px] h-[8px] rounded-full",
-            stockDotClass
+            "relative min-h-[56px] sm:min-h-[72px] w-full",
+            "flex flex-col items-center justify-center gap-[3px] py-1 px-[2px]",
+            "bg-card border border-border rounded-lg",
+            "cursor-grab hover:bg-accent/50 transition-colors select-none",
+            isDragging && "opacity-50",
+            isDragOver && "ring-2 ring-primary"
           )}
-        />
-        <SpoolColorDot
-          hex={spool.filament.colorHex ?? "888888"}
-          size="md"
-        />
-        <span className="text-[9px] leading-tight text-foreground text-center line-clamp-2 px-[2px] w-full truncate">
-          {spool.filament.name}
-        </span>
-        <span className="text-[8px] leading-none text-muted-foreground text-center w-full truncate">
-          {spool.filament.material}
-        </span>
-      </button>
+          aria-label={`${spool.filament.name} at R${row}S${col}`}
+        >
+          {/* Stock level dot — top right */}
+          <span
+            className={cn(
+              "absolute top-1 right-1 w-[8px] h-[8px] rounded-full",
+              stockDotClass
+            )}
+          />
+          <SpoolColorDot
+            hex={spool.filament.colorHex ?? "888888"}
+            size="md"
+          />
+          <span className="text-[9px] leading-tight text-foreground text-center line-clamp-2 px-[2px] w-full truncate">
+            {spool.filament.name}
+          </span>
+          <span className="text-[8px] leading-none text-muted-foreground text-center w-full truncate">
+            {spool.filament.material}
+          </span>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="center" side="bottom" className="w-44">
+          <DropdownMenuItem onSelect={onClick}>
+            View Details
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onSelect={() => onMoveToSurplus?.(spool.id)}>
+            Move to Surplus
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => onMoveToWorkbench?.(spool.id)}>
+            Move to Workbench
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onSelect={() => onRemoveFromRack?.(spool.id)}
+            className="text-destructive focus:text-destructive"
+          >
+            Remove from Rack
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     );
   }
 

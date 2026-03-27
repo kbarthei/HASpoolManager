@@ -6,7 +6,14 @@ import { SpoolDetailSheet } from "@/components/spool/spool-detail-sheet";
 import { SpoolPicker } from "@/components/spool/spool-picker";
 import { SpoolColorDot } from "@/components/spool/spool-color-dot";
 import { SpoolMaterialBadge } from "@/components/spool/spool-material-badge";
-import { assignSpoolToRack, moveSpoolInRack } from "@/lib/actions";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { assignSpoolToRack, moveSpoolInRack, moveSpoolTo } from "@/lib/actions";
 import { toast } from "sonner";
 
 interface SpoolData {
@@ -25,11 +32,16 @@ interface SpoolData {
 interface StorageClientProps {
   spools: SpoolData[];
   surplusSpools: SpoolData[];
+  workbenchSpools: SpoolData[];
   rows: number;
   cols: number;
 }
 
-export function StorageClient({ spools, surplusSpools, rows, cols }: StorageClientProps) {
+function spoolLabel(spool: SpoolData) {
+  return `${spool.filament.vendor.name} ${spool.filament.name}`;
+}
+
+export function StorageClient({ spools, surplusSpools, workbenchSpools, rows, cols }: StorageClientProps) {
   // Detail sheet state (occupied cell)
   const [detailSpoolId, setDetailSpoolId] = useState<string | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
@@ -39,15 +51,18 @@ export function StorageClient({ spools, surplusSpools, rows, cols }: StorageClie
   const [targetRow, setTargetRow] = useState<number>(1);
   const [targetCol, setTargetCol] = useState<number>(1);
 
+  function openDetail(spoolId: string) {
+    setDetailSpoolId(spoolId);
+    setDetailOpen(true);
+  }
+
   function handleCellClick(row: number, col: number, spool?: SpoolData | null) {
-    if (spool) {
-      setDetailSpoolId(spool.id);
-      setDetailOpen(true);
-    } else {
+    if (!spool) {
       setTargetRow(row);
       setTargetCol(col);
       setPickerOpen(true);
     }
+    // Occupied cells open via the DropdownMenu "View Details" item
   }
 
   async function handlePickerSelect(spoolId: string) {
@@ -55,7 +70,6 @@ export function StorageClient({ spools, surplusSpools, rows, cols }: StorageClie
   }
 
   async function handleMove(fromRow: number, fromCol: number, toRow: number, toCol: number) {
-    // Build lookup from current spools list
     const spoolMap = new Map<string, SpoolData>();
     for (const spool of spools) {
       const match = spool.location?.match(/^rack:(\d+)-(\d+)$/);
@@ -88,6 +102,36 @@ export function StorageClient({ spools, surplusSpools, rows, cols }: StorageClie
     }
   }
 
+  async function handleMoveToSurplus(spoolId: string) {
+    const spool = [...spools, ...workbenchSpools].find((s) => s.id === spoolId);
+    try {
+      await moveSpoolTo(spoolId, "surplus");
+      toast.success(spool ? `Moved ${spoolLabel(spool)} to surplus` : "Moved to surplus");
+    } catch {
+      toast.error("Failed to move spool");
+    }
+  }
+
+  async function handleMoveToWorkbench(spoolId: string) {
+    const spool = [...spools, ...surplusSpools].find((s) => s.id === spoolId);
+    try {
+      await moveSpoolTo(spoolId, "workbench");
+      toast.success(spool ? `Moved ${spoolLabel(spool)} to workbench` : "Moved to workbench");
+    } catch {
+      toast.error("Failed to move spool");
+    }
+  }
+
+  async function handleRemoveFromRack(spoolId: string) {
+    const spool = spools.find((s) => s.id === spoolId);
+    try {
+      await moveSpoolTo(spoolId, "surplus");
+      toast.success(spool ? `Removed ${spoolLabel(spool)} from rack` : "Removed from rack");
+    } catch {
+      toast.error("Failed to remove spool");
+    }
+  }
+
   return (
     <>
       <StorageGrid
@@ -96,6 +140,9 @@ export function StorageClient({ spools, surplusSpools, rows, cols }: StorageClie
         cols={cols}
         onCellClick={handleCellClick}
         onMove={handleMove}
+        onMoveToSurplus={handleMoveToSurplus}
+        onMoveToWorkbench={handleMoveToWorkbench}
+        onRemoveFromRack={handleRemoveFromRack}
       />
 
       {/* Surplus section */}
@@ -108,31 +155,67 @@ export function StorageClient({ spools, surplusSpools, rows, cols }: StorageClie
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
             {surplusSpools.map((spool) => (
-              <button
-                key={spool.id}
-                type="button"
-                onClick={() => {
-                  setDetailSpoolId(spool.id);
-                  setDetailOpen(true);
-                }}
-                className="flex items-center gap-2.5 rounded-lg border border-border bg-card px-3 py-2 text-left hover:bg-muted/50 transition-colors"
-              >
-                <SpoolColorDot
-                  hex={spool.filament.colorHex ?? "888888"}
-                  size="sm"
-                />
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium truncate">
-                    {spool.filament.vendor.name} {spool.filament.name}
-                  </p>
-                  <div className="flex items-center gap-1.5 mt-0.5">
-                    <SpoolMaterialBadge material={spool.filament.material} />
-                    <span className="text-[10px] text-muted-foreground">
-                      {spool.remainingWeight}g
-                    </span>
+              <DropdownMenu key={spool.id}>
+                <DropdownMenuTrigger className="flex items-center gap-2.5 rounded-lg border border-border bg-card px-3 py-2 text-left hover:bg-muted/50 transition-colors w-full">
+                  <SpoolColorDot hex={spool.filament.colorHex ?? "888888"} size="sm" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium truncate">{spoolLabel(spool)}</p>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <SpoolMaterialBadge material={spool.filament.material} />
+                      <span className="text-[10px] text-muted-foreground">
+                        {spool.remainingWeight}g
+                      </span>
+                    </div>
                   </div>
-                </div>
-              </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-44">
+                  <DropdownMenuItem onSelect={() => openDetail(spool.id)}>
+                    View Details
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onSelect={() => handleMoveToWorkbench(spool.id)}>
+                    Move to Workbench
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Workbench section */}
+      <div className="space-y-2 pt-2">
+        <p className="text-sm font-semibold">
+          Workbench · {workbenchSpools.length} spool{workbenchSpools.length !== 1 ? "s" : ""}
+        </p>
+        {workbenchSpools.length === 0 ? (
+          <p className="text-xs text-muted-foreground">No spools on workbench</p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+            {workbenchSpools.map((spool) => (
+              <DropdownMenu key={spool.id}>
+                <DropdownMenuTrigger className="flex items-center gap-2.5 rounded-lg border border-border bg-card px-3 py-2 text-left hover:bg-muted/50 transition-colors w-full">
+                  <SpoolColorDot hex={spool.filament.colorHex ?? "888888"} size="sm" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium truncate">{spoolLabel(spool)}</p>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <SpoolMaterialBadge material={spool.filament.material} />
+                      <span className="text-[10px] text-muted-foreground">
+                        {spool.remainingWeight}g
+                      </span>
+                    </div>
+                  </div>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-44">
+                  <DropdownMenuItem onSelect={() => openDetail(spool.id)}>
+                    View Details
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onSelect={() => handleMoveToSurplus(spool.id)}>
+                    Move to Surplus
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             ))}
           </div>
         )}

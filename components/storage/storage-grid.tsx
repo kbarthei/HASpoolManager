@@ -24,9 +24,12 @@ interface StorageGridProps {
   cols: number;
   onCellClick: (row: number, col: number, spool?: SpoolData | null) => void;
   onMove?: (fromRow: number, fromCol: number, toRow: number, toCol: number) => void;
+  onMoveToSurplus?: (spoolId: string) => void;
+  onMoveToWorkbench?: (spoolId: string) => void;
+  onRemoveFromRack?: (spoolId: string) => void;
 }
 
-export function StorageGrid({ spools, rows, cols, onCellClick, onMove }: StorageGridProps) {
+export function StorageGrid({ spools, rows, cols, onCellClick, onMove, onMoveToSurplus, onMoveToWorkbench, onRemoveFromRack }: StorageGridProps) {
   const [dragSource, setDragSource] = useState<{ row: number; col: number } | null>(null);
   const [dragOver, setDragOver] = useState<{ row: number; col: number } | null>(null);
 
@@ -118,6 +121,9 @@ export function StorageGrid({ spools, rows, cols, onCellClick, onMove }: Storage
                     row={row}
                     col={col}
                     onClick={() => onCellClick(row, col, spool)}
+                    onMoveToSurplus={onMoveToSurplus}
+                    onMoveToWorkbench={onMoveToWorkbench}
+                    onRemoveFromRack={onRemoveFromRack}
                     isDragging={isThisDragging}
                     isDragOver={isThisDragOver && !isThisDragging}
                     onDragStart={spool ? (e) => handleDragStart(e, row, col) : undefined}

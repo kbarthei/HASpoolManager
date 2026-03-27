@@ -4,7 +4,7 @@ import { eq, or, like } from "drizzle-orm";
 import { StorageClient } from "./storage-client";
 
 export default async function StoragePage() {
-  const [storageSpools, surplusSpools] = await Promise.all([
+  const [storageSpools, surplusSpools, workbenchSpools] = await Promise.all([
     db.query.spools.findMany({
       where: or(
         like(schema.spools.location, "rack:%"),
@@ -14,6 +14,10 @@ export default async function StoragePage() {
     }),
     db.query.spools.findMany({
       where: eq(schema.spools.location, "surplus"),
+      with: { filament: { with: { vendor: true } } },
+    }),
+    db.query.spools.findMany({
+      where: eq(schema.spools.location, "workbench"),
       with: { filament: { with: { vendor: true } } },
     }),
   ]);
@@ -34,6 +38,7 @@ export default async function StoragePage() {
       <StorageClient
         spools={JSON.parse(JSON.stringify(storageSpools))}
         surplusSpools={JSON.parse(JSON.stringify(surplusSpools))}
+        workbenchSpools={JSON.parse(JSON.stringify(workbenchSpools))}
         rows={rows}
         cols={cols}
       />

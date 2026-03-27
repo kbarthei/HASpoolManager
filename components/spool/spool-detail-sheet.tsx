@@ -5,10 +5,10 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { SpoolColorDot } from "@/components/spool/spool-color-dot";
 import { SpoolMaterialBadge } from "@/components/spool/spool-material-badge";
 import { SpoolProgressBar } from "@/components/spool/spool-progress-bar";
-import { getStockLevelColor } from "@/lib/theme";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ExternalLink } from "lucide-react";
+import { WeightAdjuster } from "@/components/spool/weight-adjuster";
 
 interface SpoolDetailSheetProps {
   spoolId: string | null;
@@ -55,13 +55,16 @@ export function SpoolDetailSheet({ spoolId, open, onClose }: SpoolDetailSheetPro
             </div>
 
             <div className="space-y-2">
-              <div className="flex justify-between text-sm">
+              <div className="flex justify-between text-sm items-center">
                 <span className="text-muted-foreground">Remaining</span>
-                <span
-                  className={`font-mono ${getStockLevelColor(Math.round((spool.remainingWeight / spool.initialWeight) * 100))}`}
-                >
-                  {spool.remainingWeight}g / {spool.initialWeight}g
-                </span>
+                <div className="flex items-center gap-1">
+                  <WeightAdjuster
+                    spoolId={spool.id}
+                    currentWeight={spool.remainingWeight}
+                    initialWeight={spool.initialWeight}
+                  />
+                  <span className="text-xs text-muted-foreground">/ {spool.initialWeight}g</span>
+                </div>
               </div>
               <SpoolProgressBar remaining={spool.remainingWeight} initial={spool.initialWeight} />
             </div>

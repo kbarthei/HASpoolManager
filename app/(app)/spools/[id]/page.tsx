@@ -6,8 +6,8 @@ import { Card } from "@/components/ui/card";
 import { SpoolColorDot } from "@/components/spool/spool-color-dot";
 import { SpoolMaterialBadge } from "@/components/spool/spool-material-badge";
 import { SpoolProgressBar } from "@/components/spool/spool-progress-bar";
-import { getStockLevelColor } from "@/lib/theme";
 import { ExternalLink } from "lucide-react";
+import { WeightAdjuster } from "@/components/spool/weight-adjuster";
 
 export default async function SpoolDetailPage({
   params,
@@ -40,7 +40,6 @@ export default async function SpoolDetailPage({
     },
   });
 
-  const percent = Math.round((spool.remainingWeight / spool.initialWeight) * 100);
   const usedWeight = spool.initialWeight - spool.remainingWeight;
   const costPerGram = spool.purchasePrice
     ? parseFloat(spool.purchasePrice) / spool.initialWeight
@@ -69,9 +68,11 @@ export default async function SpoolDetailPage({
       <div className="grid grid-cols-3 gap-2">
         <Card className="p-3 rounded-xl">
           <div className="text-xs text-muted-foreground">Remaining</div>
-          <div className={`text-lg font-bold font-mono ${getStockLevelColor(percent)}`}>
-            {spool.remainingWeight}g
-          </div>
+          <WeightAdjuster
+            spoolId={spool.id}
+            currentWeight={spool.remainingWeight}
+            initialWeight={spool.initialWeight}
+          />
           <SpoolProgressBar
             remaining={spool.remainingWeight}
             initial={spool.initialWeight}
