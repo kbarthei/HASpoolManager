@@ -84,6 +84,8 @@ export const filamentsRelations = relations(filaments, ({ one, many }) => ({
   spools: many(spools),
   orderItems: many(orderItems),
   reorderRules: many(reorderRules),
+  shopListings: many(shopListings),
+  shoppingListItems: many(shoppingListItems),
 }));
 
 // ─── Printers ───────────────────────────────────────────────────────────────
@@ -581,6 +583,26 @@ export const autoSupplyLogRelations = relations(autoSupplyLog, ({ one }) => ({
   order: one(orders, {
     fields: [autoSupplyLog.orderId],
     references: [orders.id],
+  }),
+}));
+
+// ─── Shopping List ────────────────────────────────────────────────────────────
+
+export const shoppingListItems = pgTable("shopping_list_items", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  filamentId: uuid("filament_id")
+    .notNull()
+    .references(() => filaments.id, { onDelete: "cascade" }),
+  quantity: integer("quantity").notNull().default(1),
+  notes: text("notes"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const shoppingListItemsRelations = relations(shoppingListItems, ({ one }) => ({
+  filament: one(filaments, {
+    fields: [shoppingListItems.filamentId],
+    references: [filaments.id],
   }),
 }));
 

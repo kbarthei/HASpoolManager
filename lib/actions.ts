@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { amsSlots, spools, shops, orders, orderItems, filaments, vendors } from "@/lib/db/schema";
+import { amsSlots, spools, shops, orders, orderItems, filaments, vendors, shoppingListItems } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
@@ -271,5 +271,40 @@ export async function receiveOrder(
   revalidatePath("/");
   revalidatePath("/spools");
   revalidatePath("/storage");
+  revalidatePath("/orders");
+}
+
+export async function addToShoppingList(filamentId: string, quantity: number = 1) {
+  const existing = await db.query.shoppingListItems.findFirst({
+    where: eq(shoppingListItems.filamentId, filamentId),
+  });
+  if (existing) {
+    await db.update(shoppingListItems)
+      .set({ quantity: existing.quantity + quantity, updatedAt: new Date() })
+      .where(eq(shoppingListItems.id, existing.id));
+  } else {
+    await db.insert(shoppingListItems).values({ filamentId, quantity });
+  }
+  revalidatePath("/orders");
+}
+
+export async function removeFromShoppingList(itemId: string) {
+  await db.delete(shoppingListItems).where(eq(shoppingListItems.id, itemId));
+  revalidatePath("/orders");
+}
+
+export async function updateShoppingListQuantity(itemId: string, quantity: number) {
+  if (quantity <= 0) {
+    await db.delete(shoppingListItems).where(eq(shoppingListItems.id, itemId));
+  } else {
+    await db.update(shoppingListItems)
+      .set({ quantity, updatedAt: new Date() })
+      .where(eq(shoppingListItems.id, itemId));
+  }
+  revalidatePath("/orders");
+}
+
+export async function clearShoppingList() {
+  await db.delete(shoppingListItems);
   revalidatePath("/orders");
 }

@@ -146,6 +146,72 @@ export async function getAllPrintUsage() {
   });
 }
 
+export async function getShoppingList() {
+  return db.query.shoppingListItems.findMany({
+    with: { filament: { with: { vendor: true } } },
+    orderBy: [desc(schema.shoppingListItems.createdAt)],
+  });
+}
+
+export async function getFilamentPriceHistory(filamentId: string) {
+  const spoolPrices = await db.query.spools.findMany({
+    where: and(
+      eq(schema.spools.filamentId, filamentId),
+      sql`${schema.spools.purchasePrice} IS NOT NULL`
+    ),
+    columns: { purchasePrice: true, purchaseDate: true, currency: true },
+    orderBy: [desc(schema.spools.createdAt)],
+  });
+
+  const orderItemPrices = await db.query.orderItems.findMany({
+    where: and(
+      eq(schema.orderItems.filamentId, filamentId),
+      sql`${schema.orderItems.unitPrice} IS NOT NULL`
+    ),
+    with: { order: { columns: { orderDate: true } } },
+    columns: { unitPrice: true },
+  });
+
+  const prices = [
+    ...spoolPrices.map(s => ({ price: parseFloat(s.purchasePrice!), date: s.purchaseDate })),
+    ...orderItemPrices.map(oi => ({ price: parseFloat(oi.unitPrice!), date: oi.order.orderDate })),
+  ].filter(p => p.price > 0);
+
+  if (prices.length === 0) return { lastPrice: null, avgPrice: null, minPrice: null, maxPrice: null, count: 0 };
+
+  const sorted = prices.sort((a, b) => String(b.date).localeCompare(String(a.date)));
+  const avg = prices.reduce((sum, p) => sum + p.price, 0) / prices.length;
+
+  return {
+    lastPrice: sorted[0].price,
+    avgPrice: Math.round(avg * 100) / 100,
+    minPrice: Math.min(...prices.map(p => p.price)),
+    maxPrice: Math.max(...prices.map(p => p.price)),
+    count: prices.length,
+  };
+}
+
+export async function getShoppingListWithPrices() {
+  const items = await getShoppingList();
+  const withPrices = await Promise.all(
+    items.map(async (item) => {
+      const priceHistory = await getFilamentPriceHistory(item.filamentId);
+      const listing = await db.query.shopListings.findFirst({
+        where: eq(schema.shopListings.filamentId, item.filamentId),
+        with: { shop: true },
+      });
+      return {
+        ...item,
+        priceHistory,
+        shopUrl: listing?.productUrl || null,
+        shopName: listing?.shop?.name || null,
+        currentShopPrice: listing?.currentPrice ? parseFloat(listing.currentPrice) : null,
+      };
+    })
+  );
+  return withPrices;
+}
+
 export async function getFilamentSummary() {
   const allActive = await db.query.spools.findMany({
     where: eq(schema.spools.status, "active"),
