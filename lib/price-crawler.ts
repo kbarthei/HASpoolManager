@@ -13,11 +13,13 @@ interface PriceResult {
 /** Fetch a product page and extract the price */
 export async function fetchProductPrice(url: string): Promise<PriceResult> {
   try {
+    // Use German locale headers to get EUR prices
     const res = await fetch(url, {
       headers: {
         "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
         "Accept": "text/html",
-        "Accept-Language": "en-US,en;q=0.9,de;q=0.8",
+        "Accept-Language": "de-DE,de;q=0.9,en;q=0.5",
+        "Cookie": "localization=DE; cart_currency=EUR",
       },
     });
     if (!res.ok) return { price: null, currency: "EUR", inStock: null, source: "failed" };
