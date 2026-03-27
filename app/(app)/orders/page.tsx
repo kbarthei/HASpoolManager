@@ -1,11 +1,11 @@
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { or, like, eq } from "drizzle-orm";
-import { getOrders } from "@/lib/queries";
+import { getOrders, getShoppingListWithPrices } from "@/lib/queries";
 import { OrdersClient } from "./orders-client";
 
 export default async function OrdersPage() {
-  const [orders, rackSpools, orderedSpools] = await Promise.all([
+  const [orders, rackSpools, orderedSpools, shoppingList, allFilaments] = await Promise.all([
     getOrders(),
     db.query.spools.findMany({
       where: or(like(schema.spools.location, "rack:%")),
@@ -13,6 +13,11 @@ export default async function OrdersPage() {
     db.query.spools.findMany({
       where: eq(schema.spools.location, "ordered"),
       with: { filament: true },
+    }),
+    getShoppingListWithPrices(),
+    db.query.filaments.findMany({
+      with: { vendor: true },
+      orderBy: (f, { asc }) => [asc(f.name)],
     }),
   ]);
 
@@ -64,6 +69,14 @@ export default async function OrdersPage() {
     <OrdersClient
       orders={JSON.parse(JSON.stringify(enrichedOrders))}
       rack={rack}
+      shoppingList={JSON.parse(JSON.stringify(shoppingList))}
+      allFilaments={JSON.parse(JSON.stringify(allFilaments.map(f => ({
+        id: f.id,
+        name: f.name,
+        material: f.material,
+        colorHex: f.colorHex,
+        vendor: { name: f.vendor.name },
+      }))))}
     />
   );
 }

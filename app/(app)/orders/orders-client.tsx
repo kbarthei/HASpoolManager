@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { Plus, ShoppingCart, Check, ChevronRight } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { ShoppingList } from "@/components/orders/shopping-list";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -51,9 +52,41 @@ interface RackInfo {
   occupiedPositions: string[];
 }
 
+interface ShoppingListItem {
+  id: string;
+  quantity: number;
+  filament: {
+    id: string;
+    name: string;
+    material: string;
+    colorHex: string | null;
+    vendor: { name: string };
+  };
+  priceHistory: {
+    lastPrice: number | null;
+    avgPrice: number | null;
+    minPrice: number | null;
+    maxPrice: number | null;
+    count: number;
+  };
+  shopUrl: string | null;
+  shopName: string | null;
+  currentShopPrice: number | null;
+}
+
+interface FilamentOption {
+  id: string;
+  name: string;
+  material: string;
+  colorHex: string | null;
+  vendor: { name: string };
+}
+
 interface OrdersClientProps {
   orders: Order[];
   rack: RackInfo;
+  shoppingList: ShoppingListItem[];
+  allFilaments: FilamentOption[];
 }
 
 // ─── Pending Order Card ────────────────────────────────────────────────────────
@@ -205,7 +238,7 @@ function MonthHeader({
 
 // ─── Main client component ────────────────────────────────────────────────────
 
-export function OrdersClient({ orders, rack }: OrdersClientProps) {
+export function OrdersClient({ orders, rack, shoppingList, allFilaments }: OrdersClientProps) {
   const router = useRouter();
   const [addOpen, setAddOpen] = useState(false);
   const [receiveOrder, setReceiveOrder] = useState<Order | null>(null);
@@ -346,6 +379,13 @@ export function OrdersClient({ orders, rack }: OrdersClientProps) {
           </Button>
         </div>
       )}
+
+      {/* Shopping List section */}
+      <ShoppingList
+        items={shoppingList}
+        allFilaments={allFilaments}
+        onMarkAsOrdered={() => setAddOpen(true)}
+      />
 
       {/* Pending section */}
       {pendingOrders.length > 0 && (
