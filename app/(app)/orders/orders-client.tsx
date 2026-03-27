@@ -27,6 +27,10 @@ interface OrderItem {
     id: string;
     location: string | null;
   } | null;
+  spools?: Array<{
+    id: string;
+    location: string | null;
+  }>;
 }
 
 interface Order {
@@ -231,7 +235,7 @@ export function OrdersClient({ orders, rack }: OrdersClientProps) {
           id: item.id,
           quantity: item.quantity,
           filament: item.filament,
-          spools: item.spool ? [item.spool] : [],
+          spools: item.spools?.length ? item.spools : item.spool ? [item.spool] : [],
         })),
       }
     : null;
