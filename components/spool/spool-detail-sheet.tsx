@@ -87,6 +87,13 @@ export function SpoolDetailSheet({ spoolId, open, onClose }: SpoolDetailSheetPro
                 <ExternalLink className="h-3 w-3 mr-1" /> View Full Details
               </Button>
             </Link>
+
+            <div className="mt-2">
+              <ArchiveButton
+                spoolId={spool.id}
+                spoolName={`${spool.filament?.vendor?.name} ${spool.filament?.name}`}
+              />
+            </div>
           </div>
         )}
       </SheetContent>
