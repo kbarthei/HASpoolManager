@@ -14,7 +14,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { assignSpoolToRack, moveSpoolInRack, moveSpoolTo } from "@/lib/actions";
+import { assignSpoolToRack, moveSpoolInRack, moveSpoolTo, archiveSpool } from "@/lib/actions";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -157,6 +157,16 @@ export function StorageClient({ spools, surplusSpools, workbenchSpools, rows, co
     }
   }
 
+  async function handleArchive(spoolId: string) {
+    try {
+      await archiveSpool(spoolId);
+      const spool = [...spools, ...surplusSpools, ...workbenchSpools].find(s => s.id === spoolId);
+      toast.success(spool ? `Archived ${spoolLabel(spool)}` : "Spool archived");
+    } catch {
+      toast.error("Failed to archive spool");
+    }
+  }
+
   return (
     <>
       <StorageGrid
@@ -168,6 +178,7 @@ export function StorageClient({ spools, surplusSpools, workbenchSpools, rows, co
         onMoveToSurplus={handleMoveToSurplus}
         onMoveToWorkbench={handleMoveToWorkbench}
         onRemoveFromRack={handleRemoveFromRack}
+        onArchive={handleArchive}
       />
 
       {/* Surplus section */}
@@ -203,6 +214,10 @@ export function StorageClient({ spools, surplusSpools, workbenchSpools, rows, co
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => handleMoveToRack(spool.id)}>
                     Move to Rack
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => handleArchive(spool.id)} className="text-destructive focus:text-destructive">
+                    Archive
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -244,6 +259,10 @@ export function StorageClient({ spools, surplusSpools, workbenchSpools, rows, co
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => handleMoveToRack(spool.id)}>
                     Move to Rack
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => handleArchive(spool.id)} className="text-destructive focus:text-destructive">
+                    Archive
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>

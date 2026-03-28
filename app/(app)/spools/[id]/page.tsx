@@ -8,6 +8,7 @@ import { SpoolMaterialBadge } from "@/components/spool/spool-material-badge";
 import { SpoolProgressBar } from "@/components/spool/spool-progress-bar";
 import { ExternalLink } from "lucide-react";
 import { WeightAdjuster } from "@/components/spool/weight-adjuster";
+import { ArchiveButton } from "@/components/spool/archive-button";
 
 export default async function SpoolDetailPage({
   params,
@@ -135,6 +136,11 @@ export default async function SpoolDetailPage({
           </div>
         </Card>
       )}
+
+      {/* Archive action */}
+      <div className="flex justify-end">
+        <ArchiveButton spoolId={spool.id} spoolName={`${spool.filament.vendor.name} ${spool.filament.name}`} />
+      </div>
 
       {/* Usage History */}
       <Card className="p-3 rounded-xl">

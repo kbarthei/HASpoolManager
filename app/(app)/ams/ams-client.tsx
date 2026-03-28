@@ -5,7 +5,8 @@ import { useQuery } from "@tanstack/react-query";
 import { AmsSection } from "@/components/ams/ams-section";
 import { SpoolDetailSheet } from "@/components/spool/spool-detail-sheet";
 import { SpoolPicker } from "@/components/spool/spool-picker";
-import { loadSpoolToSlot, unloadSlotSpool } from "@/lib/actions";
+import { archiveSpool, loadSpoolToSlot, unloadSlotSpool } from "@/lib/actions";
+import { toast } from "sonner";
 
 interface SlotData {
   id: string;
@@ -83,6 +84,16 @@ export function AmsClient({ initialSlots, printerId }: AmsClientProps) {
     }
   };
 
+  const handleClickArchive = async (spoolId: string) => {
+    try {
+      await archiveSpool(spoolId);
+      const spool = typedSlots.find(s => s.spool?.id === spoolId)?.spool;
+      toast.success(spool ? `Archived ${spool.filament.vendor.name} ${spool.filament.name}` : "Spool archived");
+    } catch {
+      toast.error("Failed to archive spool");
+    }
+  };
+
   const handlePickerSelect = async (spoolId: string) => {
     if (!selectedSlotId) return;
     try {
@@ -110,6 +121,7 @@ export function AmsClient({ initialSlots, printerId }: AmsClientProps) {
               onClickSpool={handleClickSpool}
               onClickLoad={handleClickLoad}
               onClickUnload={handleClickUnload}
+              onClickArchive={handleClickArchive}
             />
           );
         })}

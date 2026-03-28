@@ -4,7 +4,7 @@ import { SpoolColorDot } from "@/components/spool/spool-color-dot";
 import { SpoolProgressBar } from "@/components/spool/spool-progress-bar";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { X } from "lucide-react";
+import { Archive, X } from "lucide-react";
 
 interface SlotSpool {
   id: string;
@@ -31,9 +31,10 @@ interface AmsSlotCardProps {
   onClickSpool?: (spoolId: string) => void;
   onClickLoad?: (slotId: string) => void;
   onClickUnload?: (slotId: string) => void;
+  onClickArchive?: (spoolId: string) => void;
 }
 
-export function AmsSlotCard({ slot, onClickSpool, onClickLoad, onClickUnload }: AmsSlotCardProps) {
+export function AmsSlotCard({ slot, onClickSpool, onClickLoad, onClickUnload, onClickArchive }: AmsSlotCardProps) {
   const spool = slot.spool;
   const colorHex = spool?.filament.colorHex ?? null;
   const accentColor = colorHex ? `#${colorHex.replace("#", "")}` : undefined;
@@ -105,16 +106,28 @@ export function AmsSlotCard({ slot, onClickSpool, onClickLoad, onClickUnload }: 
         <span className="text-xs font-mono w-8 text-right">{percent}%</span>
       </div>
 
-      <button
-        className="absolute top-1 right-1 h-5 w-5 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-        onClick={(e) => {
-          e.stopPropagation();
-          onClickUnload?.(slot.id);
-        }}
-        aria-label="Unload spool"
-      >
-        <X className="h-3 w-3" />
-      </button>
+      <div className="absolute top-1 right-1 flex items-center gap-0.5">
+        <button
+          className="h-5 w-5 rounded-full flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-muted transition-colors"
+          onClick={(e) => {
+            e.stopPropagation();
+            onClickArchive?.(spool.id);
+          }}
+          aria-label="Archive spool"
+        >
+          <Archive className="h-3 w-3" />
+        </button>
+        <button
+          className="h-5 w-5 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          onClick={(e) => {
+            e.stopPropagation();
+            onClickUnload?.(slot.id);
+          }}
+          aria-label="Unload spool"
+        >
+          <X className="h-3 w-3" />
+        </button>
+      </div>
     </div>
   );
 }

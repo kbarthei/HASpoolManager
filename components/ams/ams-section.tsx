@@ -28,9 +28,10 @@ interface AmsSectionProps {
   onClickSpool?: (spoolId: string) => void;
   onClickLoad?: (slotId: string) => void;
   onClickUnload?: (slotId: string) => void;
+  onClickArchive?: (spoolId: string) => void;
 }
 
-export function AmsSection({ label, slots, onClickSpool, onClickLoad, onClickUnload }: AmsSectionProps) {
+export function AmsSection({ label, slots, onClickSpool, onClickLoad, onClickUnload, onClickArchive }: AmsSectionProps) {
   return (
     <div className="space-y-1.5">
       <div className="text-xs uppercase tracking-wide text-muted-foreground font-medium px-0.5">
@@ -44,6 +45,7 @@ export function AmsSection({ label, slots, onClickSpool, onClickLoad, onClickUnl
             onClickSpool={onClickSpool}
             onClickLoad={onClickLoad}
             onClickUnload={onClickUnload}
+            onClickArchive={onClickArchive}
           />
         ))}
       </div>

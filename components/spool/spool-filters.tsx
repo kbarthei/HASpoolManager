@@ -165,6 +165,7 @@ export function SpoolFilters({
             <SelectItem value="active">Active</SelectItem>
             <SelectItem value="low">Low Stock</SelectItem>
             <SelectItem value="empty">Empty</SelectItem>
+            <SelectItem value="archived">Archived</SelectItem>
           </SelectContent>
         </Select>
       </div>

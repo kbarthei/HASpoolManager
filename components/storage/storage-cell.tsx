@@ -29,6 +29,7 @@ interface StorageCellProps {
   onMoveToSurplus?: (spoolId: string) => void;
   onMoveToWorkbench?: (spoolId: string) => void;
   onRemoveFromRack?: (spoolId: string) => void;
+  onArchive?: (spoolId: string) => void;
   isDragging?: boolean;
   isDragOver?: boolean;
   onDragStart?: (e: React.DragEvent) => void;
@@ -45,6 +46,7 @@ export function StorageCell({
   onMoveToSurplus,
   onMoveToWorkbench,
   onRemoveFromRack,
+  onArchive,
   isDragging,
   isDragOver,
   onDragStart,
@@ -112,6 +114,10 @@ export function StorageCell({
             className="text-destructive focus:text-destructive"
           >
             Remove from Rack
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => onArchive?.(spool.id)} className="text-destructive focus:text-destructive">
+            Archive
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

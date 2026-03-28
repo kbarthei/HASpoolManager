@@ -31,6 +31,11 @@ export default async function SpoolsPage({
     allSpools = allSpools.filter((s) => s.status === "active");
   } else if (params.status === "empty") {
     allSpools = allSpools.filter((s) => s.status === "empty");
+  } else if (params.status === "archived") {
+    allSpools = allSpools.filter((s) => s.status === "archived");
+  } else {
+    // Default: hide archived spools
+    allSpools = allSpools.filter((s) => s.status !== "archived");
   }
   if (params.search) {
     const q = params.search.toLowerCase();

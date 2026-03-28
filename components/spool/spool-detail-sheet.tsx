@@ -9,6 +9,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ExternalLink } from "lucide-react";
 import { WeightAdjuster } from "@/components/spool/weight-adjuster";
+import { ArchiveButton } from "@/components/spool/archive-button";
 
 interface SpoolDetailSheetProps {
   spoolId: string | null;

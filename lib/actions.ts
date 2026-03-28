@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { amsSlots, spools, shops, orders, orderItems, filaments, vendors, shoppingListItems, shopListings } from "@/lib/db/schema";
+import { amsSlots, spools, shops, orders, orderItems, filaments, vendors, shoppingListItems, shopListings, tagMappings, printUsage } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
@@ -335,4 +335,57 @@ export async function updateShoppingListQuantity(itemId: string, quantity: numbe
 export async function clearShoppingList() {
   await db.delete(shoppingListItems);
   revalidatePath("/orders");
+}
+
+export async function archiveSpool(spoolId: string) {
+  // If spool is in an AMS slot, clear the slot first
+  const slot = await db.query.amsSlots.findFirst({
+    where: eq(amsSlots.spoolId, spoolId),
+  });
+  if (slot) {
+    await db.update(amsSlots).set({ spoolId: null, isEmpty: true, updatedAt: new Date() }).where(eq(amsSlots.id, slot.id));
+  }
+
+  await db.update(spools).set({
+    status: "archived",
+    location: "archive",
+    updatedAt: new Date(),
+  }).where(eq(spools.id, spoolId));
+
+  revalidatePath("/");
+  revalidatePath("/spools");
+  revalidatePath("/storage");
+  revalidatePath("/ams");
+}
+
+export async function restoreSpool(spoolId: string) {
+  await db.update(spools).set({
+    status: "active",
+    location: "surplus",
+    updatedAt: new Date(),
+  }).where(eq(spools.id, spoolId));
+
+  revalidatePath("/");
+  revalidatePath("/spools");
+  revalidatePath("/storage");
+}
+
+export async function permanentlyDeleteSpool(spoolId: string) {
+  // Delete tag mappings
+  await db.delete(tagMappings).where(eq(tagMappings.spoolId, spoolId));
+  // Delete print usage records
+  await db.delete(printUsage).where(eq(printUsage.spoolId, spoolId));
+  // Null out order item references
+  await db.update(orderItems).set({ spoolId: null }).where(eq(orderItems.spoolId, spoolId));
+  // Delete the spool
+  await db.delete(spools).where(eq(spools.id, spoolId));
+
+  revalidatePath("/spools");
+}
+
+export async function bulkDeleteSpools(spoolIds: string[]) {
+  for (const id of spoolIds) {
+    await permanentlyDeleteSpool(id);
+  }
+  revalidatePath("/spools");
 }
