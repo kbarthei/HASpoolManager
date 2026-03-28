@@ -4,6 +4,7 @@ import { amsSlots, spools } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { requireAuth } from "@/lib/auth";
 import { matchSpool } from "@/lib/matching";
+import { validateBody, amsSlotChangedSchema } from "@/lib/validations";
 
 /**
  * POST /api/v1/events/ams-slot-changed
@@ -32,16 +33,14 @@ export async function POST(request: NextRequest) {
   if (!auth.authenticated) return auth.response;
 
   try {
-    const body = await request.json();
-
-    if (body.printer_id == null || body.ams_index == null || body.tray_index == null) {
-      return NextResponse.json(
-        { error: "printer_id, ams_index, and tray_index are required" },
-        { status: 400 }
-      );
+    const raw = await request.json();
+    const validation = validateBody(amsSlotChangedSchema, raw);
+    if (!validation.success) {
+      return NextResponse.json({ error: validation.error }, { status: 400 });
     }
+    const body = validation.data;
 
-    const slotType = body.slot_type || "ams";
+    const slotType = body.slot_type ?? "ams";
 
     // Find or create the AMS slot
     let slot = await db.query.amsSlots.findFirst({
@@ -62,11 +61,11 @@ export async function POST(request: NextRequest) {
 
     if (!isEmpty) {
       matchResult = await matchSpool({
-        tag_uid: body.tag_uid,
-        tray_info_idx: body.tray_info_idx,
-        tray_type: body.tray_type,
-        tray_color: body.tray_color,
-        tray_sub_brands: body.tray_sub_brands,
+        tag_uid: body.tag_uid ?? undefined,
+        tray_info_idx: body.tray_info_idx ?? undefined,
+        tray_type: body.tray_type ?? undefined,
+        tray_color: body.tray_color ?? undefined,
+        tray_sub_brands: body.tray_sub_brands ?? undefined,
         printer_id: body.printer_id,
         ams_index: body.ams_index,
         tray_index: body.tray_index,

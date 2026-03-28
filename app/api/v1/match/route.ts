@@ -1,13 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth";
 import { matchSpool, type MatchRequest } from "@/lib/matching";
+import { validateBody, matchRequestSchema } from "@/lib/validations";
 
 export async function POST(request: NextRequest) {
   const auth = await requireAuth(request);
   if (!auth.authenticated) return auth.response;
 
   try {
-    const body: MatchRequest = await request.json();
+    const raw = await request.json();
+    const validation = validateBody(matchRequestSchema, raw);
+    if (!validation.success) {
+      return NextResponse.json({ error: validation.error }, { status: 400 });
+    }
+    const body: MatchRequest = validation.data;
 
     if (!body.tag_uid && !body.tray_info_idx && !body.tray_type && !body.tray_color) {
       return NextResponse.json(

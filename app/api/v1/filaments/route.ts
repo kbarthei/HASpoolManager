@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { filaments } from "@/lib/db/schema";
 import { eq, and, type SQL } from "drizzle-orm";
 import { requireAuth } from "@/lib/auth";
+import { validateBody, createFilamentSchema } from "@/lib/validations";
 
 export async function GET(request: NextRequest) {
   const auth = await requireAuth(request);
@@ -39,7 +40,11 @@ export async function POST(request: NextRequest) {
   if (!auth.authenticated) return auth.response;
 
   try {
-    const body = await request.json();
+    const raw = await request.json();
+    const validation = validateBody(createFilamentSchema, raw);
+    if (!validation.success) {
+      return NextResponse.json({ error: validation.error }, { status: 400 });
+    }
     const {
       vendorId,
       name,
@@ -57,14 +62,7 @@ export async function POST(request: NextRequest) {
       spoolWeight,
       bambuIdx,
       notes,
-    } = body;
-
-    if (!vendorId || !name || !material) {
-      return NextResponse.json(
-        { error: "vendorId, name, and material are required" },
-        { status: 400 }
-      );
-    }
+    } = validation.data;
 
     const [filament] = await db
       .insert(filaments)

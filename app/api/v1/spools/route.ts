@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { spools } from "@/lib/db/schema";
 import { eq, and, type SQL } from "drizzle-orm";
 import { requireAuth, optionalAuth } from "@/lib/auth";
+import { validateBody, createSpoolSchema } from "@/lib/validations";
 
 export async function GET(request: NextRequest) {
   const auth = await optionalAuth(request);
@@ -44,7 +45,12 @@ export async function POST(request: NextRequest) {
   if (!auth.authenticated) return auth.response;
 
   try {
-    const body = await request.json();
+    const raw = await request.json();
+    const validation = validateBody(createSpoolSchema, raw);
+    if (!validation.success) {
+      return NextResponse.json({ error: validation.error }, { status: 400 });
+    }
+    const body = validation.data;
 
     const [spool] = await db
       .insert(spools)
@@ -52,7 +58,7 @@ export async function POST(request: NextRequest) {
         filamentId: body.filamentId,
         lotNumber: body.lotNumber,
         purchaseDate: body.purchaseDate,
-        purchasePrice: body.purchasePrice,
+        purchasePrice: body.purchasePrice != null ? String(body.purchasePrice) : undefined,
         currency: body.currency,
         initialWeight: body.initialWeight,
         remainingWeight: body.remainingWeight ?? body.initialWeight,

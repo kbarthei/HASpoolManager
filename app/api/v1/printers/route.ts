@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { printers } from "@/lib/db/schema";
 import { requireAuth, optionalAuth } from "@/lib/auth";
+import { validateBody, createPrinterSchema } from "@/lib/validations";
 
 // GET /api/v1/printers — List all printers with amsSlots
 export async function GET(request: NextRequest) {
@@ -30,16 +31,18 @@ export async function POST(request: NextRequest) {
   if (!auth.authenticated) return auth.response;
 
   try {
-    const body = await request.json();
+    const raw = await request.json();
+    const validation = validateBody(createPrinterSchema, raw);
+    if (!validation.success) {
+      return NextResponse.json({ error: validation.error }, { status: 400 });
+    }
+    const body = validation.data;
 
     const [printer] = await db
       .insert(printers)
       .values({
         name: body.name,
         model: body.model,
-        serial: body.serial,
-        mqttTopic: body.mqttTopic,
-        haDeviceId: body.haDeviceId,
         ipAddress: body.ipAddress,
         amsCount: body.amsCount,
       })

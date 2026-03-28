@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { tagMappings } from "@/lib/db/schema";
 import { requireAuth, optionalAuth } from "@/lib/auth";
+import { validateBody, createTagSchema } from "@/lib/validations";
 
 export async function GET(request: NextRequest) {
   const auth = await optionalAuth(request);
@@ -27,14 +28,19 @@ export async function POST(request: NextRequest) {
   if (!auth.authenticated) return auth.response;
 
   try {
-    const body = await request.json();
+    const raw = await request.json();
+    const validation = validateBody(createTagSchema, raw);
+    if (!validation.success) {
+      return NextResponse.json({ error: validation.error }, { status: 400 });
+    }
+    const { tagUid, spoolId, source } = validation.data;
 
     const [tag] = await db
       .insert(tagMappings)
       .values({
-        tagUid: body.tagUid,
-        spoolId: body.spoolId,
-        source: body.source,
+        tagUid,
+        spoolId,
+        source,
       })
       .returning();
 

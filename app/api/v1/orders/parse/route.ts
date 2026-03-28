@@ -3,6 +3,7 @@ import { generateText } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
 import { optionalAuth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { validateBody, orderParseSchema } from "@/lib/validations";
 
 const SYSTEM_PROMPT = `You extract 3D printing filament order data from text (email confirmations, product pages, or product descriptions).
 
@@ -44,10 +45,12 @@ export async function POST(request: NextRequest) {
   if (!auth.authenticated) return auth.response;
 
   try {
-    const { text } = await request.json();
-    if (!text || typeof text !== "string") {
-      return NextResponse.json({ error: "text is required" }, { status: 400 });
+    const raw = await request.json();
+    const validation = validateBody(orderParseSchema, raw);
+    if (!validation.success) {
+      return NextResponse.json({ error: validation.error }, { status: 400 });
     }
+    const { text } = validation.data;
 
     // Detect input type
     const inputType = text.trim().startsWith("http")
@@ -87,7 +90,7 @@ export async function POST(request: NextRequest) {
 
     // Call AI to extract order data
     const { text: aiResponse } = await generateText({
-      model: anthropic("claude-sonnet-4-6"),
+      model: anthropic("claude-sonnet-4.6"),
       system: SYSTEM_PROMPT,
       prompt: contentToParse,
     });

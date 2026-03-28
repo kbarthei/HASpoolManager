@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { vendors } from "@/lib/db/schema";
 import { requireAuth } from "@/lib/auth";
 import { asc } from "drizzle-orm";
+import { validateBody, createVendorSchema } from "@/lib/validations";
 
 export async function GET(request: NextRequest) {
   const auth = await requireAuth(request);
@@ -29,19 +30,16 @@ export async function POST(request: NextRequest) {
   if (!auth.authenticated) return auth.response;
 
   try {
-    const body = await request.json();
-    const { name, website, country, logoUrl, bambuPrefix, notes } = body;
-
-    if (!name) {
-      return NextResponse.json(
-        { error: "Name is required" },
-        { status: 400 }
-      );
+    const raw = await request.json();
+    const validation = validateBody(createVendorSchema, raw);
+    if (!validation.success) {
+      return NextResponse.json({ error: validation.error }, { status: 400 });
     }
+    const { name, website, country, notes } = validation.data;
 
     const [vendor] = await db
       .insert(vendors)
-      .values({ name, website, country, logoUrl, bambuPrefix, notes })
+      .values({ name, website, country, notes })
       .returning();
 
     return NextResponse.json(vendor, { status: 201 });

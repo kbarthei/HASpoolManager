@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { prints } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { requireAuth } from "@/lib/auth";
+import { validateBody, printStartedSchema } from "@/lib/validations";
 
 /**
  * POST /api/v1/events/print-started
@@ -25,14 +26,12 @@ export async function POST(request: NextRequest) {
   if (!auth.authenticated) return auth.response;
 
   try {
-    const body = await request.json();
-
-    if (!body.printer_id) {
-      return NextResponse.json(
-        { error: "printer_id is required" },
-        { status: 400 }
-      );
+    const raw = await request.json();
+    const validation = validateBody(printStartedSchema, raw);
+    if (!validation.success) {
+      return NextResponse.json({ error: validation.error }, { status: 400 });
     }
+    const body = validation.data;
 
     // Idempotency check
     if (body.ha_event_id) {

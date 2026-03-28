@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { prints, printUsage, spools } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { requireAuth } from "@/lib/auth";
+import { validateBody, printFinishedSchema } from "@/lib/validations";
 
 /**
  * POST /api/v1/events/print-finished
@@ -29,7 +30,12 @@ export async function POST(request: NextRequest) {
   if (!auth.authenticated) return auth.response;
 
   try {
-    const body = await request.json();
+    const raw = await request.json();
+    const validation = validateBody(printFinishedSchema, raw);
+    if (!validation.success) {
+      return NextResponse.json({ error: validation.error }, { status: 400 });
+    }
+    const body = validation.data;
 
     // Find the print record
     let print;
@@ -76,13 +82,8 @@ export async function POST(request: NextRequest) {
     const warnings: string[] = [];
     let totalCost = 0;
 
-    if (body.usage && Array.isArray(body.usage)) {
+    if (body.usage && body.usage.length > 0) {
       for (const entry of body.usage) {
-        if (!entry.spool_id || !entry.weight_used) {
-          warnings.push(`Skipped usage entry: missing spool_id or weight_used`);
-          continue;
-        }
-
         const spool = await db.query.spools.findFirst({
           where: eq(spools.id, entry.spool_id),
           with: { filament: true },
