@@ -57,10 +57,11 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Run e2e tests
-        if: env.DATABASE_URL != ''
         run: npx playwright test
         env:
           CI: true
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          API_SECRET_KEY: ${{ secrets.API_SECRET_KEY }}
 
       - name: Upload test report
         if: failure()
