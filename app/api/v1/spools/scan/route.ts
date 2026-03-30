@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { text: aiResponse } = await generateText({
-      model: anthropic("claude-sonnet-4.6"),
+      model: anthropic("claude-sonnet-4-6"),
       system: SYSTEM_PROMPT,
       messages: [
         {

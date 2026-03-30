@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
 
     // Call AI to extract order data
     const { text: aiResponse } = await generateText({
-      model: anthropic("claude-sonnet-4.6"),
+      model: anthropic("claude-sonnet-4-6"),
       system: SYSTEM_PROMPT,
       prompt: contentToParse,
     });
