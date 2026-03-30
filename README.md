@@ -7,70 +7,42 @@
 [![Vercel](https://img.shields.io/badge/deployed-Vercel-black?logo=vercel)](https://haspoolmanager.vercel.app)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-**[Live Demo](https://haspoolmanager.vercel.app)** — Bambu Lab H2S · AMS + AMS HT · Home Assistant
+**[Live Demo](https://haspoolmanager.vercel.app)** · Bambu Lab H2S · AMS + AMS HT · Home Assistant
 
 ---
 
-## The Problem
+## What is HASpoolManager?
 
-Managing 30+ filament spools across storage, AMS slots, and active prints is chaos.
+HASpoolManager is a modern web application that replaces Spoolman for Bambu Lab printer setups — covering the complete filament journey from first purchase to final print. It tracks 30+ spools across physical storage, AMS slots, and active prints; automatically deducts filament weight after each job via Home Assistant webhooks; parses order confirmation emails with AI to log new stock in seconds; and surfaces per-print costs, price history, and reorder alerts in a dense, mobile-first UI built for use at the printer.
 
-- Which spool is in which AMS slot right now?
-- How much filament is left on each spool?
-- What did that last print actually cost?
-- Which materials are running low and need reordering?
-
-Spoolman covers inventory. It doesn't cover the full picture.
-
----
-
-## The Solution
-
-HASpoolManager covers the complete filament lifecycle end-to-end:
-
-**Purchase → Store → Load → Print → Track → Reorder**
-
-A modern web app built for the printer bench — dense layout, fast on mobile, dark-mode first — with deep Home Assistant integration for automatic weight deduction after every print.
+**Purchase → Inventory → Storage → AMS Loading → Print Tracking → Usage Deduction → Cost Analytics → Reorder Alerts**
 
 ---
 
 ## Key Features
 
-### 🎯 Smart Spool Matching
-- **RFID exact match** for Bambu Lab spools with embedded tags
-- **CIE Delta-E color distance** matching for third-party spools
-- **Bambu filament index** cross-reference
-- Confidence scoring across all match strategies
+| | Feature | Description |
+|---|---|---|
+| 🎯 | **AI-Powered Order Parsing** | Paste an order confirmation email — Claude extracts every filament line item, quantity, unit price, and shop automatically |
+| 📦 | **Smart Inventory** | Track 30+ spools across rack, AMS, surplus pile, and workbench with full lifecycle state machine |
+| 🖨️ | **AMS Integration** | Real-time slot status for AMS, AMS HT, and external spool; RFID exact match + CIE Delta-E color distance fuzzy matching |
+| 📊 | **Cost Tracking** | Per-print filament costs, per-gram price history, shopping list with live price crawling from shop product pages |
+| 🏗️ | **Digital Rack Twin** | Configurable 4×8 grid mirrors your physical spool rack exactly — drag & drop positions, overflow areas, archive mode |
+| 🔄 | **Full Lifecycle** | Order → Receive → Store → Load → Print → Track → Archive with confidence-scored spool matching at every step |
+| 🏠 | **Home Assistant Ready** | Webhook-based event system — print started/filament changed/finished — automatic weight deduction, no polling required |
+| 🌗 | **Apple Health Design** | Clean light/dark UI with teal accent, Geist fonts, dense mobile-first layout optimized for thumb use at the printer |
 
-### 📦 AI-Powered Order Management
-- Paste an order confirmation email — AI extracts every line item automatically
-- Price history and per-gram cost comparison across orders
-- Live price crawling from shop product pages
-- Powered by Anthropic Claude
+---
 
-### 🗄️ Digital Twin Storage Rack
-- Configurable grid (4×8 default) mirrors your physical rack exactly
-- Drag & drop between rack positions
-- Surplus pile and workbench overflow areas
-- Archive mode for empty spools
+## Screenshots
 
-### 🖨️ AMS Integration
-- Real-time slot status for AMS, AMS HT, and external spool
-- Load/unload spools with the matching engine
-- Live refresh every 30 seconds via React Query
-- Slot history and swap tracking
-
-### 📊 Dashboard
-- At-a-glance: active spools, printer status, costs, low stock alerts
-- Filament summary by vendor and material type
-- Recent prints with per-print cost breakdown
-- Reorder threshold alerts
-
-### 🏠 Home Assistant Integration
-- Webhook-based event system — no polling required
-- Print lifecycle events: started → filament changed → finished
-- Automatic weight deduction and cost calculation per print
-- Full offline fallback for when HA is unreachable
+<!-- TODO: Add screenshots once stable UI is finalized -->
+<!-- Planned captures:
+  - Dashboard: stats summary, AMS mini view, low stock alerts, recent print costs
+  - Spool inventory: grid and list views with filter/sort controls
+  - Storage rack: 4×8 digital twin with drag & drop
+  - Order parser: AI extraction flow from email paste to confirmed line items
+-->
 
 ---
 
@@ -81,25 +53,25 @@ graph TB
     subgraph "Frontend"
         UI[Next.js 16 App Router]
         SC[Server Components]
-        RQ[React Query Live Refresh]
+        RQ[React Query · Live Refresh]
     end
 
     subgraph "Backend"
         API[22 REST API Endpoints]
         SA[Server Actions]
         AI[AI Order Parser]
-        ME[Matching Engine]
+        ME[Spool Matching Engine]
         PC[Price Crawler]
     end
 
     subgraph "Data"
-        DB[(Neon Postgres\n20 Tables)]
+        DB[(Neon Postgres · 20 Tables)]
     end
 
     subgraph "External"
         HA[Home Assistant]
         SHOPS[Shop Websites]
-        CLAUDE[Claude AI]
+        CLAUDE[Anthropic Claude]
     end
 
     UI --> SC
@@ -117,12 +89,30 @@ graph TB
 
 | Metric | Count |
 |--------|-------|
-| TypeScript lines | 11,895 |
+| TypeScript lines | ~12,000 |
 | React components | 47 |
 | API endpoints | 22 |
 | Database tables | 20 |
 | Unit tests | 154 |
 | E2E test specs | 30+ |
+| Smoke tests | 11 |
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Frontend | Next.js 16 (App Router, Server Components, Turbopack) |
+| UI | shadcn/ui, Tailwind CSS v4, Geist fonts, Recharts |
+| Backend | Next.js API Routes, Server Actions, Zod validation |
+| Database | Neon Postgres, Drizzle ORM |
+| AI | Anthropic Claude (order parsing, price extraction) |
+| Hosting | Vercel (Frankfurt · fra1 region) |
+| Auth | API key (HA integration), optional password (web UI) |
+| Monitoring | Sentry (error tracking) |
+| Testing | Vitest (unit), Playwright (e2e), smoke tests |
+| CI/CD | GitHub Actions, Vercel auto-deploy |
 
 ---
 
@@ -141,7 +131,7 @@ git clone https://github.com/kbarthei/HASpoolManager.git
 cd HASpoolManager
 npm install
 cp .env.example .env.local
-# Edit .env.local — set DATABASE_URL and API_SECRET_KEY
+# Edit .env.local — set DATABASE_URL, API_SECRET_KEY, and ANTHROPIC_API_KEY
 npm run db:migrate
 npm run dev
 ```
@@ -157,6 +147,18 @@ vercel env pull
 vercel --prod
 ```
 
+### Development Commands
+
+```bash
+npm run dev          # Start dev server (Turbopack)
+npm run build        # Production build
+npm run test         # Run Vitest unit tests (154 tests)
+npm run test:e2e     # Run Playwright e2e tests
+npm run db:push      # Push schema changes (dev)
+npm run db:migrate   # Run migrations
+npm run db:studio    # Open Drizzle Studio
+```
+
 ---
 
 ## Documentation
@@ -164,43 +166,14 @@ vercel --prod
 | Document | Description |
 |----------|-------------|
 | [Architecture Overview](docs/architecture/overview.md) | System design, data flow, tech decisions |
-| [Data Model](docs/architecture/data-model.md) | ER diagram, all 20 tables explained |
-| [API Reference](docs/architecture/api-reference.md) | All 22 endpoints with examples |
+| [Data Model](docs/architecture/data-model.md) | ER diagram and all 20 tables explained |
+| [API Reference](docs/architecture/api-reference.md) | All 22 endpoints with request/response examples |
 | [Getting Started](docs/guides/getting-started.md) | 5-minute setup guide |
-| [Deployment](docs/guides/deployment.md) | Vercel deployment & configuration |
+| [Deployment](docs/guides/deployment.md) | Vercel deployment & environment configuration |
 | [Procurement Workflow](docs/user-stories/procurement.md) | Order → Receive → Store |
 | [Printing Workflow](docs/user-stories/printing.md) | AMS → Print → Cost Tracking |
 | [Spool Management](docs/user-stories/spool-management.md) | Rack, surplus, workbench, archive |
 | [Contributing](CONTRIBUTING.md) | Development setup & PR process |
-
----
-
-## Tech Stack
-
-| Layer | Technology |
-|-------|-----------|
-| Framework | Next.js 16 (App Router, Server Components) |
-| UI | shadcn/ui, Tailwind CSS v4, Geist fonts |
-| Database | Neon Postgres, Drizzle ORM |
-| Hosting | Vercel (Frankfurt region) |
-| AI | Anthropic Claude (order parsing) |
-| Testing | Vitest (154 unit tests), Playwright (30+ e2e specs) |
-| CI/CD | GitHub Actions, Vercel auto-deploy |
-| Monitoring | Sentry (error tracking) |
-
----
-
-## Development Commands
-
-```bash
-npm run dev          # Start dev server (Turbopack)
-npm run build        # Production build
-npm run test         # Run Vitest unit tests
-npm run test:e2e     # Run Playwright e2e tests
-npm run db:push      # Push schema to Neon (dev)
-npm run db:migrate   # Run migrations
-npm run db:studio    # Open Drizzle Studio
-```
 
 ---
 
@@ -209,15 +182,16 @@ npm run db:studio    # Open Drizzle Studio
 ```
 Vitest unit tests:     154 passing
 Playwright e2e specs:  30+
+Smoke tests:           11
 ```
 
-Unit tests cover matching engine logic, API route validation (Zod schemas), cost calculation, and data transformation utilities. Playwright e2e tests cover the full user flows: order creation, rack management, AMS loading, and print tracking.
+Unit tests cover the spool matching engine (RFID, CIE Delta-E, fuzzy), API route validation (Zod schemas), cost calculation, and data transformation utilities. Playwright e2e tests cover full user flows: order creation, rack management, AMS loading, and print tracking. Smoke tests verify critical API endpoints on every deploy.
 
 ---
 
-## Design
+## Project Status
 
-Apple Health-inspired interface with a teal accent color, full light + dark mode (system preference), and a dense layout optimized for use at the printer. Built mobile-first — the most-used views (AMS slots, rack, dashboard) are thumb-friendly at 390px width.
+Actively developed as a personal tool replacing Spoolman for a Bambu Lab H2S setup (AMS 4-slot + AMS HT 1-slot) with 30+ filament spools managed via Home Assistant.
 
 ---
 
@@ -227,4 +201,4 @@ MIT — see [LICENSE](LICENSE).
 
 ---
 
-Built with [Claude Code](https://claude.ai/code) by [@kbarthei](https://github.com/kbarthei)
+Built with [Claude Code](https://claude.ai/code) by [@kbarthei](https://github.com/kbarthei) · Deployed on [Vercel](https://vercel.com)
