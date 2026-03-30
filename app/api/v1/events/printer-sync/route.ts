@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { prints, amsSlots, spools, syncLog } from "@/lib/db/schema";
+import { prints, amsSlots, spools, syncLog, printUsage } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { requireAuth } from "@/lib/auth";
 import { matchSpool } from "@/lib/matching";
@@ -72,6 +72,97 @@ const SLOT_DEFS = [
   { key: "slot_ext", slotType: "external", amsIndex: -1, trayIndex: 0 },
 ] as const;
 
+/**
+ * Create print_usage record: link print to spool, deduct weight, calculate cost.
+ * Uses the active_slot sensor data to identify which spool was used.
+ */
+async function createPrintUsage(
+  printId: string,
+  printerId: string,
+  weightUsed: number,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  body: any
+) {
+  try {
+    // Try to identify the active spool from active_slot_* fields
+    const activeTag = str(body.active_slot_tag);
+    const activeType = str(body.active_slot_type);
+    const activeColor = str(body.active_slot_color).replace("#", "").slice(0, 8);
+    const activeFilamentId = str(body.active_slot_filament_id);
+
+    if (!activeType && !activeTag) {
+      // No active slot info — try to find the spool from the AMS slots
+      // Look for the slot that's loaded and most likely used
+      console.log(`[printer-sync] No active_slot data, skipping usage record`);
+      return;
+    }
+
+    // Match the active spool
+    const matchResult = await matchSpool({
+      tag_uid: activeTag || undefined,
+      tray_info_idx: activeFilamentId || undefined,
+      tray_type: activeType || undefined,
+      tray_color: activeColor || undefined,
+      printer_id: printerId,
+      ams_index: 0,
+      tray_index: 0,
+    });
+
+    if (!matchResult.match) {
+      console.log(`[printer-sync] Could not match active spool for usage`);
+      return;
+    }
+
+    const spoolId = matchResult.match.spool_id;
+
+    // Get the spool to calculate cost
+    const spool = await db.query.spools.findFirst({
+      where: eq(spools.id, spoolId),
+      with: { filament: true },
+    });
+    if (!spool) return;
+
+    // Calculate cost: (weight_used / initial_weight) * purchase_price
+    let cost: string | null = null;
+    if (spool.purchasePrice && spool.initialWeight > 0) {
+      const pricePerGram = Number(spool.purchasePrice) / spool.initialWeight;
+      cost = (pricePerGram * weightUsed).toFixed(2);
+    }
+
+    // Check for existing usage record (idempotency)
+    const existing = await db.query.printUsage.findFirst({
+      where: eq(printUsage.printId, printId),
+    });
+    if (existing) return;
+
+    // Create usage record
+    await db.insert(printUsage).values({
+      printId,
+      spoolId,
+      weightUsed,
+      cost,
+    });
+
+    // Deduct weight from spool
+    const newWeight = Math.max(0, spool.remainingWeight - weightUsed);
+    await db.update(spools).set({
+      remainingWeight: newWeight,
+      status: newWeight <= 0 ? "empty" : "active",
+      updatedAt: new Date(),
+    }).where(eq(spools.id, spoolId));
+
+    // Update total cost on print
+    await db.update(prints).set({
+      totalCost: cost,
+      updatedAt: new Date(),
+    }).where(eq(prints.id, printId));
+
+    console.log(`[printer-sync] USAGE: spool=${matchResult.match.filament_name} weight=${weightUsed}g cost=${cost}€ remaining=${newWeight}g`);
+  } catch (error) {
+    console.error("[printer-sync] Error creating print usage:", error);
+  }
+}
+
 export async function POST(request: NextRequest) {
   const auth = await requireAuth(request);
   if (!auth.authenticated) return auth.response;
@@ -135,44 +226,43 @@ export async function POST(request: NextRequest) {
       } else {
         affectedPrintId = existing.id;
       }
-    } else if (runningPrint && isFinished) {
-      // Print completed
+    } else if (runningPrint && (isFinished || (isIdle && !printError))) {
+      // Print completed (or idle = missed finish)
+      const finalWeight = printWeight || runningPrint.printWeight;
       await db.update(prints).set({
         status: "finished",
         finishedAt: new Date(),
         durationSeconds: runningPrint.startedAt
           ? Math.floor((Date.now() - new Date(runningPrint.startedAt).getTime()) / 1000)
           : null,
-        printWeight: printWeight || runningPrint.printWeight,
+        printWeight: finalWeight,
         updatedAt: new Date(),
       }).where(eq(prints.id, runningPrint.id));
       printTransition = "finished";
-      console.log(`[printer-sync] FINISHED: "${runningPrint.name}"`);
+
+      // Create print_usage record and deduct weight from active spool
+      await createPrintUsage(runningPrint.id, printer_id, finalWeight || 0, body);
+
+      console.log(`[printer-sync] FINISHED: "${runningPrint.name}" weight=${finalWeight}g`);
     } else if (runningPrint && isFailed) {
-      // Print failed/cancelled
+      // Print failed/cancelled — still record partial usage
+      const finalWeight = printWeight || runningPrint.printWeight;
       await db.update(prints).set({
         status: "failed",
         finishedAt: new Date(),
         durationSeconds: runningPrint.startedAt
           ? Math.floor((Date.now() - new Date(runningPrint.startedAt).getTime()) / 1000)
           : null,
+        printWeight: finalWeight,
         updatedAt: new Date(),
       }).where(eq(prints.id, runningPrint.id));
       printTransition = "failed";
+
+      if (finalWeight && finalWeight > 0) {
+        await createPrintUsage(runningPrint.id, printer_id, finalWeight, body);
+      }
+
       console.log(`[printer-sync] FAILED: "${runningPrint.name}"`);
-    } else if (runningPrint && isIdle && !printError) {
-      // Idle without error = missed finish event
-      await db.update(prints).set({
-        status: "finished",
-        finishedAt: new Date(),
-        durationSeconds: runningPrint.startedAt
-          ? Math.floor((Date.now() - new Date(runningPrint.startedAt).getTime()) / 1000)
-          : null,
-        printWeight: printWeight || runningPrint.printWeight,
-        updatedAt: new Date(),
-      }).where(eq(prints.id, runningPrint.id));
-      printTransition = "finished";
-      console.log(`[printer-sync] FINISHED (idle detected): "${runningPrint.name}"`);
     } else if (runningPrint && isActive && printWeight > 0) {
       // Still running — update weight
       await db.update(prints).set({
