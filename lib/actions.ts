@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { amsSlots, spools, shops, orders, orderItems, filaments, vendors, shoppingListItems, shopListings, tagMappings, printUsage, prints } from "@/lib/db/schema";
+import { amsSlots, spools, shops, orders, orderItems, filaments, vendors, shoppingListItems, shopListings, tagMappings, printUsage, prints, settings } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
@@ -455,6 +455,18 @@ export async function confirmDraftSpool(
   revalidatePath("/");
   revalidatePath("/spools");
   revalidatePath("/ams");
+}
+
+export async function updateRackConfig(rows: number, columns: number) {
+  "use server";
+  await db.insert(settings)
+    .values({ key: "rack_rows", value: String(rows) })
+    .onConflictDoUpdate({ target: settings.key, set: { value: String(rows), updatedAt: new Date() } });
+  await db.insert(settings)
+    .values({ key: "rack_columns", value: String(columns) })
+    .onConflictDoUpdate({ target: settings.key, set: { value: String(columns), updatedAt: new Date() } });
+  revalidatePath("/storage");
+  revalidatePath("/admin");
 }
 
 export async function clearStaleRunningPrints() {

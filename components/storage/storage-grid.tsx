@@ -94,9 +94,9 @@ export function StorageGrid({ spools, rows, cols, onCellClick, onMove, onMoveToS
           </div>
         ))}
 
-        {/* Data rows */}
+        {/* Data rows — rendered top-to-bottom as R(max)…R1 so R1 is the bottom shelf */}
         {Array.from({ length: rows }, (_, rowIdx) => {
-          const row = rowIdx + 1;
+          const row = rows - rowIdx; // R3, R2, R1 top-to-bottom
           return (
             <>
               {/* Row header */}

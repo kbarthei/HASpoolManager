@@ -2,6 +2,17 @@ import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { eq, desc, sql, and } from "drizzle-orm";
 
+export async function getRackConfig(): Promise<{ rows: number; columns: number }> {
+  const [rowsSetting, colsSetting] = await Promise.all([
+    db.query.settings.findFirst({ where: eq(schema.settings.key, "rack_rows") }),
+    db.query.settings.findFirst({ where: eq(schema.settings.key, "rack_columns") }),
+  ]);
+  return {
+    rows: rowsSetting ? parseInt(rowsSetting.value, 10) : 3,
+    columns: colsSetting ? parseInt(colsSetting.value, 10) : 10,
+  };
+}
+
 export async function getSyncLog(limit = 50) {
   return db.query.syncLog.findMany({
     orderBy: (log, { desc }) => [desc(log.createdAt)],

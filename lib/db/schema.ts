@@ -637,6 +637,14 @@ export const syncLogRelations = relations(syncLog, ({ one }) => ({
   }),
 }));
 
+// ─── Settings ───────────────────────────────────────────────────────────────
+
+export const settings = pgTable("settings", {
+  key: varchar("key", { length: 100 }).primaryKey(),
+  value: text("value").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 // ─── Audit Log ──────────────────────────────────────────────────────────────
 
 export const auditLog = pgTable(

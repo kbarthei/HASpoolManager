@@ -1,10 +1,11 @@
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { eq, or, like } from "drizzle-orm";
+import { getRackConfig } from "@/lib/queries";
 import { StorageClient } from "./storage-client";
 
 export default async function StoragePage() {
-  const [storageSpools, surplusSpools, workbenchSpools] = await Promise.all([
+  const [storageSpools, surplusSpools, workbenchSpools, rackConfig] = await Promise.all([
     db.query.spools.findMany({
       where: or(
         like(schema.spools.location, "rack:%"),
@@ -20,10 +21,19 @@ export default async function StoragePage() {
       where: eq(schema.spools.location, "workbench"),
       with: { filament: { with: { vendor: true } } },
     }),
+    getRackConfig(),
   ]);
 
-  const rows = 4;
-  const cols = 8;
+  const { rows, columns: cols } = rackConfig;
+
+  // Spools that are outside the current grid bounds
+  const outOfBoundsSpools = storageSpools.filter((s) => {
+    const match = s.location?.match(/^rack:(\d+)-(\d+)$/);
+    if (!match) return false;
+    const r = parseInt(match[1], 10);
+    const c = parseInt(match[2], 10);
+    return r > rows || c > cols;
+  });
 
   return (
     <div className="space-y-3">
@@ -39,6 +49,7 @@ export default async function StoragePage() {
         spools={JSON.parse(JSON.stringify(storageSpools))}
         surplusSpools={JSON.parse(JSON.stringify(surplusSpools))}
         workbenchSpools={JSON.parse(JSON.stringify(workbenchSpools))}
+        outOfBoundsSpools={JSON.parse(JSON.stringify(outOfBoundsSpools))}
         rows={rows}
         cols={cols}
       />

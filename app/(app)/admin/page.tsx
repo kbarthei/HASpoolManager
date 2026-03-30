@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 
-import { getSyncLog, getSystemStats, getPrinterStatus } from "@/lib/queries";
+import { getSyncLog, getSystemStats, getPrinterStatus, getRackConfig } from "@/lib/queries";
 import { db } from "@/lib/db";
 import { prints } from "@/lib/db/schema";
 import { eq, sql } from "drizzle-orm";
@@ -8,6 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ClearStaleButton } from "./clear-stale-button";
 import { SyncLogTable } from "./sync-log-table";
+import { RackSettings } from "./rack-settings";
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -27,10 +28,11 @@ function relativeTime(date: Date | string | null | undefined): string {
 // ── Page ──────────────────────────────────────────────────────────────────
 
 export default async function AdminPage() {
-  const [stats, syncLogs, printerStatus] = await Promise.all([
+  const [stats, syncLogs, printerStatus, rackConfig] = await Promise.all([
     getSystemStats(),
     getSyncLog(50),
     getPrinterStatus(),
+    getRackConfig(),
   ]);
 
   const [runningCount] = await db
@@ -118,6 +120,17 @@ export default async function AdminPage() {
           </div>
           <ClearStaleButton runningCount={runningCount.count} />
         </div>
+      </Card>
+
+      {/* ── Rack Configuration ──────────────────────────────────────────── */}
+      <Card className="p-4 space-y-3">
+        <div>
+          <h2 className="text-sm font-semibold">Rack Configuration</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Currently {rackConfig.rows} rows × {rackConfig.columns} columns · R1 is the bottom-left shelf
+          </p>
+        </div>
+        <RackSettings initialRows={rackConfig.rows} initialColumns={rackConfig.columns} />
       </Card>
 
       {/* ── Sync Log ─────────────────────────────────────────────────────── */}
