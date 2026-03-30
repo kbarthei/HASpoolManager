@@ -7,6 +7,7 @@ import { eq, sql } from "drizzle-orm";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ClearStaleButton } from "./clear-stale-button";
+import { SyncLogTable } from "./sync-log-table";
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -21,35 +22,6 @@ function relativeTime(date: Date | string | null | undefined): string {
   const diffHr = Math.floor(diffMin / 60);
   if (diffHr < 24) return `${diffHr}h ago`;
   return d.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });
-}
-
-function formatAbsTime(date: Date | string | null | undefined): string {
-  if (!date) return "—";
-  const d = date instanceof Date ? date : new Date(date);
-  return d.toLocaleString("de-DE", {
-    day: "2-digit",
-    month: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  });
-}
-
-function TransitionBadge({ transition }: { transition: string | null | undefined }) {
-  if (!transition || transition === "none") {
-    return <span className="text-xs text-muted-foreground font-mono">—</span>;
-  }
-  const colorMap: Record<string, string> = {
-    started: "bg-green-500/15 text-green-600 border-green-500/30",
-    finished: "bg-teal-500/15 text-teal-600 border-teal-500/30",
-    failed: "bg-red-500/15 text-red-600 border-red-500/30",
-  };
-  const cls = colorMap[transition] ?? "bg-muted text-muted-foreground border-border";
-  return (
-    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border ${cls}`}>
-      {transition}
-    </span>
-  );
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────
@@ -155,58 +127,7 @@ export default async function AdminPage() {
           <span className="text-xs text-muted-foreground">{syncLogs.length} recent entries</span>
         </div>
 
-        {syncLogs.length === 0 ? (
-          <p className="text-xs text-muted-foreground py-4 text-center">No syncs recorded yet.</p>
-        ) : (
-          <div className="overflow-x-auto -mx-4 px-4">
-            <table className="w-full text-xs min-w-[560px]">
-              <thead>
-                <tr className="border-b border-border">
-                  <th className="text-left font-medium text-muted-foreground pb-2 pr-3 font-mono">Time</th>
-                  <th className="text-left font-medium text-muted-foreground pb-2 pr-3 font-mono">Raw</th>
-                  <th className="text-left font-medium text-muted-foreground pb-2 pr-3 font-mono">Normalized</th>
-                  <th className="text-left font-medium text-muted-foreground pb-2 pr-3">Transition</th>
-                  <th className="text-left font-medium text-muted-foreground pb-2 pr-3">Print Name</th>
-                  <th className="text-center font-medium text-muted-foreground pb-2 pr-3">Err</th>
-                  <th className="text-right font-medium text-muted-foreground pb-2">Slots</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/50">
-                {syncLogs.map((log) => (
-                  <tr key={log.id} className="hover:bg-muted/30 transition-colors">
-                    <td className="py-1.5 pr-3 font-mono text-muted-foreground whitespace-nowrap" title={formatAbsTime(log.createdAt)}>
-                      {relativeTime(log.createdAt)}
-                    </td>
-                    <td className="py-1.5 pr-3 font-mono text-muted-foreground">
-                      {log.rawState ?? "—"}
-                    </td>
-                    <td className="py-1.5 pr-3 font-mono text-foreground">
-                      {log.normalizedState ?? "—"}
-                    </td>
-                    <td className="py-1.5 pr-3">
-                      <TransitionBadge transition={log.printTransition} />
-                    </td>
-                    <td className="py-1.5 pr-3 max-w-[160px]">
-                      <span className="truncate block text-muted-foreground" title={log.printName ?? undefined}>
-                        {log.printName || "—"}
-                      </span>
-                    </td>
-                    <td className="py-1.5 pr-3 text-center">
-                      {log.printError ? (
-                        <span className="text-red-500 font-medium">✕</span>
-                      ) : (
-                        <span className="text-muted-foreground/40">—</span>
-                      )}
-                    </td>
-                    <td className="py-1.5 text-right font-mono text-muted-foreground">
-                      {log.slotsUpdated ?? 0}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <SyncLogTable logs={syncLogs} />
       </Card>
     </div>
   );

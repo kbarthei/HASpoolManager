@@ -284,7 +284,7 @@ export async function POST(request: NextRequest) {
       printName: printName || null,
       printError,
       slotsUpdated,
-      responseJson: JSON.stringify(responseData),
+      responseJson: JSON.stringify({ request: body, response: responseData }),
     }).catch(() => {}); // fire-and-forget, don't fail the sync
 
     return NextResponse.json(responseData);
