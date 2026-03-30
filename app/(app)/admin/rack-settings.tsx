@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { updateRackConfig } from "@/lib/actions";
+import { updateRackConfig, moveAllRackToWorkbench } from "@/lib/actions";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -83,14 +83,34 @@ export function RackSettings({ initialRows, initialColumns }: RackSettingsProps)
         <p className="text-[10px] text-muted-foreground">R1 = bottom-left · S1 = leftmost column</p>
       </div>
 
-      <Button
-        size="sm"
-        onClick={handleSave}
-        disabled={isPending}
-        className="h-8 text-xs"
-      >
-        {isPending ? "Saving…" : "Save"}
-      </Button>
+      <div className="flex items-center gap-2">
+        <Button
+          size="sm"
+          onClick={handleSave}
+          disabled={isPending}
+          className="h-8 text-xs"
+        >
+          {isPending ? "Saving…" : "Save"}
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-8 text-xs"
+          disabled={isPending}
+          onClick={() => {
+            startTransition(async () => {
+              const count = await moveAllRackToWorkbench();
+              if (count > 0) {
+                toast.success(`Moved ${count} spool${count !== 1 ? "s" : ""} to workbench`);
+              } else {
+                toast.info("Rack is already empty");
+              }
+            });
+          }}
+        >
+          Clear Rack
+        </Button>
+      </div>
     </div>
   );
 }

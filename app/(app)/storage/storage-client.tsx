@@ -14,8 +14,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { assignSpoolToRack, moveSpoolInRack, moveSpoolTo, archiveSpool, moveAllRackToWorkbench } from "@/lib/actions";
-import { Button } from "@/components/ui/button";
+import { assignSpoolToRack, moveSpoolInRack, moveSpoolTo, archiveSpool } from "@/lib/actions";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -230,26 +229,9 @@ export function StorageClient({ spools, surplusSpools, workbenchSpools, rows, co
 
       {/* Workbench section */}
       <div className="space-y-2 pt-2">
-        <div className="flex items-center justify-between">
-          <p className="text-sm font-semibold">
-            Workbench · {workbenchSpools.length} spool{workbenchSpools.length !== 1 ? "s" : ""}
-          </p>
-          <Button
-            variant="outline"
-            size="sm"
-            className="text-xs h-7"
-            onClick={async () => {
-              const count = await moveAllRackToWorkbench();
-              if (count > 0) {
-                toast.success(`Moved ${count} spool${count !== 1 ? "s" : ""} to workbench`);
-              } else {
-                toast.info("Rack is already empty");
-              }
-            }}
-          >
-            Clear Rack
-          </Button>
-        </div>
+        <p className="text-sm font-semibold">
+          Workbench · {workbenchSpools.length} spool{workbenchSpools.length !== 1 ? "s" : ""}
+        </p>
         {workbenchSpools.length === 0 ? (
           <p className="text-xs text-muted-foreground">No spools on workbench</p>
         ) : (
