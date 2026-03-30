@@ -4,57 +4,104 @@ import { prints, amsSlots, spools } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { requireAuth } from "@/lib/auth";
 import { matchSpool } from "@/lib/matching";
-import { validateBody, printerSyncSchema } from "@/lib/validations";
 
 /**
  * POST /api/v1/events/printer-sync
  *
  * Full printer state sync — called by HA every 60 seconds.
- * Handles print state transitions and updates all AMS slots atomically.
- * Idempotent: safe to call 100x with the same state.
+ * Accepts FLAT key-value pairs from HA sensors (no complex JSON construction needed).
+ * All parsing and normalization happens here, not in HA Jinja2 templates.
  *
- * Body: PrinterSyncPayload (see printerSyncSchema in lib/validations.ts)
+ * Idempotent: safe to call 100x with the same state.
  */
 
 type PrintTransition = "none" | "started" | "finished" | "failed";
 
-/** States that indicate an active / in-progress print */
-// MQTT protocol uses: RUNNING, PAUSE, SLICING, PREPARE
-// HA Bambu Lab integration uses: printing, prepare, pause (lowercase, uppercased by automation)
-const ACTIVE_PRINT_STATES = new Set(["RUNNING", "PAUSE", "SLICING", "PREPARE", "PRINTING"]);
-/** States that mean the print ended successfully */
-const FINISH_STATES = new Set(["FINISH", "FINISHED"]);
-/** States that mean the print ended with a failure */
-const FAILED_STATES = new Set(["FAILED", "CANCELED"]);
-/** States that mean the printer is idle */
-const IDLE_STATES = new Set(["IDLE"]);
+// ── State classification ─────────────────────────────────────────────────────
+// Accept both MQTT protocol values AND HA Bambu Lab integration values
+// (any case — we normalize to uppercase)
+const ACTIVE_STATES = new Set([
+  "RUNNING", "PRINTING", "PREPARE", "SLICING", "PAUSE",
+  "DRUCKEN", "VORBEREITEN",  // German variants just in case
+]);
+const FINISH_STATES = new Set(["FINISH", "FINISHED", "COMPLETE", "COMPLETED"]);
+const FAILED_STATES = new Set(["FAILED", "CANCELED", "CANCELLED", "ERROR"]);
+const IDLE_STATES = new Set(["IDLE", "OFFLINE", "UNKNOWN", ""]);
 
-/** Build a stable ha_event_id from the print name + UTC date (YYYY-MM-DD) */
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+/** Parse a string to number, returning the default for any non-numeric value */
+function num(val: unknown, def = 0): number {
+  if (val === null || val === undefined || val === "" || val === "None" || val === "unknown" || val === "unavailable") return def;
+  const n = Number(val);
+  return isNaN(n) ? def : n;
+}
+
+/** Parse a string to boolean */
+function bool(val: unknown): boolean {
+  if (typeof val === "boolean") return val;
+  if (typeof val === "string") {
+    const lower = val.toLowerCase().trim();
+    return lower === "true" || lower === "on" || lower === "1" || lower === "yes";
+  }
+  return false;
+}
+
+/** Clean a string value — treat HA's "None", "unknown", "unavailable" as empty */
+function str(val: unknown, def = ""): string {
+  if (val === null || val === undefined) return def;
+  const s = String(val).trim();
+  if (s === "None" || s === "unknown" || s === "unavailable" || s === "null") return def;
+  return s;
+}
+
+/** Build a stable ha_event_id from the print name + UTC date */
 function buildEventId(printName: string, printerId: string): string {
-  const date = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-  // Normalise the print name so minor whitespace differences are ignored
+  const date = new Date().toISOString().slice(0, 10);
   const safeName = printName.trim().toLowerCase().replace(/\s+/g, "_");
   return `sync_${printerId.slice(0, 8)}_${date}_${safeName}`.slice(0, 200);
 }
+
+// ── Slot definition (maps HA sensor names to our slot types) ─────────────────
+const SLOT_DEFS = [
+  { key: "slot_1", slotType: "ams", amsIndex: 0, trayIndex: 0 },
+  { key: "slot_2", slotType: "ams", amsIndex: 0, trayIndex: 1 },
+  { key: "slot_3", slotType: "ams", amsIndex: 0, trayIndex: 2 },
+  { key: "slot_4", slotType: "ams", amsIndex: 0, trayIndex: 3 },
+  { key: "slot_ht",  slotType: "ams_ht", amsIndex: 1, trayIndex: 0 },
+  { key: "slot_ext", slotType: "external", amsIndex: -1, trayIndex: 0 },
+] as const;
 
 export async function POST(request: NextRequest) {
   const auth = await requireAuth(request);
   if (!auth.authenticated) return auth.response;
 
   try {
-    const raw = await request.json();
-    const validation = validateBody(printerSyncSchema, raw);
-    if (!validation.success) {
-      return NextResponse.json({ error: validation.error }, { status: 400 });
+    const body = await request.json();
+
+    // ── Extract and normalize values ──────────────────────────────────────
+    const printer_id = str(body.printer_id);
+    if (!printer_id) {
+      return NextResponse.json({ error: "printer_id required" }, { status: 400 });
     }
-    const body = validation.data;
 
-    const { printer_id, print_state, print_name, print_weight, print_layers_total, print_error, ams_slots } =
-      body;
+    const rawState = str(body.print_state).toUpperCase();
+    const printName = str(body.print_name);
+    const printWeight = num(body.print_weight);
+    const printLayersTotal = num(body.print_layers_total);
+    const printError = bool(body.print_error);
 
-    // ── 1. Detect print state transition ──────────────────────────────────────
+    // Log what we received for debugging
+    console.log(`[printer-sync] state=${rawState} name="${printName}" weight=${printWeight} error=${printError}`);
 
-    // Find any currently running print for this printer
+    // Classify the state
+    const isActive = ACTIVE_STATES.has(rawState);
+    const isFinished = FINISH_STATES.has(rawState);
+    const isFailed = FAILED_STATES.has(rawState);
+    const isIdle = IDLE_STATES.has(rawState) || (!isActive && !isFinished && !isFailed);
+
+    // ── 1. Print state transitions ────────────────────────────────────────
+
     const runningPrint = await db.query.prints.findFirst({
       where: and(eq(prints.printerId, printer_id), eq(prints.status, "running")),
     });
@@ -62,16 +109,9 @@ export async function POST(request: NextRequest) {
     let printTransition: PrintTransition = "none";
     let affectedPrintId: string | null = runningPrint?.id ?? null;
 
-    const isActive = ACTIVE_PRINT_STATES.has(print_state);
-    const isFinished = FINISH_STATES.has(print_state);
-    const isFailed = FAILED_STATES.has(print_state);
-    const isIdle = IDLE_STATES.has(print_state);
-
     if (!runningPrint && isActive) {
-      // ── Transition: IDLE → RUNNING (print started) ──────────────────────
-      const haEventId = buildEventId(print_name || "unknown", printer_id);
-
-      // Idempotency: don't create a duplicate if we already recorded this start
+      // New print started
+      const haEventId = buildEventId(printName || "unknown", printer_id);
       const existing = await db.query.prints.findFirst({
         where: eq(prints.haEventId, haEventId),
       });
@@ -81,133 +121,137 @@ export async function POST(request: NextRequest) {
           .insert(prints)
           .values({
             printerId: printer_id,
-            name: print_name || null,
+            name: printName || null,
             status: "running",
             startedAt: new Date(),
-            totalLayers: print_layers_total || null,
-            printWeight: print_weight || null,
+            totalLayers: printLayersTotal || null,
+            printWeight: printWeight || null,
             haEventId,
           })
           .returning();
         affectedPrintId = newPrint.id;
         printTransition = "started";
+        console.log(`[printer-sync] STARTED: "${printName}" id=${newPrint.id}`);
       } else {
         affectedPrintId = existing.id;
-        // Already started — no new transition
       }
-    } else if (runningPrint && (isFinished || (isIdle && !print_error))) {
-      // ── Transition: RUNNING → FINISH or missed-FINISH (treat as finished)
-      // Note: don't finish when IDLE + print_error — printer is paused for filament swap
-      await db
-        .update(prints)
-        .set({
-          status: "finished",
-          finishedAt: new Date(),
-          durationSeconds: runningPrint.startedAt
-            ? Math.floor((Date.now() - new Date(runningPrint.startedAt).getTime()) / 1000)
-            : null,
-          printWeight: print_weight || runningPrint.printWeight,
-          updatedAt: new Date(),
-        })
-        .where(eq(prints.id, runningPrint.id));
+    } else if (runningPrint && isFinished) {
+      // Print completed
+      await db.update(prints).set({
+        status: "finished",
+        finishedAt: new Date(),
+        durationSeconds: runningPrint.startedAt
+          ? Math.floor((Date.now() - new Date(runningPrint.startedAt).getTime()) / 1000)
+          : null,
+        printWeight: printWeight || runningPrint.printWeight,
+        updatedAt: new Date(),
+      }).where(eq(prints.id, runningPrint.id));
       printTransition = "finished";
+      console.log(`[printer-sync] FINISHED: "${runningPrint.name}"`);
     } else if (runningPrint && isFailed) {
-      // ── Transition: RUNNING → FAILED ────────────────────────────────────
-      await db
-        .update(prints)
-        .set({
-          status: "failed",
-          finishedAt: new Date(),
-          durationSeconds: runningPrint.startedAt
-            ? Math.floor((Date.now() - new Date(runningPrint.startedAt).getTime()) / 1000)
-            : null,
-          updatedAt: new Date(),
-        })
-        .where(eq(prints.id, runningPrint.id));
+      // Print failed/cancelled
+      await db.update(prints).set({
+        status: "failed",
+        finishedAt: new Date(),
+        durationSeconds: runningPrint.startedAt
+          ? Math.floor((Date.now() - new Date(runningPrint.startedAt).getTime()) / 1000)
+          : null,
+        updatedAt: new Date(),
+      }).where(eq(prints.id, runningPrint.id));
       printTransition = "failed";
-    } else if (runningPrint && isActive) {
-      // ── Still running — update progress fields only ──────────────────────
-      // Only update weight if it's non-zero (avoid clobbering with 0 during PREPARE)
-      if (print_weight && print_weight > 0) {
-        await db
-          .update(prints)
-          .set({ printWeight: print_weight, updatedAt: new Date() })
-          .where(eq(prints.id, runningPrint.id));
-      }
-      // printTransition stays "none"
+      console.log(`[printer-sync] FAILED: "${runningPrint.name}"`);
+    } else if (runningPrint && isIdle && !printError) {
+      // Idle without error = missed finish event
+      await db.update(prints).set({
+        status: "finished",
+        finishedAt: new Date(),
+        durationSeconds: runningPrint.startedAt
+          ? Math.floor((Date.now() - new Date(runningPrint.startedAt).getTime()) / 1000)
+          : null,
+        printWeight: printWeight || runningPrint.printWeight,
+        updatedAt: new Date(),
+      }).where(eq(prints.id, runningPrint.id));
+      printTransition = "finished";
+      console.log(`[printer-sync] FINISHED (idle detected): "${runningPrint.name}"`);
+    } else if (runningPrint && isActive && printWeight > 0) {
+      // Still running — update weight
+      await db.update(prints).set({
+        printWeight,
+        updatedAt: new Date(),
+      }).where(eq(prints.id, runningPrint.id));
     }
+    // runningPrint && isIdle && printError → keep running (waiting for spool swap)
 
-    // ── 2. Update all AMS slots ────────────────────────────────────────────────
+    // ── 2. Update AMS slots (flat key-value) ──────────────────────────────
 
     let slotsUpdated = 0;
 
-    for (const slotPayload of ams_slots) {
-      const slotType = slotPayload.slot_type;
-      const isEmpty = slotPayload.is_empty === true;
-      const normalizedColor = slotPayload.tray_color?.replace("#", "").slice(0, 8) ?? null;
+    for (const def of SLOT_DEFS) {
+      const prefix = def.key;
+      // Check if this slot's data was sent
+      const hasSlotData = body[`${prefix}_type`] !== undefined || body[`${prefix}_empty`] !== undefined;
+      if (!hasSlotData) continue;
 
-      // Find existing slot record
+      const slotType = def.slotType;
+      const trayType = str(body[`${prefix}_type`]);
+      const trayColor = str(body[`${prefix}_color`]).replace("#", "").slice(0, 8);
+      const tagUid = str(body[`${prefix}_tag`]);
+      const filamentId = str(body[`${prefix}_filament_id`]);
+      const remain = num(body[`${prefix}_remain`], -1);
+      const isEmpty = bool(body[`${prefix}_empty`]) || trayType === "" || trayType === "Empty";
+
+      // Find existing slot
       const existingSlot = await db.query.amsSlots.findFirst({
         where: and(
           eq(amsSlots.printerId, printer_id),
           eq(amsSlots.slotType, slotType),
-          eq(amsSlots.amsIndex, slotPayload.ams_index),
-          eq(amsSlots.trayIndex, slotPayload.tray_index)
+          eq(amsSlots.amsIndex, def.amsIndex),
+          eq(amsSlots.trayIndex, def.trayIndex)
         ),
       });
 
-      // Run matching engine when slot is occupied
+      // Match spool when slot is occupied
       let matchedSpoolId: string | null = null;
-
-      if (!isEmpty) {
+      if (!isEmpty && trayType) {
         const matchResult = await matchSpool({
-          tag_uid: slotPayload.tag_uid ?? undefined,
-          tray_info_idx: slotPayload.filament_id ?? undefined,
-          tray_type: slotPayload.tray_type ?? undefined,
-          tray_color: slotPayload.tray_color ?? undefined,
+          tag_uid: tagUid || undefined,
+          tray_info_idx: filamentId || undefined,
+          tray_type: trayType || undefined,
+          tray_color: trayColor || undefined,
           printer_id,
-          ams_index: slotPayload.ams_index,
-          tray_index: slotPayload.tray_index,
+          ams_index: def.amsIndex,
+          tray_index: def.trayIndex,
         });
 
         if (matchResult.match) {
           matchedSpoolId = matchResult.match.spool_id;
-
-          // Update spool location to reflect it's now in the AMS
-          const locationMap = {
-            ams: "ams",
-            ams_ht: "ams-ht",
-            external: "external",
-          } as const;
-          await db
-            .update(spools)
-            .set({
-              location: locationMap[slotType as keyof typeof locationMap] || "ams",
-              updatedAt: new Date(),
-            })
-            .where(eq(spools.id, matchedSpoolId));
+          const locationMap = { ams: "ams", ams_ht: "ams-ht", external: "external" } as const;
+          await db.update(spools).set({
+            location: locationMap[slotType as keyof typeof locationMap] || "ams",
+            updatedAt: new Date(),
+          }).where(eq(spools.id, matchedSpoolId));
         }
       }
 
-      // If slot previously held a different spool, move it back to storage
+      // Move old spool back to storage if swapped
       if (existingSlot?.spoolId && existingSlot.spoolId !== matchedSpoolId) {
-        await db
-          .update(spools)
-          .set({ location: "storage", updatedAt: new Date() })
-          .where(eq(spools.id, existingSlot.spoolId));
+        await db.update(spools).set({
+          location: "storage",
+          updatedAt: new Date(),
+        }).where(eq(spools.id, existingSlot.spoolId));
       }
 
       const slotData = {
         printerId: printer_id,
         slotType,
-        amsIndex: slotPayload.ams_index,
-        trayIndex: slotPayload.tray_index,
+        amsIndex: def.amsIndex,
+        trayIndex: def.trayIndex,
         spoolId: matchedSpoolId,
-        bambuTrayIdx: slotPayload.filament_id || null,
-        bambuColor: normalizedColor,
-        bambuType: slotPayload.tray_type || null,
-        bambuTagUid: slotPayload.tag_uid || null,
-        bambuRemain: slotPayload.remain ?? -1,
+        bambuTrayIdx: filamentId || null,
+        bambuColor: trayColor || null,
+        bambuType: trayType || null,
+        bambuTagUid: tagUid || null,
+        bambuRemain: remain,
         isEmpty,
         updatedAt: new Date(),
       };
@@ -217,16 +261,14 @@ export async function POST(request: NextRequest) {
       } else {
         await db.insert(amsSlots).values(slotData);
       }
-
       slotsUpdated++;
     }
 
-    // ── 3. Response ───────────────────────────────────────────────────────────
-
     return NextResponse.json({
       synced: true,
-      print_state,
-      print_error: print_error || false,
+      print_state: rawState,
+      print_state_raw: str(body.print_state),
+      print_error: printError,
       print_transition: printTransition,
       print_id: affectedPrintId,
       slots_updated: slotsUpdated,
