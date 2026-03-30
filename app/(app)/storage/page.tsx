@@ -1,8 +1,9 @@
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
-import { eq, or, like } from "drizzle-orm";
+import { eq, or, like, desc } from "drizzle-orm";
 import { getRackConfig } from "@/lib/queries";
 import { StorageClient } from "./storage-client";
+import { AddSpoolDialog } from "@/components/spool/add-spool-dialog";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +27,12 @@ export default async function StoragePage() {
     }
   }
 
+  // Fetch filaments for the Add Spool dialog
+  const allFilaments = await db.query.filaments.findMany({
+    with: { vendor: true },
+    orderBy: [desc(schema.filaments.createdAt)],
+  });
+
   const [storageSpools, surplusSpools, workbenchSpools] = await Promise.all([
     db.query.spools.findMany({
       where: or(
@@ -44,6 +51,8 @@ export default async function StoragePage() {
     }),
   ]);
 
+  const allSpoolsForClone = [...storageSpools, ...surplusSpools, ...workbenchSpools];
+
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
@@ -53,6 +62,10 @@ export default async function StoragePage() {
             {rows} × {cols} · {storageSpools.length} spools stored
           </p>
         </div>
+        <AddSpoolDialog
+          filaments={JSON.parse(JSON.stringify(allFilaments))}
+          spools={JSON.parse(JSON.stringify(allSpoolsForClone))}
+        />
       </div>
       <StorageClient
         spools={JSON.parse(JSON.stringify(storageSpools))}

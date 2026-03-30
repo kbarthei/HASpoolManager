@@ -507,6 +507,94 @@ export async function updateRackConfig(rows: number, columns: number) {
   revalidatePath("/admin");
 }
 
+export async function createSpoolFromFilament(filamentId: string, initialWeight: number = 1000) {
+  const [spool] = await db.insert(spools).values({
+    filamentId,
+    initialWeight,
+    remainingWeight: initialWeight,
+    status: "active",
+    location: "workbench",
+  }).returning();
+  revalidatePath("/spools");
+  revalidatePath("/storage");
+  revalidatePath("/");
+  return spool;
+}
+
+export async function cloneSpool(sourceSpoolId: string, initialWeight: number = 1000) {
+  const source = await db.query.spools.findFirst({
+    where: eq(spools.id, sourceSpoolId),
+  });
+  if (!source) throw new Error("Source spool not found");
+
+  const [newSpool] = await db.insert(spools).values({
+    filamentId: source.filamentId,
+    initialWeight,
+    remainingWeight: initialWeight,
+    status: "active",
+    location: "workbench",
+  }).returning();
+  revalidatePath("/spools");
+  revalidatePath("/storage");
+  revalidatePath("/");
+  return newSpool;
+}
+
+export async function createSpoolFromScan(data: {
+  vendorName: string;
+  filamentName: string;
+  material: string;
+  colorName?: string | null;
+  colorHex?: string | null;
+  weight?: number;
+  nozzleTempMin?: number | null;
+  nozzleTempMax?: number | null;
+}) {
+  // Find or create vendor
+  const vendorName = data.vendorName.trim() || "Unknown";
+  let vendor = await db.query.vendors.findFirst({ where: eq(vendors.name, vendorName) });
+  if (!vendor) {
+    [vendor] = await db.insert(vendors).values({ name: vendorName }).returning();
+  }
+
+  const colorHex = (data.colorHex ?? "888888").replace("#", "").slice(0, 6).toUpperCase();
+  const weight = data.weight ?? 1000;
+
+  // Find existing filament by vendor + name + color, or create new
+  let filament = await db.query.filaments.findFirst({
+    where: and(
+      eq(filaments.vendorId, vendor.id),
+      eq(filaments.name, data.filamentName),
+      eq(filaments.colorHex, colorHex),
+    ),
+  });
+  if (!filament) {
+    [filament] = await db.insert(filaments).values({
+      vendorId: vendor.id,
+      name: data.filamentName,
+      material: data.material,
+      colorHex,
+      colorName: data.colorName ?? null,
+      spoolWeight: weight,
+      nozzleTempMin: data.nozzleTempMin ?? null,
+      nozzleTempMax: data.nozzleTempMax ?? null,
+    }).returning();
+  }
+
+  const [spool] = await db.insert(spools).values({
+    filamentId: filament.id,
+    initialWeight: weight,
+    remainingWeight: weight,
+    status: "active",
+    location: "workbench",
+  }).returning();
+
+  revalidatePath("/spools");
+  revalidatePath("/storage");
+  revalidatePath("/");
+  return spool;
+}
+
 export async function clearStaleRunningPrints() {
   const result = await db.update(prints)
     .set({ status: "cancelled", finishedAt: new Date(), updatedAt: new Date() })

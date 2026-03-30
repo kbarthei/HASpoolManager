@@ -24,6 +24,7 @@ import {
   bulkDeleteSpools,
 } from "@/lib/actions";
 import { IdentifySpoolDialog } from "./identify-spool-dialog";
+import { AddSpoolDialog } from "@/components/spool/add-spool-dialog";
 
 type Spool = {
   id: string;
@@ -49,6 +50,7 @@ type FilamentOption = {
   name: string;
   material: string;
   colorHex: string | null;
+  colorName: string | null;
   vendor: { name: string };
 };
 
@@ -154,9 +156,7 @@ export function SpoolsClient({
         <div className="flex items-center gap-2">
           <ViewToggle view={initialView} onViewChange={handleViewChange} />
           {!isArchiveView && (
-            <Button size="sm" disabled className="h-7 text-xs px-2.5">
-              + Add Spool
-            </Button>
+            <AddSpoolDialog filaments={allFilaments} spools={spools} />
           )}
         </div>
       </div>
