@@ -1,5 +1,6 @@
 import { getAllPrints } from "@/lib/queries";
 import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { SpoolColorDot } from "@/components/spool/spool-color-dot";
 import { CheckCircle2, XCircle } from "lucide-react";
 
@@ -46,19 +47,21 @@ function groupByDate<T extends { startedAt: Date | null | string | undefined }>(
 // ── Page ──────────────────────────────────────────────────────────────────
 
 export default async function PrintHistoryPage() {
-  const prints = await getAllPrints();
+  const allPrints = await getAllPrints();
+  const runningPrints = allPrints.filter((p) => p.status === "running");
+  const completedPrints = allPrints.filter((p) => p.status !== "running");
 
-  const totalWeight = prints.reduce((sum, p) => {
+  const totalWeight = allPrints.reduce((sum, p) => {
     const w = p.usage.reduce((s, u) => s + u.weightUsed, 0);
     return sum + w;
   }, 0);
 
-  const totalCost = prints.reduce((sum, p) => {
+  const totalCost = allPrints.reduce((sum, p) => {
     const c = Number(p.totalCost ?? 0);
     return sum + c;
   }, 0);
 
-  const grouped = groupByDate(prints);
+  const grouped = groupByDate(completedPrints);
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
@@ -66,12 +69,61 @@ export default async function PrintHistoryPage() {
       <div>
         <h1 className="text-xl font-semibold">Print History</h1>
         <p className="text-xs text-muted-foreground mt-1">
-          {prints.length} prints &middot;{" "}
+          {allPrints.length} prints &middot;{" "}
           {totalWeight.toFixed(1)}g used &middot; &euro;{totalCost.toFixed(2)} total
         </p>
       </div>
 
-      {/* Grouped list */}
+      {/* Currently Printing */}
+      {runningPrints.length > 0 && (
+        <div className="mb-4">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-2">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+            </span>
+            Currently Printing
+          </h3>
+          <div className="space-y-2">
+            {runningPrints.map((print) => (
+              <Card key={print.id} className="p-3 rounded-xl border-l-[3px] border-l-primary">
+                <div className="flex items-start justify-between">
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-medium truncate">
+                      {print.name ?? print.gcodeFile ?? "Unnamed print"}
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-0.5">
+                      Started{" "}
+                      {new Date(print.startedAt!).toLocaleString("de-DE", {
+                        day: "2-digit",
+                        month: "short",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                      {print.printer && ` · ${print.printer.name}`}
+                    </div>
+                  </div>
+                  <Badge className="text-[10px] h-5 px-1.5 bg-primary/15 text-primary border-primary/30 shrink-0 ml-2">
+                    Printing
+                  </Badge>
+                </div>
+                {(print.printWeight != null || print.totalLayers != null) && (
+                  <div className="flex gap-3 mt-2 text-xs text-muted-foreground">
+                    {print.printWeight != null && (
+                      <span className="font-mono">{print.printWeight}g estimated</span>
+                    )}
+                    {print.totalLayers != null && (
+                      <span className="font-mono">{print.totalLayers} layers</span>
+                    )}
+                  </div>
+                )}
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Grouped history */}
       {Array.from(grouped.entries()).map(([dateLabel, dayPrints]) => (
         <section key={dateLabel}>
           {/* Sticky date header */}
@@ -173,7 +225,7 @@ export default async function PrintHistoryPage() {
         </section>
       ))}
 
-      {prints.length === 0 && (
+      {allPrints.length === 0 && (
         <p className="text-sm text-muted-foreground text-center py-12">No prints yet.</p>
       )}
     </div>
