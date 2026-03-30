@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { LayoutDashboard, Circle, Cpu, Grid3X3, ShoppingCart, Printer, Clock, Plus } from "lucide-react";
+import { LayoutDashboard, Circle, Cpu, Grid3X3, ShoppingCart, Printer, Clock, Plus, Settings } from "lucide-react";
 import { AddOrderDialog } from "@/components/orders/add-order-dialog";
 
 const tabs = [
@@ -48,6 +48,12 @@ const tabs = [
     href: "/history",
     icon: Clock,
     isActive: (path: string) => path.startsWith("/history"),
+  },
+  {
+    label: "Admin",
+    href: "/admin",
+    icon: Settings,
+    isActive: (path: string) => path.startsWith("/admin"),
   },
 ];
 

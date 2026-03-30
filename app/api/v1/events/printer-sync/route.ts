@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { prints, amsSlots, spools } from "@/lib/db/schema";
+import { prints, amsSlots, spools, syncLog } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { requireAuth } from "@/lib/auth";
 import { matchSpool } from "@/lib/matching";
@@ -264,7 +264,7 @@ export async function POST(request: NextRequest) {
       slotsUpdated++;
     }
 
-    return NextResponse.json({
+    const responseData = {
       synced: true,
       print_state: rawState,
       print_state_raw: str(body.print_state),
@@ -273,7 +273,21 @@ export async function POST(request: NextRequest) {
       print_id: affectedPrintId,
       slots_updated: slotsUpdated,
       timestamp: new Date().toISOString(),
-    });
+    };
+
+    // Log this sync for the admin dashboard
+    await db.insert(syncLog).values({
+      printerId: printer_id,
+      rawState: str(body.print_state),
+      normalizedState: rawState,
+      printTransition,
+      printName: printName || null,
+      printError,
+      slotsUpdated,
+      responseJson: JSON.stringify(responseData),
+    }).catch(() => {}); // fire-and-forget, don't fail the sync
+
+    return NextResponse.json(responseData);
   } catch (error) {
     console.error("POST /api/v1/events/printer-sync error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

@@ -2,6 +2,29 @@ import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { eq, desc, sql, and } from "drizzle-orm";
 
+export async function getSyncLog(limit = 50) {
+  return db.query.syncLog.findMany({
+    orderBy: (log, { desc }) => [desc(log.createdAt)],
+    limit,
+  });
+}
+
+export async function getSystemStats() {
+  const [spoolCount] = await db.select({ count: sql<number>`count(*)::int` }).from(schema.spools);
+  const [filamentCount] = await db.select({ count: sql<number>`count(*)::int` }).from(schema.filaments);
+  const [printCount] = await db.select({ count: sql<number>`count(*)::int` }).from(schema.prints);
+  const [vendorCount] = await db.select({ count: sql<number>`count(*)::int` }).from(schema.vendors);
+  const [orderCount] = await db.select({ count: sql<number>`count(*)::int` }).from(schema.orders);
+
+  return {
+    spools: spoolCount.count,
+    filaments: filamentCount.count,
+    prints: printCount.count,
+    vendors: vendorCount.count,
+    orders: orderCount.count,
+  };
+}
+
 export async function getOrders() {
   return db.query.orders.findMany({
     orderBy: [desc(schema.orders.orderDate)],

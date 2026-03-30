@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { amsSlots, spools, shops, orders, orderItems, filaments, vendors, shoppingListItems, shopListings, tagMappings, printUsage } from "@/lib/db/schema";
+import { amsSlots, spools, shops, orders, orderItems, filaments, vendors, shoppingListItems, shopListings, tagMappings, printUsage, prints } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
@@ -388,4 +388,15 @@ export async function bulkDeleteSpools(spoolIds: string[]) {
     await permanentlyDeleteSpool(id);
   }
   revalidatePath("/spools");
+}
+
+export async function clearStaleRunningPrints() {
+  const result = await db.update(prints)
+    .set({ status: "cancelled", finishedAt: new Date(), updatedAt: new Date() })
+    .where(eq(prints.status, "running"))
+    .returning();
+  revalidatePath("/admin");
+  revalidatePath("/prints");
+  revalidatePath("/");
+  return result.length;
 }

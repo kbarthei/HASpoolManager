@@ -107,6 +107,7 @@ export const printers = pgTable("printers", {
 export const printersRelations = relations(printers, ({ many }) => ({
   amsSlots: many(amsSlots),
   prints: many(prints),
+  syncLogs: many(syncLog),
 }));
 
 // ─── Spools ─────────────────────────────────────────────────────────────────
@@ -603,6 +604,35 @@ export const shoppingListItemsRelations = relations(shoppingListItems, ({ one })
   filament: one(filaments, {
     fields: [shoppingListItems.filamentId],
     references: [filaments.id],
+  }),
+}));
+
+// ─── Sync Log ───────────────────────────────────────────────────────────────
+
+export const syncLog = pgTable(
+  "sync_log",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    printerId: uuid("printer_id").references(() => printers.id),
+    rawState: varchar("raw_state", { length: 50 }),
+    normalizedState: varchar("normalized_state", { length: 50 }),
+    printTransition: varchar("print_transition", { length: 20 }),
+    printName: varchar("print_name", { length: 500 }),
+    printError: boolean("print_error").default(false),
+    slotsUpdated: integer("slots_updated").default(0),
+    responseJson: text("response_json"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  },
+  (table) => [
+    index("idx_sync_log_created").on(table.createdAt),
+    index("idx_sync_log_printer").on(table.printerId),
+  ]
+);
+
+export const syncLogRelations = relations(syncLog, ({ one }) => ({
+  printer: one(printers, {
+    fields: [syncLog.printerId],
+    references: [printers.id],
   }),
 }));
 
