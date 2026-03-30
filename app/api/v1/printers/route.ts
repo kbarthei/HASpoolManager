@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const result = await db.query.printers.findMany({
-      with: { amsSlots: true },
+      with: { amsSlots: { with: { spool: { with: { filament: { with: { vendor: true } } } } } } },
       orderBy: (printers, { asc }) => [asc(printers.name)],
     });
 

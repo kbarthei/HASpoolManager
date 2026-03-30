@@ -19,7 +19,7 @@ export async function GET(
       where: eq(printers.id, id),
       with: {
         amsSlots: {
-          with: { spool: true },
+          with: { spool: { with: { filament: { with: { vendor: true } } } } },
         },
       },
     });
