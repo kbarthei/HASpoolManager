@@ -93,8 +93,9 @@ export async function POST(request: NextRequest) {
         affectedPrintId = existing.id;
         // Already started — no new transition
       }
-    } else if (runningPrint && (isFinished || isIdle)) {
-      // ── Transition: RUNNING → FINISH or missed-FINISH (treat as finished) ─
+    } else if (runningPrint && (isFinished || (isIdle && !print_error))) {
+      // ── Transition: RUNNING → FINISH or missed-FINISH (treat as finished)
+      // Note: don't finish when IDLE + print_error — printer is paused for filament swap
       await db
         .update(prints)
         .set({
