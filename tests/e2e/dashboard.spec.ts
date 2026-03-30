@@ -13,7 +13,7 @@ test.describe("Dashboard", () => {
   });
 
   test("shows AMS status section", async ({ page }) => {
-    await expect(page.getByText("AMS Status")).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("AMS Slots")).toBeVisible({ timeout: 10000 });
   });
 
   test("shows recent prints section", async ({ page }) => {
