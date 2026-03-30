@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { prints, amsSlots, spools, syncLog, printUsage, vendors, filaments, tagMappings } from "@/lib/db/schema";
 import { eq, and, sql } from "drizzle-orm";
@@ -585,6 +586,18 @@ export async function POST(request: NextRequest) {
       slots_updated: slotsUpdated,
       timestamp: new Date().toISOString(),
     };
+
+    // Invalidate cached pages when state changes
+    if (printTransition !== "none") {
+      revalidatePath("/");        // Dashboard
+      revalidatePath("/prints");  // Print history
+      revalidatePath("/ams");     // AMS slots
+      revalidatePath("/spools");  // Spools (weight changes)
+    }
+    if (slotsUpdated > 0) {
+      revalidatePath("/");        // Dashboard AMS mini view
+      revalidatePath("/ams");     // AMS page
+    }
 
     // Log this sync for the admin dashboard
     await db.insert(syncLog).values({
