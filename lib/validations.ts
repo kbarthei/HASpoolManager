@@ -138,6 +138,30 @@ export const amsSlotChangedSchema = z.object({
   is_empty: z.boolean().optional(),
 });
 
+export const printerSyncSlotSchema = z.object({
+  slot_type: z.enum(["ams", "ams_ht", "external"]),
+  ams_index: z.number().int(),
+  tray_index: z.number().int().min(0),
+  tray_type: z.string().max(50).optional(),
+  tray_color: z.string().max(20).optional(),
+  tag_uid: z.string().max(50).optional(),
+  filament_id: z.string().max(20).optional(),
+  remain: z.number().int().min(-1).max(100).optional(),
+  is_empty: z.boolean().optional().default(false),
+});
+
+export const printerSyncSchema = z.object({
+  printer_id: uuid,
+  print_state: z.string().max(50),
+  print_name: z.string().max(500).optional().default(""),
+  print_progress: z.number().min(0).max(100).optional().default(0),
+  print_weight: z.number().min(0).optional().default(0),
+  print_layers_total: z.number().int().min(0).optional().default(0),
+  print_layers_current: z.number().int().min(0).optional().default(0),
+  print_remaining_time: z.number().min(0).optional().default(0),
+  ams_slots: z.array(printerSyncSlotSchema).optional().default([]),
+});
+
 export const matchRequestSchema = z.object({
   tag_uid: z.string().max(50).optional(),
   tray_info_idx: z.string().max(20).optional(),
