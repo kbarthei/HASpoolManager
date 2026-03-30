@@ -100,15 +100,19 @@ function bambuColorName(hex: string): string {
 
 /** Derive a human-friendly filament name from tray_type + bambu_idx */
 function bambuFilamentName(trayType: string, bambuIdx: string): string {
-  // Known Bambu product lines by prefix
-  if (bambuIdx.startsWith("GFA")) return `${trayType} Basic`;
-  if (bambuIdx.startsWith("GFB")) return `${trayType} Matte`;
-  if (bambuIdx.startsWith("GFC")) return `${trayType} Silk`;
-  if (bambuIdx.startsWith("GFT")) return `${trayType} Translucent`;
-  if (bambuIdx.startsWith("GFN")) return `${trayType} Tough`;
-  if (bambuIdx.startsWith("GFG")) return `${trayType} Galaxy`;
-  if (bambuIdx.startsWith("GFX")) return `${trayType} Support`;
-  return trayType || "Filament";
+  // Known Bambu product line prefixes
+  const prefix = bambuIdx.slice(0, 3).toUpperCase();
+  const lineMap: Record<string, string> = {
+    GFA: `${trayType} Basic`,      // PLA Basic, PETG Basic
+    GFB: trayType,                  // ABS-GF (material IS the line)
+    GFC: `${trayType} Silk+`,
+    GFG: `${trayType} HF`,         // High Flow (PETG HF, etc.)
+    GFL: `${trayType}`,            // Third-party compat codes
+    GFN: `${trayType} Tough`,
+    GFT: `${trayType} Translucent`,
+    GFX: `${trayType} Support`,
+  };
+  return lineMap[prefix] ?? trayType || "Filament";
 }
 
 /**
