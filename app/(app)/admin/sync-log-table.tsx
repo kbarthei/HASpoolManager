@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 
 interface SyncLogEntry {
@@ -81,8 +81,8 @@ export function SyncLogTable({ logs }: { logs: SyncLogEntry[] }) {
             }
 
             return (
+              <Fragment key={log.id}>
               <tr
-                key={log.id}
                 className="hover:bg-muted/30 transition-colors cursor-pointer group"
                 onClick={() => setExpandedId(isExpanded ? null : log.id)}
               >
@@ -131,6 +131,7 @@ export function SyncLogTable({ logs }: { logs: SyncLogEntry[] }) {
                   </td>
                 </tr>
               )}
+              </Fragment>
             );
           })}
         </tbody>
