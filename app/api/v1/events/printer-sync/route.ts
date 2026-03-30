@@ -112,7 +112,7 @@ function bambuFilamentName(trayType: string, bambuIdx: string): string {
     GFT: `${trayType} Translucent`,
     GFX: `${trayType} Support`,
   };
-  return lineMap[prefix] ?? trayType || "Filament";
+  return lineMap[prefix] ?? (trayType || "Filament");
 }
 
 /**
