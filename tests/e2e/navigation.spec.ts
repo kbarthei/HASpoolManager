@@ -16,13 +16,9 @@ test.describe("Navigation", () => {
     await page.click("a[href='/spools']");
     await expect(page).toHaveURL("/spools");
 
-    // Click AMS tab
-    await page.click("a[href='/ams']");
-    await expect(page).toHaveURL("/ams");
-
-    // Click Storage tab
-    await page.click("a[href='/storage']");
-    await expect(page).toHaveURL("/storage");
+    // Click Inventory tab
+    await page.click("a[href='/inventory']");
+    await expect(page).toHaveURL("/inventory");
 
     // Click back to Dashboard
     await page.click("a[href='/']");

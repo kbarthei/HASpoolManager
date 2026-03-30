@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test";
 
 test.describe("AMS Status", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/ams");
+    await page.goto("/inventory");
   });
 
   test("shows AMS section with slots", async ({ page }) => {

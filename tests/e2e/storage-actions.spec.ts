@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test";
 
 test.describe("Storage Page Actions", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/storage");
+    await page.goto("/inventory");
   });
 
   test("shows rack grid", async ({ page }) => {

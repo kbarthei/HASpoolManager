@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Circle, Cpu, Grid3X3, MoreHorizontal, Printer, Clock, ShoppingCart, X, Settings } from "lucide-react";
+import { LayoutDashboard, Circle, Package, MoreHorizontal, Printer, Clock, ShoppingCart, X, Settings } from "lucide-react";
 import { useState, useCallback, useEffect, useRef } from "react";
 
 const primaryTabs = [
@@ -19,16 +19,13 @@ const primaryTabs = [
     isActive: (path: string) => path.startsWith("/spools"),
   },
   {
-    label: "AMS",
-    href: "/ams",
-    icon: Cpu,
-    isActive: (path: string) => path.startsWith("/ams"),
-  },
-  {
-    label: "Storage",
-    href: "/storage",
-    icon: Grid3X3,
-    isActive: (path: string) => path.startsWith("/storage"),
+    label: "Inventory",
+    href: "/inventory",
+    icon: Package,
+    isActive: (path: string) =>
+      path.startsWith("/inventory") ||
+      path.startsWith("/ams") ||
+      path.startsWith("/storage"),
   },
 ];
 

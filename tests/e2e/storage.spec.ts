@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test";
 
 test.describe("Storage Rack", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/storage");
+    await page.goto("/inventory");
   });
 
   test("shows rack title and dimensions", async ({ page }) => {
