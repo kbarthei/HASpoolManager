@@ -121,7 +121,7 @@ export async function getPrinterStatus() {
     where: eq(schema.prints.status, "running"),
   });
 
-  // Get progress + active spool from latest sync log
+  // Get progress from latest sync log + active spool from print record
   let progress = 0;
   let remainingTime = 0;
   let activeSpool: { name: string; material: string; colorHex: string; colorName: string | null; vendor: string } | null = null;
@@ -135,30 +135,25 @@ export async function getPrinterStatus() {
         const req = data.request || data;
         progress = parseFloat(req.print_progress) || 0;
         remainingTime = parseFloat(req.print_remaining_time) || 0;
-
-        // Try to identify active spool from active_slot_tag or active_slot_filament_id
-        const activeTag = (req.active_slot_tag || "").replace(/^0+$/, "");
-        const activeFilamentId = req.active_slot_filament_id || "";
-        if (activeTag || activeFilamentId) {
-          // Find the matching spool in AMS slots
-          const slot = activeTag
-            ? await db.query.amsSlots.findFirst({
-                where: eq(schema.amsSlots.bambuTagUid, req.active_slot_tag),
-                with: { spool: { with: { filament: { with: { vendor: true } } } } },
-              })
-            : null;
-          if (slot?.spool) {
-            const f = slot.spool.filament;
-            activeSpool = {
-              name: f.name,
-              material: f.material,
-              colorHex: f.colorHex ?? "888888",
-              colorName: f.colorName ?? null,
-              vendor: f.vendor?.name ?? "",
-            };
-          }
-        }
       } catch { /* ignore */ }
+    }
+
+    // Get active spool directly from print record (stored while printing)
+    if (runningPrint.activeSpoolId) {
+      const spool = await db.query.spools.findFirst({
+        where: eq(schema.spools.id, runningPrint.activeSpoolId),
+        with: { filament: { with: { vendor: true } } },
+      });
+      if (spool) {
+        const f = spool.filament;
+        activeSpool = {
+          name: f.name,
+          material: f.material,
+          colorHex: f.colorHex ?? "888888",
+          colorName: f.colorName ?? null,
+          vendor: f.vendor?.name ?? "",
+        };
+      }
     }
   }
 

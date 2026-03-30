@@ -285,46 +285,25 @@ const SLOT_DEFS = [
 
 /**
  * Create print_usage record: link print to spool, deduct weight, calculate cost.
- * Uses the active_slot sensor data to identify which spool was used.
+ * Uses the stored activeSpoolId from the print record (captured while printing),
+ * NOT the current sync payload (which is cleared by the printer when it goes idle).
  */
 async function createPrintUsage(
   printId: string,
-  printerId: string,
+  _printerId: string,
   weightUsed: number,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  body: any
 ) {
   try {
-    // Try to identify the active spool from active_slot_* fields
-    const activeTag = str(body.active_slot_tag);
-    const activeType = str(body.active_slot_type);
-    const activeColor = str(body.active_slot_color).replace("#", "").slice(0, 8);
-    const activeFilamentId = str(body.active_slot_filament_id);
-
-    if (!activeType && !activeTag) {
-      // No active slot info — try to find the spool from the AMS slots
-      // Look for the slot that's loaded and most likely used
-      console.log(`[printer-sync] No active_slot data, skipping usage record`);
-      return;
-    }
-
-    // Match the active spool
-    const matchResult = await matchSpool({
-      tag_uid: activeTag || undefined,
-      tray_info_idx: activeFilamentId || undefined,
-      tray_type: activeType || undefined,
-      tray_color: activeColor || undefined,
-      printer_id: printerId,
-      ams_index: 0,
-      tray_index: 0,
+    // Get the stored active spool from the print record
+    const print = await db.query.prints.findFirst({
+      where: eq(prints.id, printId),
     });
 
-    if (!matchResult.match) {
-      console.log(`[printer-sync] Could not match active spool for usage`);
+    const spoolId = print?.activeSpoolId;
+    if (!spoolId) {
+      console.log(`[printer-sync] No activeSpoolId stored on print, skipping usage record`);
       return;
     }
-
-    const spoolId = matchResult.match.spool_id;
 
     // Get the spool to calculate cost
     const spool = await db.query.spools.findFirst({
@@ -368,7 +347,7 @@ async function createPrintUsage(
       updatedAt: new Date(),
     }).where(eq(prints.id, printId));
 
-    console.log(`[printer-sync] USAGE: spool=${matchResult.match.filament_name} weight=${weightUsed}g cost=${cost}€ remaining=${newWeight}g`);
+    console.log(`[printer-sync] USAGE: spool=${spool.filament.name} weight=${weightUsed}g cost=${cost}€ remaining=${newWeight}g`);
   } catch (error) {
     console.error("[printer-sync] Error creating print usage:", error);
   }
@@ -423,6 +402,22 @@ export async function POST(request: NextRequest) {
         haEventId = `${haEventId}_${existingCount[0].count + 1}`;
       }
 
+      // Try to identify active spool at print start
+      let startActiveSpoolId: string | null = null;
+      const startTag = str(body.active_slot_tag);
+      if (startTag && startTag !== "0000000000000000") {
+        const startMatch = await matchSpool({
+          tag_uid: startTag,
+          tray_info_idx: str(body.active_slot_filament_id) || undefined,
+          tray_type: str(body.active_slot_type) || undefined,
+          tray_color: str(body.active_slot_color).replace("#", "").slice(0, 8) || undefined,
+          printer_id,
+          ams_index: 0,
+          tray_index: 0,
+        });
+        if (startMatch.match) startActiveSpoolId = startMatch.match.spool_id;
+      }
+
       const [newPrint] = await db
         .insert(prints)
         .values({
@@ -432,6 +427,7 @@ export async function POST(request: NextRequest) {
           startedAt: new Date(),
           totalLayers: printLayersTotal || null,
           printWeight: printWeight || null,
+          activeSpoolId: startActiveSpoolId,
           haEventId,
         })
         .returning();
@@ -453,7 +449,7 @@ export async function POST(request: NextRequest) {
       printTransition = "finished";
 
       // Create print_usage record and deduct weight from active spool
-      await createPrintUsage(runningPrint.id, printer_id, finalWeight || 0, body);
+      await createPrintUsage(runningPrint.id, printer_id, finalWeight || 0);
 
       console.log(`[printer-sync] FINISHED: "${runningPrint.name}" weight=${finalWeight}g`);
     } else if (runningPrint && isFailed) {
@@ -471,16 +467,34 @@ export async function POST(request: NextRequest) {
       printTransition = "failed";
 
       if (finalWeight && finalWeight > 0) {
-        await createPrintUsage(runningPrint.id, printer_id, finalWeight, body);
+        await createPrintUsage(runningPrint.id, printer_id, finalWeight);
       }
 
       console.log(`[printer-sync] FAILED: "${runningPrint.name}"`);
-    } else if (runningPrint && isActive && printWeight > 0) {
-      // Still running — update weight
-      await db.update(prints).set({
-        printWeight,
-        updatedAt: new Date(),
-      }).where(eq(prints.id, runningPrint.id));
+    } else if (runningPrint && isActive) {
+      // Still running — update weight and track active spool
+      const updates: Record<string, unknown> = { updatedAt: new Date() };
+      if (printWeight > 0) updates.printWeight = printWeight;
+
+      // Store the active spool ID on the print while we still have the data
+      // (the printer clears active_slot when it goes idle)
+      const activeTag = str(body.active_slot_tag);
+      if (activeTag && activeTag !== "0000000000000000") {
+        const activeMatch = await matchSpool({
+          tag_uid: activeTag,
+          tray_info_idx: str(body.active_slot_filament_id) || undefined,
+          tray_type: str(body.active_slot_type) || undefined,
+          tray_color: str(body.active_slot_color).replace("#", "").slice(0, 8) || undefined,
+          printer_id,
+          ams_index: 0,
+          tray_index: 0,
+        });
+        if (activeMatch.match) {
+          updates.activeSpoolId = activeMatch.match.spool_id;
+        }
+      }
+
+      await db.update(prints).set(updates).where(eq(prints.id, runningPrint.id));
     }
     // runningPrint && isIdle && printError → keep running (waiting for spool swap)
 
