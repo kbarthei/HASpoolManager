@@ -2,8 +2,9 @@
 
 import { db } from "@/lib/db";
 import { amsSlots, spools, shops, orders, orderItems, filaments, vendors, shoppingListItems, shopListings, tagMappings, printUsage, prints, settings } from "@/lib/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, like, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { getRackConfig } from "@/lib/queries";
 
 export async function moveSpoolInRack(
   spoolId: string,
@@ -50,6 +51,43 @@ export async function moveSpoolTo(spoolId: string, location: string) {
   revalidatePath("/storage");
   revalidatePath("/spools");
   revalidatePath("/");
+}
+
+export async function moveAllRackToWorkbench() {
+  const result = await db.update(spools)
+    .set({ location: "workbench", updatedAt: new Date() })
+    .where(like(spools.location, "rack:%"))
+    .returning();
+  revalidatePath("/storage");
+  revalidatePath("/spools");
+  revalidatePath("/");
+  return result.length;
+}
+
+export async function moveOutOfBoundsToWorkbench() {
+  const { rows, columns } = await getRackConfig();
+  const rackSpools = await db.query.spools.findMany({
+    where: like(spools.location, "rack:%"),
+  });
+  let moved = 0;
+  for (const spool of rackSpools) {
+    const match = spool.location?.match(/^rack:(\d+)-(\d+)$/);
+    if (!match) continue;
+    const r = parseInt(match[1], 10);
+    const c = parseInt(match[2], 10);
+    if (r > rows || c > columns) {
+      await db.update(spools)
+        .set({ location: "workbench", updatedAt: new Date() })
+        .where(eq(spools.id, spool.id));
+      moved++;
+    }
+  }
+  if (moved > 0) {
+    revalidatePath("/storage");
+    revalidatePath("/spools");
+    revalidatePath("/");
+  }
+  return moved;
 }
 
 export async function loadSpoolToSlot(slotId: string, spoolId: string) {
