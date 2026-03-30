@@ -32,7 +32,7 @@ test.describe("Navigation", () => {
   test("active tab is highlighted", async ({ page }) => {
     await page.goto("/spools");
     // The Spools link should have the active styling (border-primary)
-    const spoolsTab = page.locator("a[href='/spools']");
+    const spoolsTab = page.locator("a[href='/spools']").first();
     await expect(spoolsTab).toBeVisible();
   });
 });
