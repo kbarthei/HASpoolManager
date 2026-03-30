@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
     }
     const body = validation.data;
 
-    const { printer_id, print_state, print_name, print_weight, print_layers_total, ams_slots } =
+    const { printer_id, print_state, print_name, print_weight, print_layers_total, print_error, ams_slots } =
       body;
 
     // ── 1. Detect print state transition ──────────────────────────────────────
@@ -223,6 +223,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       synced: true,
       print_state,
+      print_error: print_error || false,
       print_transition: printTransition,
       print_id: affectedPrintId,
       slots_updated: slotsUpdated,

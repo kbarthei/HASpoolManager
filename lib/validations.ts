@@ -159,6 +159,8 @@ export const printerSyncSchema = z.object({
   print_layers_total: z.number().int().min(0).optional().default(0),
   print_layers_current: z.number().int().min(0).optional().default(0),
   print_remaining_time: z.number().min(0).optional().default(0),
+  print_error: z.boolean().optional().default(false),
+  active_slot: z.string().max(50).optional().default(""),
   ams_slots: z.array(printerSyncSlotSchema).optional().default([]),
 });
 
