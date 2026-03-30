@@ -7,7 +7,7 @@ import type { getAmsSlots } from "@/lib/queries";
 type AmsSlotData = Awaited<ReturnType<typeof getAmsSlots>>[number];
 
 export function AmsMiniView({ slots }: { slots: AmsSlotData[] }) {
-  const filledSlots = slots.filter(s => !s.isEmpty && s.spool);
+  const filledSlots = slots.filter(s => !s.isEmpty && s.spool && s.slotType !== "external");
 
   return (
     <Card className="rounded-xl shadow-sm dark:shadow-none">
@@ -28,9 +28,7 @@ export function AmsMiniView({ slots }: { slots: AmsSlotData[] }) {
               const percent = spool.initialWeight > 0
                 ? Math.round((spool.remainingWeight / spool.initialWeight) * 100)
                 : 0;
-              const name = filament.colorName
-                ? `${filament.vendor?.name ?? ""} ${filament.colorName}`
-                : `${filament.vendor?.name ?? ""} ${filament.name}`;
+              const name = `${filament.vendor?.name ?? ""} ${filament.name}`;
 
               return (
                 <Link
