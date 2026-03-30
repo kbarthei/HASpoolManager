@@ -19,12 +19,14 @@ import { validateBody, printerSyncSchema } from "@/lib/validations";
 type PrintTransition = "none" | "started" | "finished" | "failed";
 
 /** States that indicate an active / in-progress print */
-const ACTIVE_PRINT_STATES = new Set(["RUNNING", "PAUSE", "SLICING", "PREPARE"]);
+// MQTT protocol uses: RUNNING, PAUSE, SLICING, PREPARE
+// HA Bambu Lab integration uses: printing, prepare, pause (lowercase, uppercased by automation)
+const ACTIVE_PRINT_STATES = new Set(["RUNNING", "PAUSE", "SLICING", "PREPARE", "PRINTING"]);
 /** States that mean the print ended successfully */
-const FINISH_STATES = new Set(["FINISH"]);
+const FINISH_STATES = new Set(["FINISH", "FINISHED"]);
 /** States that mean the print ended with a failure */
-const FAILED_STATES = new Set(["FAILED"]);
-/** States that mean the printer is idle — treat a previously running print as finished */
+const FAILED_STATES = new Set(["FAILED", "CANCELED"]);
+/** States that mean the printer is idle */
 const IDLE_STATES = new Set(["IDLE"]);
 
 /** Build a stable ha_event_id from the print name + UTC date (YYYY-MM-DD) */
