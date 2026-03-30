@@ -117,11 +117,20 @@ export function SyncLogTable({ logs }: { logs: SyncLogEntry[] }) {
                 </td>
                 <td className="py-1.5 text-right font-mono text-muted-foreground">
                   {log.slotsUpdated ?? 0}
-                  {!isExpanded && (
-                    <span className="ml-1 text-muted-foreground/30 opacity-0 group-hover:opacity-100 transition-opacity">▸</span>
-                  )}
+                  <span className="ml-1 text-muted-foreground/30 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {isExpanded ? "▾" : "▸"}
+                  </span>
                 </td>
               </tr>
+              {isExpanded && parsed && (
+                <tr>
+                  <td colSpan={7} className="pb-3 pt-0">
+                    <pre className="text-[10px] font-mono bg-muted/50 rounded-md p-3 overflow-x-auto max-h-[300px] overflow-y-auto whitespace-pre-wrap break-all">
+                      {JSON.stringify(parsed, null, 2)}
+                    </pre>
+                  </td>
+                </tr>
+              )}
             );
           })}
         </tbody>
