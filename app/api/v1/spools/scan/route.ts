@@ -31,6 +31,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Extract base64 data and mime type from data URL
+    const dataUrlMatch = image.match(/^data:(image\/[a-z+]+);base64,(.+)$/i);
+    let imageContent: { type: "image"; image: Uint8Array; mimeType?: string } | { type: "image"; image: URL };
+
+    if (dataUrlMatch) {
+      const mimeType = dataUrlMatch[1] as "image/jpeg" | "image/png" | "image/webp" | "image/gif";
+      const base64Data = dataUrlMatch[2];
+      const bytes = Buffer.from(base64Data, "base64");
+      imageContent = { type: "image" as const, image: new Uint8Array(bytes), mimeType };
+    } else {
+      // Assume it's a URL
+      imageContent = { type: "image" as const, image: new URL(image) };
+    }
+
     const { text: aiResponse } = await generateText({
       model: anthropic("claude-sonnet-4.6"),
       system: SYSTEM_PROMPT,
@@ -38,10 +52,7 @@ export async function POST(request: NextRequest) {
         {
           role: "user",
           content: [
-            {
-              type: "image",
-              image,
-            },
+            imageContent,
             {
               type: "text",
               text: "Analyze this spool label and extract the filament details as JSON.",
