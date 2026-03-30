@@ -1,4 +1,5 @@
-import { getAllPrints } from "@/lib/queries";
+import { getAllPrints, getPrinterStatus } from "@/lib/queries";
+import { SpoolMaterialBadge } from "@/components/spool/spool-material-badge";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SpoolColorDot } from "@/components/spool/spool-color-dot";
@@ -47,7 +48,10 @@ function groupByDate<T extends { startedAt: Date | null | string | undefined }>(
 // ── Page ──────────────────────────────────────────────────────────────────
 
 export default async function PrintHistoryPage() {
-  const allPrints = await getAllPrints();
+  const [allPrints, printerStatus] = await Promise.all([
+    getAllPrints(),
+    getPrinterStatus(),
+  ]);
   const runningPrints = allPrints.filter((p) => p.status === "running");
   const completedPrints = allPrints.filter((p) => p.status !== "running");
 
@@ -107,16 +111,24 @@ export default async function PrintHistoryPage() {
                     Printing
                   </Badge>
                 </div>
-                {(print.printWeight != null || print.totalLayers != null) && (
-                  <div className="flex gap-3 mt-2 text-xs text-muted-foreground">
-                    {print.printWeight != null && (
-                      <span className="font-mono">{print.printWeight}g estimated</span>
-                    )}
-                    {print.totalLayers != null && (
-                      <span className="font-mono">{print.totalLayers} layers</span>
-                    )}
-                  </div>
-                )}
+                <div className="flex flex-wrap gap-3 mt-2 text-xs text-muted-foreground items-center">
+                  {printerStatus.activeSpool && (
+                    <div className="flex items-center gap-1">
+                      <SpoolColorDot hex={printerStatus.activeSpool.colorHex} size="sm" />
+                      <span>{printerStatus.activeSpool.name}</span>
+                      <SpoolMaterialBadge material={printerStatus.activeSpool.material} />
+                    </div>
+                  )}
+                  {print.printWeight != null && (
+                    <span className="font-mono">{print.printWeight}g</span>
+                  )}
+                  {(printerStatus.progress ?? 0) > 0 && (
+                    <span className="font-mono text-primary font-medium">{Math.round(printerStatus.progress ?? 0)}%</span>
+                  )}
+                  {(printerStatus.remainingTime ?? 0) > 0 && (
+                    <span className="font-mono">{Math.round(printerStatus.remainingTime ?? 0)}min left</span>
+                  )}
+                </div>
               </Card>
             ))}
           </div>

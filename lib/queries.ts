@@ -110,9 +110,10 @@ export async function getPrinterStatus() {
     where: eq(schema.prints.status, "running"),
   });
 
-  // Get progress from latest sync log
+  // Get progress + active spool from latest sync log
   let progress = 0;
   let remainingTime = 0;
+  let activeSpool: { name: string; material: string; colorHex: string; vendor: string } | null = null;
   if (runningPrint) {
     const lastSync = await db.query.syncLog.findFirst({
       orderBy: (log, { desc }) => [desc(log.createdAt)],
@@ -123,6 +124,28 @@ export async function getPrinterStatus() {
         const req = data.request || data;
         progress = parseFloat(req.print_progress) || 0;
         remainingTime = parseFloat(req.print_remaining_time) || 0;
+
+        // Try to identify active spool from active_slot_tag or active_slot_filament_id
+        const activeTag = (req.active_slot_tag || "").replace(/^0+$/, "");
+        const activeFilamentId = req.active_slot_filament_id || "";
+        if (activeTag || activeFilamentId) {
+          // Find the matching spool in AMS slots
+          const slot = activeTag
+            ? await db.query.amsSlots.findFirst({
+                where: eq(schema.amsSlots.bambuTagUid, req.active_slot_tag),
+                with: { spool: { with: { filament: { with: { vendor: true } } } } },
+              })
+            : null;
+          if (slot?.spool) {
+            const f = slot.spool.filament;
+            activeSpool = {
+              name: f.name,
+              material: f.material,
+              colorHex: f.colorHex ?? "888888",
+              vendor: f.vendor?.name ?? "",
+            };
+          }
+        }
       } catch { /* ignore */ }
     }
   }
@@ -133,6 +156,7 @@ export async function getPrinterStatus() {
     printName: runningPrint?.name || null,
     progress,
     remainingTime,
+    activeSpool,
   };
 }
 

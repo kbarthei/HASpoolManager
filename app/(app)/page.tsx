@@ -36,7 +36,7 @@ export default async function Dashboard() {
           }
           subtitle={
             printerStatus.status === "printing"
-              ? `${printerStatus.printName || "Printing"}${(printerStatus.remainingTime ?? 0) > 0 ? ` · ${Math.round(printerStatus.remainingTime ?? 0)}min left` : ""}`
+              ? `${printerStatus.printName || "Printing"}${printerStatus.activeSpool ? ` · ${printerStatus.activeSpool.material}` : ""}${(printerStatus.remainingTime ?? 0) > 0 ? ` · ${Math.round(printerStatus.remainingTime ?? 0)}min` : ""}`
               : undefined
           }
           valueClassName={
