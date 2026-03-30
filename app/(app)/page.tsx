@@ -29,10 +29,15 @@ export default async function Dashboard() {
           label="Printer"
           value={
             printerStatus.status === "printing"
-              ? "Printing"
+              ? `${Math.round(printerStatus.progress)}%`
               : printerStatus.status === "idle"
               ? "Idle"
               : "Offline"
+          }
+          subtitle={
+            printerStatus.status === "printing"
+              ? `${printerStatus.printName || "Printing"}${printerStatus.remainingTime > 0 ? ` · ${Math.round(printerStatus.remainingTime)}min left` : ""}`
+              : undefined
           }
           valueClassName={
             printerStatus.status === "printing"
@@ -41,7 +46,7 @@ export default async function Dashboard() {
               ? "text-emerald-500"
               : "text-muted-foreground"
           }
-          href="/ams"
+          href="/prints"
         />
         <StatCard label="Filament Costs" value={`${stats.monthCost}€`} href="/prints" />
         <StatCard

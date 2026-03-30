@@ -110,10 +110,29 @@ export async function getPrinterStatus() {
     where: eq(schema.prints.status, "running"),
   });
 
+  // Get progress from latest sync log
+  let progress = 0;
+  let remainingTime = 0;
+  if (runningPrint) {
+    const lastSync = await db.query.syncLog.findFirst({
+      orderBy: (log, { desc }) => [desc(log.createdAt)],
+    });
+    if (lastSync?.responseJson) {
+      try {
+        const data = JSON.parse(lastSync.responseJson);
+        const req = data.request || data;
+        progress = parseFloat(req.print_progress) || 0;
+        remainingTime = parseFloat(req.print_remaining_time) || 0;
+      } catch { /* ignore */ }
+    }
+  }
+
   return {
     name: printer.name,
     status: runningPrint ? "printing" : "idle",
     printName: runningPrint?.name || null,
+    progress,
+    remainingTime,
   };
 }
 
