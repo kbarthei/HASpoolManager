@@ -603,14 +603,14 @@ export async function POST(request: NextRequest) {
 
     // Invalidate cached pages when state changes
     if (printTransition !== "none") {
-      revalidatePath("/");        // Dashboard
-      revalidatePath("/prints");  // Print history
-      revalidatePath("/ams");     // AMS slots
-      revalidatePath("/spools");  // Spools (weight changes)
+      revalidatePath("/");          // Dashboard
+      revalidatePath("/prints");    // Print history
+      revalidatePath("/inventory"); // Inventory (AMS + rack)
+      revalidatePath("/spools");    // Spools (weight changes)
     }
     if (slotsUpdated > 0) {
-      revalidatePath("/");        // Dashboard AMS mini view
-      revalidatePath("/ams");     // AMS page
+      revalidatePath("/");          // Dashboard AMS mini view
+      revalidatePath("/inventory"); // Inventory
     }
 
     // Log this sync for the admin dashboard
@@ -624,6 +624,13 @@ export async function POST(request: NextRequest) {
       slotsUpdated,
       responseJson: JSON.stringify({ request: body, response: responseData }),
     }).catch(() => {}); // fire-and-forget, don't fail the sync
+
+    // Retention: delete sync logs older than 24 hours (run every ~60 syncs ≈ 1 hour)
+    if (Math.random() < 0.017) {
+      await db.delete(syncLog)
+        .where(sql`${syncLog.createdAt} < NOW() - INTERVAL '24 hours'`)
+        .catch(() => {});
+    }
 
     return NextResponse.json(responseData);
   } catch (error) {
