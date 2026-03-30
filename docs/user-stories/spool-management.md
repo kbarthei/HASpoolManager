@@ -1,115 +1,102 @@
 # User Story: Spool Management
 
-> Organize, track, and manage your entire filament inventory.
+> Organizing your filament inventory — rack, surplus, workbench, and archive.
 
-## Locations
-
-Every spool has exactly one location:
+## The Location System
 
 ```mermaid
-flowchart TB
-    subgraph "At the Printer"
-        AMS["AMS (4 slots)"]
-        HT["AMS HT (1 slot)"]
-        EXT["External Holder"]
+graph TB
+    subgraph Active
+        Rack[Spool Rack<br/>4×8 Grid]
+        AMS[AMS Slots<br/>4+1+1]
+        Surplus[Surplus<br/>Overflow]
+        Workbench[Workbench<br/>In Use]
     end
 
-    subgraph "Storage"
-        RACK["Spool Rack<br/>4 rows × 8 columns"]
-        SURPLUS["Surplus<br/>Overflow storage"]
-        BENCH["Workbench<br/>Currently in use"]
+    subgraph Lifecycle
+        Ordered[Ordered<br/>Not Received]
+        Archive[Archived<br/>Used Up]
     end
 
-    subgraph "Lifecycle"
-        ORDERED["Ordered<br/>Not yet received"]
-        ARCHIVE["Archive<br/>Empty or retired"]
-    end
-
-    ORDERED -->|"Receive"| RACK
-    ORDERED -->|"Rack full"| SURPLUS
-    RACK -->|"Load"| AMS
-    RACK -->|"Load"| HT
-    RACK -->|"Load"| EXT
-    AMS -->|"Unload"| RACK
-    RACK <-->|"Move"| SURPLUS
-    RACK <-->|"Move"| BENCH
-    SURPLUS <-->|"Move"| BENCH
-    AMS -->|"Archive"| ARCHIVE
-    RACK -->|"Archive"| ARCHIVE
-    SURPLUS -->|"Archive"| ARCHIVE
-    ARCHIVE -->|"Restore"| SURPLUS
+    Ordered -->|Receive| Rack
+    Ordered -->|Rack Full| Surplus
+    Rack -->|Load| AMS
+    AMS -->|Unload| Rack
+    Rack -->|Working| Workbench
+    Workbench -->|Done| Rack
+    Rack -->|Overflow| Surplus
+    Surplus -->|Space Available| Rack
+    Rack -->|Empty/Done| Archive
+    AMS -->|Empty| Archive
 ```
 
-## The Spool Rack
+## The Spool Rack (Digital Twin)
 
-Your physical spool rack is a 4×8 grid. The app mirrors it exactly.
+Your physical spool rack holds 4 rows × 8 columns = 32 spools. The app mirrors this exactly.
 
-### Placing Spools
-- Each grid cell shows the filament color dot, material abbreviation, and a stock-level indicator (green/amber/red)
-- Empty cells show "+" — click to assign a spool from inventory
-- Drag & drop between cells to rearrange
+### Viewing the Rack
+- Go to **Storage** tab
+- See a grid with row headers (R1-R4) and column headers (S1-S8)
+- Each occupied cell shows:
+  - Filament color dot
+  - Material abbreviation
+  - Stock level indicator (green/amber/red)
+- Empty cells show a "+" icon
 
-### Context Menu
-Click any occupied cell to see options:
+### Moving Spools
+Click any occupied cell → context menu appears:
 - **View Details** — opens spool detail sheet
-- **Move to Surplus** — when you need the slot for something else
-- **Move to Workbench** — currently working with this spool
-- **Archive** — spool is empty or no longer needed
+- **Move to Surplus** — moves to surplus section
+- **Move to Workbench** — moves to workbench (e.g., currently using)
+- **Archive** — soft-deletes the spool
+
+### Drag & Drop (Desktop)
+Drag a spool from one cell to another:
+- If target is empty → spool moves there
+- If target is occupied → spools swap positions
 
 ## Surplus Storage
 
-For spools that don't fit in the rack (you ordered 4 white PLA but only have 2 rack slots):
-- Shows below the rack grid as a list
-- Each card has a context menu: View Details, Move to Workbench, Move to Rack
-- "Move to Rack" opens a slot picker — tap an empty cell to assign
+When the rack is full, extra spools go to surplus.
+- Shown below the rack grid
+- Same card style as AMS slots
+- Context menu: View Details, Move to Workbench, Move to Rack, Archive
 
 ## Workbench
 
-Spools you're actively using but not in the AMS:
-- Testing a new filament
-- Manually feeding through the external holder
-- Drying before loading into AMS
-
-## Adjusting Weight
-
-Sometimes the tracked weight doesn't match reality:
-- You removed filament manually
-- A print failed and you trimmed the spool
-- The initial weight was wrong
-
-On any spool detail page or sheet:
-1. Click the ✏️ pencil icon next to the weight
-2. Enter the new weight
-3. Press Enter or click ✓
-4. Toast: "Weight updated to 750g"
+For spools currently in active use (e.g., on your desk, next to the printer).
+- Shown below surplus
+- Same card style
+- Context menu: View Details, Move to Surplus, Move to Rack
 
 ## Archiving Spools
 
 When a spool is empty or no longer needed:
-1. Click "Archive" from any context menu (rack, AMS, surplus, workbench, detail page)
-2. Spool moves to the archive with `status: archived`
-3. Disappears from all active views
 
-### Viewing the Archive
+### Archive from Anywhere
+- Rack cell → "Archive"
+- Surplus/workbench card → "Archive"
+- AMS slot → unloads and archives
+- Spool detail page → "Archive" button
+
+### View Archived Spools
 1. Go to **Spools** tab
 2. Set Status filter to **"Archived"**
-3. See all archived spools with checkboxes
+3. See all archived spools with:
+   - Checkbox for bulk selection
+   - "Restore" button (moves to surplus)
+   - "Delete" button (permanent)
 
-### Bulk Cleanup
-1. Filter archived spools (optionally by material, vendor)
+### Mass Cleanup
+1. Filter archived spools by Material or Vendor
 2. Click "Select All" checkbox
-3. Click "Delete 12" to permanently remove
-4. Confirmation dialog prevents accidents
+3. Click "Delete X" → confirmation → permanently removed
 
-### Restoring
-Changed your mind? Click "Restore" — spool returns to surplus.
+## Weight Adjustment
 
-## Spool Filters
-
-The Spools page has labeled filters:
-- **Search** — by name, vendor, material
-- **Material** — PLA, PETG, ABS, ABS-GF, TPU
-- **Vendor** — Bambu Lab, Polymaker, Sunlu, etc.
-- **Color** — dropdown with color dots
-- **Status** — Active, Low Stock, Empty, Archived
-- **View** — toggle between grid cards and data table
+If something goes wrong (print failed, spool broke):
+1. Open any spool detail (from rack, AMS, spools list)
+2. Click the pencil icon next to the remaining weight
+3. Type the new weight
+4. Press Enter or click ✓
+5. Toast confirms: "Weight updated to 450g"

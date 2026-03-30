@@ -1,105 +1,85 @@
 # User Story: Print Job Lifecycle
 
-> From loading the AMS to knowing what your print cost.
+> From loading filament to tracking costs — what happens when you print.
 
 ## Overview
 
 ```mermaid
-flowchart LR
-    LOAD["🔄 Load AMS"] --> START["▶️ Print Started"]
-    START --> SWAP["🔀 Filament Change"]
-    SWAP --> DONE["✅ Print Finished"]
-    DONE --> COST["💰 Cost Calculated"]
-    COST --> DEDUCT["📉 Weight Deducted"]
+sequenceDiagram
+    participant User
+    participant App as HASpoolManager
+    participant HA as Home Assistant
+    participant Printer as Bambu Lab H2S
+
+    User->>App: Load spool into AMS
+    App->>App: Update AMS slot
+    Printer->>HA: Print started event
+    HA->>App: POST /events/print-started
+    App->>App: Create print record
+    Printer->>HA: Print finished event
+    HA->>App: POST /events/print-finished
+    App->>App: Deduct weight, calc cost
+    User->>App: View updated dashboard
 ```
 
 ## Step 1: Load Filament into AMS
 
-1. Open the **AMS** tab — shows all 6 slots:
-   - AMS (4 slots)
-   - AMS HT (1 slot)
-   - External spool holder (1 slot)
-2. Click **"+ Load"** on an empty slot
-3. The spool picker opens — search by name, material, or color
-4. Select a spool — it moves from storage to the AMS slot
-5. The storage rack updates automatically (slot is now empty)
+1. Pick a spool from your rack (Storage tab)
+2. Physically load it into your Bambu Lab AMS
+3. Two things happen:
+   - **Automatic (RFID):** If it's a Bambu Lab spool with RFID, the printer reads the tag. HA fires `ams-slot-changed` → app identifies the spool via RFID match (confidence 1.0)
+   - **Manual:** Go to AMS tab → click "Load" on the empty slot → pick the spool from the list
 
-## Step 2: Print Started
+## Step 2: Start Printing
 
-When the Bambu Lab printer starts a print, Home Assistant detects the state change and sends a webhook:
+1. Start a print from Bambu Studio or the printer
+2. Home Assistant detects the state change
+3. HA sends `POST /api/v1/events/print-started` with:
+   - Printer ID
+   - Print name (from gcode file)
+   - Estimated weight
+   - `ha_event_id` (for idempotency)
+4. App creates a print record with status "running"
 
-```
-POST /api/v1/events/print-started
-{
-  "printer_id": "...",
-  "name": "Sensor Housing v3",
-  "gcode_file": "sensor_housing_v3.3mf",
-  "ha_event_id": "ha_event_12345",
-  "print_weight": 45.2
-}
-```
+## Step 3: Print Completes
 
-The app:
-- Creates a print record with status "running"
-- Dashboard shows "Printing" (teal) instead of "Idle" (green)
-- Idempotent: sending the same `ha_event_id` twice returns "already_exists"
+1. Printer finishes (or fails)
+2. HA sends `POST /api/v1/events/print-finished` with:
+   - Status: finished/failed/cancelled
+   - Usage: which spools, how much weight used
+3. App processes:
+   - Deducts weight from each spool used
+   - Calculates filament cost (weight × price per gram)
+   - Updates spool status (marks as "empty" if weight reaches 0)
+   - Records everything in print history
 
-## Step 3: Filament Change (Multi-Material)
+## Step 4: View Results
 
-If the print uses multiple filaments, HA reports each swap:
+- **Dashboard:** Updated stats — print count, monthly cost, remaining weight
+- **Spool Detail:** Usage history shows the print with weight and cost
+- **Print History:** Full log of all prints with status icons
 
-```
-POST /api/v1/events/filament-changed
-{
-  "ha_event_id": "ha_event_12345",
-  "old_spool": { "spool_id": "...", "weight_used": 25.3 },
-  "new_tray": { "tag_uid": "8B119623B9CC0100" }
-}
-```
+## Matching Engine
 
-The app:
-- Records usage for the old spool (25.3g deducted)
-- Matches the new spool by RFID (confidence: 1.0)
-- Calculates cost for the used filament
+How does the app know which spool was used?
 
-## Step 4: Print Finished
+### Tier 1a: RFID Exact Match (Confidence: 1.0)
+Bambu Lab spools have RFID tags. The tag UID is unique to each spool.
 
-```
-POST /api/v1/events/print-finished
-{
-  "ha_event_id": "ha_event_12345",
-  "status": "finished",
-  "usage": [{ "spool_id": "...", "weight_used": 19.9 }]
-}
-```
+### Tier 1b: Bambu Index Match (Confidence: 0.95)
+The printer reports `tray_info_idx` (e.g., "GFA00" = PLA Basic). Combined with AMS slot position, this gives a near-certain match.
 
-The app:
-- Deducts remaining weight from each spool
-- Calculates total cost based on purchase price per gram
-- Updates spool status to "empty" if weight reaches 0
-- Dashboard updates: cost added to monthly total
+### Tier 2: Fuzzy Match (Scored)
+For third-party spools without RFID:
+- Bambu filament index: 40 points
+- Material type match: 20 points
+- CIE Delta-E color distance: 25 points
+- Vendor name match: 10 points
+- AMS location bonus: 5 points
 
-## Step 5: View Results
+## Multi-Material Prints
 
-- **Dashboard**: "Filament Costs" card shows updated monthly total
-- **Print History** tab: new entry with filament usage, weight, cost
-- **Spool Detail** page: usage history shows this print
-- **Spool History** tab: timeline entry "Used 45.2g for Sensor Housing v3"
-
-## Failed Prints
-
-When a print fails, HA sends status "failed":
-- Weight is still deducted (filament was consumed)
-- Print shows with ✗ icon and strikethrough in history
-- Notes field captures the failure reason
-- Cost is tracked but shown in muted text
-
-## Cost Tracking
-
-Each spool knows its purchase price. Cost per gram = purchase price / initial weight.
-
-| Print | Filament | Weight | Cost |
-|-------|----------|--------|------|
-| Sensor Housing v3 | ABS-GF Gray | 25.3g | 0.76€ |
-| Sensor Housing v3 | PLA Matte Charcoal | 19.9g | 0.40€ |
-| **Total** | | **45.2g** | **1.16€** |
+When a print uses multiple filaments:
+1. App records usage for each spool separately
+2. `filament-changed` webhook fires on each swap
+3. Cost is the sum of all filaments used
