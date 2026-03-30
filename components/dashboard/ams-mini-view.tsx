@@ -25,6 +25,7 @@ function SlotRow({ slot }: { slot: AmsSlotData }) {
     );
   }
 
+  const isDraft = spool.status === "draft";
   const filament = spool.filament;
   const hex = filament.colorHex ?? "888888";
   const percent =
@@ -34,19 +35,29 @@ function SlotRow({ slot }: { slot: AmsSlotData }) {
 
   return (
     <Link
-      href={`/spools/${spool.id}`}
+      href={isDraft ? `/spools?status=draft` : `/spools/${spool.id}`}
       className="flex items-center gap-2 rounded-md px-1 -mx-1 py-0.5 hover:bg-accent/50 transition"
     >
       <SpoolColorDot hex={hex} size="sm" />
       <span className="text-xs font-medium truncate">{filament.name}</span>
-      <SpoolMaterialBadge material={filament.material} className="shrink-0" />
+      {isDraft ? (
+        <span className="inline-flex items-center px-1 py-0.5 rounded text-[10px] font-medium bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 shrink-0">
+          Draft
+        </span>
+      ) : (
+        <SpoolMaterialBadge material={filament.material} className="shrink-0" />
+      )}
       <div className="flex-1" />
-      <SpoolProgressBar
-        remaining={spool.remainingWeight}
-        initial={spool.initialWeight}
-        className="w-8 shrink-0"
-      />
-      <span className="text-xs font-mono w-8 text-right shrink-0">{percent}%</span>
+      {!isDraft && (
+        <>
+          <SpoolProgressBar
+            remaining={spool.remainingWeight}
+            initial={spool.initialWeight}
+            className="w-8 shrink-0"
+          />
+          <span className="text-xs font-mono w-8 text-right shrink-0">{percent}%</span>
+        </>
+      )}
     </Link>
   );
 }

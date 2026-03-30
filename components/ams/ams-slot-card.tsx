@@ -11,6 +11,7 @@ interface SlotSpool {
   id: string;
   remainingWeight: number;
   initialWeight: number;
+  status: string;
   filament: {
     name: string;
     material: string;
@@ -37,6 +38,7 @@ interface AmsSlotCardProps {
 
 export function AmsSlotCard({ slot, onClickSpool, onClickLoad, onClickUnload, onClickArchive }: AmsSlotCardProps) {
   const spool = slot.spool;
+  const isDraft = spool?.status === "draft";
   const colorHex = spool?.filament.colorHex ?? null;
   const accentColor = colorHex ? `#${colorHex.replace("#", "")}` : undefined;
 
@@ -73,11 +75,14 @@ export function AmsSlotCard({ slot, onClickSpool, onClickLoad, onClickUnload, on
   return (
     <div
       className={cn(
-        "rounded-lg p-2.5 bg-card border border-border relative cursor-pointer",
+        "rounded-lg p-2.5 bg-card border relative cursor-pointer",
         "flex items-center gap-2",
-        "hover:bg-accent/50 transition-colors"
+        "hover:bg-accent/50 transition-colors",
+        isDraft
+          ? "border-amber-400 dark:border-amber-500"
+          : "border-border"
       )}
-      style={{ borderLeftWidth: "3px", borderLeftColor: accentColor ?? "#6b7280" }}
+      style={isDraft ? { borderLeftWidth: "3px", borderLeftColor: "#f59e0b" } : { borderLeftWidth: "3px", borderLeftColor: accentColor ?? "#6b7280" }}
       onClick={() => onClickSpool?.(spool.id)}
     >
       <SpoolColorDot
@@ -89,6 +94,11 @@ export function AmsSlotCard({ slot, onClickSpool, onClickLoad, onClickUnload, on
         <div className="flex items-center gap-1.5">
           <span className="text-sm font-medium truncate">{spool.filament.name}</span>
           <SpoolMaterialBadge material={spool.filament.material} />
+          {isDraft && (
+            <span className="inline-flex items-center px-1 py-0.5 rounded text-[10px] font-medium bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+              Draft
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-1.5">
           <span className="text-xs text-muted-foreground truncate">

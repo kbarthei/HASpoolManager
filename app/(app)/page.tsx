@@ -5,6 +5,7 @@ import { LowStockList } from "@/components/dashboard/low-stock-list";
 import { RecentPrints } from "@/components/dashboard/recent-prints";
 import { FilamentSummary } from "@/components/dashboard/filament-summary";
 import { AddOrderButton } from "@/components/orders/add-order-button";
+import Link from "next/link";
 
 export default async function Dashboard() {
   const [stats, slots, lowStock, prints, printerStatus, filamentSummary] = await Promise.all([
@@ -18,6 +19,20 @@ export default async function Dashboard() {
 
   return (
     <div className="space-y-3">
+      {/* Draft spool notification */}
+      {stats.draftSpoolCount > 0 && (
+        <Link
+          href="/spools?status=draft"
+          className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-sm hover:bg-amber-500/20 transition-colors"
+        >
+          <span className="text-base leading-none">⚠</span>
+          <span className="font-medium">
+            {stats.draftSpoolCount} new spool{stats.draftSpoolCount > 1 ? "s" : ""} need{stats.draftSpoolCount === 1 ? "s" : ""} review
+          </span>
+          <span className="ml-auto text-xs opacity-70">Identify →</span>
+        </Link>
+      )}
+
       {/* Stats row */}
       <div className="flex items-center justify-between gap-2 mb-0.5">
         <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Dashboard</h2>

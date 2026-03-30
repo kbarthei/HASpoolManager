@@ -23,6 +23,7 @@ import {
   permanentlyDeleteSpool,
   bulkDeleteSpools,
 } from "@/lib/actions";
+import { IdentifySpoolDialog } from "./identify-spool-dialog";
 
 type Spool = {
   id: string;
@@ -36,10 +37,19 @@ type Spool = {
     name: string;
     material: string;
     colorHex: string | null;
+    colorName: string | null;
     vendor: {
       name: string;
     };
   };
+};
+
+type FilamentOption = {
+  id: string;
+  name: string;
+  material: string;
+  colorHex: string | null;
+  vendor: { name: string };
 };
 
 export function SpoolsClient({
@@ -48,18 +58,21 @@ export function SpoolsClient({
   vendors,
   colors,
   initialView,
+  allFilaments = [],
 }: {
   spools: Spool[];
   materials: string[];
   vendors: string[];
   colors: { hex: string; name: string }[];
   initialView: "grid" | "list";
+  allFilaments?: FilamentOption[];
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const isArchiveView = searchParams.get("status") === "archived";
+  const isDraftView = searchParams.get("status") === "draft";
 
   function handleViewChange(v: "grid" | "list") {
     const params = new URLSearchParams(searchParams.toString());
@@ -148,6 +161,16 @@ export function SpoolsClient({
         </div>
       </div>
 
+      {/* Draft toolbar */}
+      {isDraftView && (
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400">
+          <span className="text-base leading-none">⚠</span>
+          <span className="text-xs font-medium">
+            {spools.length} spool{spools.length !== 1 ? "s" : ""} need{spools.length === 1 ? "s" : ""} review — identify them to make them active.
+          </span>
+        </div>
+      )}
+
       {/* Archive toolbar */}
       {isArchiveView && (
         <div className="flex items-center justify-between gap-2 bg-muted/50 rounded-lg px-3 py-2">
@@ -192,7 +215,7 @@ export function SpoolsClient({
       {/* Empty state */}
       {spools.length === 0 && (
         <div className="flex items-center justify-center py-16 text-sm text-muted-foreground">
-          {isArchiveView ? "No archived spools." : "No spools found."}
+          {isArchiveView ? "No archived spools." : isDraftView ? "No draft spools — all good!" : "No spools found."}
         </div>
       )}
 
@@ -200,7 +223,19 @@ export function SpoolsClient({
       {initialView === "grid" && spools.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
           {spools.map((spool) =>
-            isArchiveView ? (
+            isDraftView ? (
+              <div key={spool.id} className="relative rounded-xl border-2 border-amber-400/60 dark:border-amber-500/60 overflow-hidden">
+                <SpoolCard spool={spool} />
+                <div className="absolute top-2 left-2">
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+                    Draft
+                  </span>
+                </div>
+                <div className="px-2 pb-2">
+                  <IdentifySpoolDialog spool={spool} filaments={allFilaments} />
+                </div>
+              </div>
+            ) : isArchiveView ? (
               <div key={spool.id} className="relative">
                 <input
                   type="checkbox"
@@ -248,7 +283,7 @@ export function SpoolsClient({
               <TableHead>Remaining</TableHead>
               <TableHead>Location</TableHead>
               <TableHead>Price</TableHead>
-              {isArchiveView && <TableHead className="w-24">Actions</TableHead>}
+              {(isArchiveView || isDraftView) && <TableHead className="w-24">Actions</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -257,9 +292,9 @@ export function SpoolsClient({
               return (
                 <TableRow
                   key={spool.id}
-                  className={isArchiveView ? undefined : "cursor-pointer"}
+                  className={isArchiveView || isDraftView ? undefined : "cursor-pointer"}
                   onClick={
-                    isArchiveView
+                    isArchiveView || isDraftView
                       ? undefined
                       : () => router.push(`/spools/${spool.id}`)
                   }
@@ -280,7 +315,14 @@ export function SpoolsClient({
                     <SpoolColorDot hex={colorHex} size="sm" />
                   </TableCell>
                   <TableCell className="font-medium text-xs">
-                    {spool.filament.name}
+                    <div className="flex items-center gap-1.5">
+                      {spool.filament.name}
+                      {isDraftView && (
+                        <span className="inline-flex items-center px-1 py-0.5 rounded text-[10px] font-medium bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+                          Draft
+                        </span>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell>
                     <SpoolMaterialBadge material={spool.filament.material} />
@@ -307,6 +349,11 @@ export function SpoolsClient({
                       ? `${spool.purchasePrice} ${spool.currency ?? "EUR"}`
                       : "—"}
                   </TableCell>
+                  {isDraftView && (
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      <IdentifySpoolDialog spool={spool} filaments={allFilaments} />
+                    </TableCell>
+                  )}
                   {isArchiveView && (
                     <TableCell
                       onClick={(e) => e.stopPropagation()}

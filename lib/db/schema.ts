@@ -138,7 +138,7 @@ export const spools = pgTable(
     index("idx_spools_filament").on(table.filamentId),
     index("idx_spools_status").on(table.status),
     index("idx_spools_location").on(table.location),
-    check("chk_spools_status", sql`${table.status} IN ('active','archived','empty','returned')`),
+    check("chk_spools_status", sql`${table.status} IN ('active','archived','empty','returned','draft')`),
   ]
 );
 

@@ -63,8 +63,14 @@ export async function getOrderWithSpools(orderId: string) {
   return { ...order, spools: orderSpools };
 }
 
+export async function getDraftSpoolCount(): Promise<number> {
+  const [result] = await db.select({ count: sql<number>`count(*)::int` })
+    .from(schema.spools).where(eq(schema.spools.status, "draft"));
+  return result.count;
+}
+
 export async function getDashboardStats() {
-  // Count active spools
+  // Count active spools (excludes drafts)
   const [spoolCount] = await db.select({ count: sql<number>`count(*)::int` })
     .from(schema.spools).where(eq(schema.spools.status, "active"));
 
@@ -90,12 +96,17 @@ export async function getDashboardStats() {
     totalCost: sql<number>`coalesce(sum(total_cost::numeric), 0)`,
   }).from(schema.prints).where(sql`${schema.prints.startedAt} >= ${startOfMonth.toISOString()}`);
 
+  // Count draft spools needing review
+  const [draftCount] = await db.select({ count: sql<number>`count(*)::int` })
+    .from(schema.spools).where(eq(schema.spools.status, "draft"));
+
   return {
     activeSpools: spoolCount.count,
     totalValue: Math.round(valueSum.total * 100) / 100,
     lowStockCount: lowStock[0].count,
     monthPrints: monthStats.count,
     monthCost: Math.round(monthStats.totalCost * 100) / 100,
+    draftSpoolCount: draftCount.count,
   };
 }
 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { prints, amsSlots, spools, syncLog, printUsage } from "@/lib/db/schema";
+import { prints, amsSlots, spools, syncLog, printUsage, vendors, filaments, tagMappings } from "@/lib/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { requireAuth } from "@/lib/auth";
 import { matchSpool } from "@/lib/matching";
@@ -64,6 +64,212 @@ function buildEventId(printName: string, printerId: string): string {
   const date = new Date().toISOString().slice(0, 10);
   const safeName = printName.trim().toLowerCase().replace(/\s+/g, "_");
   return `sync_${printerId.slice(0, 8)}_${date}_${safeName}`.slice(0, 200);
+}
+
+// ── Bambu color hex → human-readable name map (common colors) ────────────────
+
+const BAMBU_COLOR_NAMES: Record<string, string> = {
+  "FFFFFF": "White",
+  "000000": "Black",
+  "FF0000": "Red",
+  "00FF00": "Green",
+  "0000FF": "Blue",
+  "FFFF00": "Yellow",
+  "FF6600": "Orange",
+  "FF00FF": "Magenta",
+  "00FFFF": "Cyan",
+  "808080": "Grey",
+  "C0C0C0": "Silver",
+  "A0522D": "Brown",
+  "FFC0CB": "Pink",
+  "800080": "Purple",
+  "00FF80": "Jade",
+  "1E90FF": "Blue (Light)",
+  "B0C4DE": "Steel Blue",
+  "F5F5DC": "Beige",
+  "FFD700": "Gold",
+};
+
+function bambuColorName(hex: string): string {
+  const upper = hex.toUpperCase().slice(0, 6);
+  if (BAMBU_COLOR_NAMES[upper]) return BAMBU_COLOR_NAMES[upper];
+  // Fallback: "#{hex}" shorthand
+  return `#${upper}`;
+}
+
+/** Derive a human-friendly filament name from tray_type + bambu_idx */
+function bambuFilamentName(trayType: string, bambuIdx: string): string {
+  // Known Bambu product lines by prefix
+  if (bambuIdx.startsWith("GFA")) return `${trayType} Basic`;
+  if (bambuIdx.startsWith("GFB")) return `${trayType} Matte`;
+  if (bambuIdx.startsWith("GFC")) return `${trayType} Silk`;
+  if (bambuIdx.startsWith("GFT")) return `${trayType} Translucent`;
+  if (bambuIdx.startsWith("GFN")) return `${trayType} Tough`;
+  if (bambuIdx.startsWith("GFG")) return `${trayType} Galaxy`;
+  if (bambuIdx.startsWith("GFX")) return `${trayType} Support`;
+  return trayType || "Filament";
+}
+
+/**
+ * Auto-create a Bambu Lab spool for a known RFID tag that has no match.
+ * Returns the new spool ID or null on failure.
+ */
+async function autoCreateBambuSpool(
+  tagUid: string,
+  bambuIdx: string,
+  trayType: string,
+  trayColor: string,
+  slotDef: (typeof SLOT_DEFS)[number],
+): Promise<string | null> {
+  try {
+    // Guard: don't create if tag_mapping already exists (race-condition safety)
+    const existingMapping = await db.query.tagMappings.findFirst({
+      where: eq(tagMappings.tagUid, tagUid),
+    });
+    if (existingMapping) return existingMapping.spoolId;
+
+    // 1. Find or create "Bambu Lab" vendor
+    let bambuVendor = await db.query.vendors.findFirst({
+      where: eq(vendors.name, "Bambu Lab"),
+    });
+    if (!bambuVendor) {
+      [bambuVendor] = await db.insert(vendors).values({ name: "Bambu Lab" }).returning();
+    }
+
+    // 2. Find or create filament by bambu_idx + color
+    const colorHex = trayColor.slice(0, 6).toUpperCase();
+    const filamentName = bambuFilamentName(trayType, bambuIdx);
+    const colorName = bambuColorName(colorHex);
+
+    let filament = bambuIdx
+      ? await db.query.filaments.findFirst({
+          where: and(
+            eq(filaments.bambuIdx, bambuIdx),
+            eq(filaments.colorHex, colorHex),
+          ),
+        })
+      : null;
+
+    if (!filament) {
+      // Also try matching by vendor + name + color (uq_filaments_vendor_name_color)
+      filament = await db.query.filaments.findFirst({
+        where: and(
+          eq(filaments.vendorId, bambuVendor.id),
+          eq(filaments.name, filamentName),
+          eq(filaments.colorHex, colorHex),
+        ),
+      });
+    }
+
+    if (!filament) {
+      [filament] = await db.insert(filaments).values({
+        vendorId: bambuVendor.id,
+        name: filamentName,
+        material: trayType || "PLA",
+        colorHex,
+        colorName,
+        bambuIdx: bambuIdx || null,
+        spoolWeight: 1000,
+      }).returning();
+    }
+
+    // 3. Create spool
+    const locationMap: Record<string, string> = {
+      ams: "ams",
+      ams_ht: "ams-ht",
+      external: "external",
+    };
+    const [spool] = await db.insert(spools).values({
+      filamentId: filament.id,
+      initialWeight: 1000,
+      remainingWeight: 1000,
+      status: "active",
+      location: locationMap[slotDef.slotType] ?? "ams",
+    }).returning();
+
+    // 4. Create tag mapping
+    await db.insert(tagMappings).values({
+      tagUid,
+      spoolId: spool.id,
+      source: "bambu",
+    });
+
+    console.log(
+      `[printer-sync] AUTO-CREATED: Bambu Lab ${filamentName} ${colorName} (tag=${tagUid.slice(0, 8)}... bambu_idx=${bambuIdx})`
+    );
+
+    return spool.id;
+  } catch (error) {
+    console.error("[printer-sync] autoCreateBambuSpool error:", error);
+    return null;
+  }
+}
+
+/**
+ * Auto-create a draft spool for an unmatched non-Bambu slot (no RFID).
+ * Draft spools need user review before becoming active.
+ * Returns the new spool ID or null on failure.
+ */
+async function autoCreateDraftSpool(
+  trayType: string,
+  trayColor: string,
+  slotDef: (typeof SLOT_DEFS)[number],
+): Promise<string | null> {
+  try {
+    // 1. Find or create "Unknown" vendor
+    let unknownVendor = await db.query.vendors.findFirst({
+      where: eq(vendors.name, "Unknown"),
+    });
+    if (!unknownVendor) {
+      [unknownVendor] = await db.insert(vendors).values({ name: "Unknown" }).returning();
+    }
+
+    // 2. Find or create a generic filament for this material + color
+    const colorHex = trayColor.slice(0, 6).toUpperCase() || "888888";
+    const material = trayType || "Unknown";
+
+    let filament = await db.query.filaments.findFirst({
+      where: and(
+        eq(filaments.vendorId, unknownVendor.id),
+        eq(filaments.name, material),
+        eq(filaments.colorHex, colorHex),
+      ),
+    });
+
+    if (!filament) {
+      [filament] = await db.insert(filaments).values({
+        vendorId: unknownVendor.id,
+        name: material,
+        material,
+        colorHex,
+        colorName: bambuColorName(colorHex),
+        spoolWeight: 1000,
+      }).returning();
+    }
+
+    // 3. Create draft spool
+    const locationMap: Record<string, string> = {
+      ams: "ams",
+      ams_ht: "ams-ht",
+      external: "external",
+    };
+    const [spool] = await db.insert(spools).values({
+      filamentId: filament.id,
+      initialWeight: 1000,
+      remainingWeight: 1000,
+      status: "draft",
+      location: locationMap[slotDef.slotType] ?? "ams",
+    }).returning();
+
+    console.log(
+      `[printer-sync] DRAFT-CREATED: Unknown ${material} ${colorHex} in ${slotDef.slotType} slot ${slotDef.trayIndex + 1} (spool=${spool.id})`
+    );
+
+    return spool.id;
+  } catch (error) {
+    console.error("[printer-sync] autoCreateDraftSpool error:", error);
+    return null;
+  }
 }
 
 // ── Slot definition (maps HA sensor names to our slot types) ─────────────────
@@ -326,6 +532,16 @@ export async function POST(request: NextRequest) {
             updatedAt: new Date(),
           }).where(eq(spools.id, matchedSpoolId));
         }
+      }
+
+      // Feature 1: Auto-create Bambu Lab spool for unmatched non-zero RFID tags
+      if (!matchedSpoolId && !isEmpty && tagUid && tagUid !== "0000000000000000" && tagUid.length > 8) {
+        matchedSpoolId = await autoCreateBambuSpool(tagUid, filamentId, trayType, trayColor, def);
+      }
+
+      // Feature 2: Auto-create draft spool for unmatched slots with no RFID (third-party filament)
+      if (!matchedSpoolId && !isEmpty && trayType && (!tagUid || tagUid === "0000000000000000")) {
+        matchedSpoolId = await autoCreateDraftSpool(trayType, trayColor, def);
       }
 
       // Move old spool back to storage if swapped

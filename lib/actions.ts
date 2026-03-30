@@ -390,6 +390,73 @@ export async function bulkDeleteSpools(spoolIds: string[]) {
   revalidatePath("/spools");
 }
 
+export async function confirmDraftSpool(
+  spoolId: string,
+  data: {
+    filamentId?: string;           // if assigning an existing filament
+    vendorName?: string;           // for new filament creation
+    filamentName?: string;
+    material?: string;
+    colorHex?: string;
+    colorName?: string;
+    purchasePrice?: string;
+    initialWeight?: number;
+  }
+) {
+  const spool = await db.query.spools.findFirst({ where: eq(spools.id, spoolId) });
+  if (!spool) throw new Error("Spool not found");
+  if (spool.status !== "draft") throw new Error("Spool is not a draft");
+
+  let targetFilamentId = data.filamentId;
+
+  if (!targetFilamentId && data.filamentName && data.material) {
+    // Find or create vendor
+    const vendorName = data.vendorName?.trim() || "Unknown";
+    let vendor = await db.query.vendors.findFirst({ where: eq(vendors.name, vendorName) });
+    if (!vendor) {
+      [vendor] = await db.insert(vendors).values({ name: vendorName }).returning();
+    }
+
+    // Find or create filament
+    const colorHex = (data.colorHex ?? "888888").replace("#", "").slice(0, 6).toUpperCase();
+    let filament = await db.query.filaments.findFirst({
+      where: and(
+        eq(filaments.vendorId, vendor.id),
+        eq(filaments.name, data.filamentName),
+        eq(filaments.colorHex, colorHex),
+      ),
+    });
+    if (!filament) {
+      [filament] = await db.insert(filaments).values({
+        vendorId: vendor.id,
+        name: data.filamentName,
+        material: data.material,
+        colorHex,
+        colorName: data.colorName ?? null,
+        spoolWeight: data.initialWeight ?? 1000,
+      }).returning();
+    }
+    targetFilamentId = filament.id;
+  }
+
+  if (!targetFilamentId) throw new Error("filamentId or filament details required");
+
+  const newWeight = data.initialWeight ?? spool.initialWeight;
+
+  await db.update(spools).set({
+    filamentId: targetFilamentId,
+    status: "active",
+    initialWeight: newWeight,
+    remainingWeight: newWeight,
+    purchasePrice: data.purchasePrice ?? null,
+    updatedAt: new Date(),
+  }).where(eq(spools.id, spoolId));
+
+  revalidatePath("/");
+  revalidatePath("/spools");
+  revalidatePath("/ams");
+}
+
 export async function clearStaleRunningPrints() {
   const result = await db.update(prints)
     .set({ status: "cancelled", finishedAt: new Date(), updatedAt: new Date() })

@@ -33,9 +33,11 @@ export default async function SpoolsPage({
     allSpools = allSpools.filter((s) => s.status === "empty");
   } else if (params.status === "archived") {
     allSpools = allSpools.filter((s) => s.status === "archived");
+  } else if (params.status === "draft") {
+    allSpools = allSpools.filter((s) => s.status === "draft");
   } else {
-    // Default: hide archived spools
-    allSpools = allSpools.filter((s) => s.status !== "archived");
+    // Default: hide archived and draft spools
+    allSpools = allSpools.filter((s) => s.status !== "archived" && s.status !== "draft");
   }
   if (params.search) {
     const q = params.search.toLowerCase();
@@ -72,6 +74,12 @@ export default async function SpoolsPage({
 
   const view = (params.view === "list" ? "list" : "grid") as "grid" | "list";
 
+  // Fetch all filaments for the Identify dialog dropdown
+  const allFilaments = await db.query.filaments.findMany({
+    with: { vendor: true },
+    orderBy: [desc(schema.filaments.createdAt)],
+  });
+
   return (
     <SpoolsClient
       spools={JSON.parse(JSON.stringify(allSpools))}
@@ -79,6 +87,7 @@ export default async function SpoolsPage({
       vendors={vendors}
       colors={colors}
       initialView={view}
+      allFilaments={JSON.parse(JSON.stringify(allFilaments))}
     />
   );
 }

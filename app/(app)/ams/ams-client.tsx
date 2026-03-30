@@ -19,6 +19,7 @@ interface SlotData {
     id: string;
     remainingWeight: number;
     initialWeight: number;
+    status: string;
     filament: {
       name: string;
       material: string;
