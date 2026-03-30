@@ -115,8 +115,11 @@ export default async function PrintHistoryPage() {
                   {printerStatus.activeSpool && (
                     <div className="flex items-center gap-1">
                       <SpoolColorDot hex={printerStatus.activeSpool.colorHex} size="sm" />
-                      <span>{printerStatus.activeSpool.name}</span>
+                      <span>{printerStatus.activeSpool.vendor} {printerStatus.activeSpool.name}</span>
                       <SpoolMaterialBadge material={printerStatus.activeSpool.material} />
+                      {printerStatus.activeSpool.colorName && (
+                        <span className="text-muted-foreground">({printerStatus.activeSpool.colorName})</span>
+                      )}
                     </div>
                   )}
                   {print.printWeight != null && (

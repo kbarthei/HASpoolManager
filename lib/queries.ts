@@ -113,7 +113,7 @@ export async function getPrinterStatus() {
   // Get progress + active spool from latest sync log
   let progress = 0;
   let remainingTime = 0;
-  let activeSpool: { name: string; material: string; colorHex: string; vendor: string } | null = null;
+  let activeSpool: { name: string; material: string; colorHex: string; colorName: string | null; vendor: string } | null = null;
   if (runningPrint) {
     const lastSync = await db.query.syncLog.findFirst({
       orderBy: (log, { desc }) => [desc(log.createdAt)],
@@ -142,6 +142,7 @@ export async function getPrinterStatus() {
               name: f.name,
               material: f.material,
               colorHex: f.colorHex ?? "888888",
+              colorName: f.colorName ?? null,
               vendor: f.vendor?.name ?? "",
             };
           }
