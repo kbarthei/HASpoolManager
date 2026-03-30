@@ -29,14 +29,14 @@ export default async function Dashboard() {
           label="Printer"
           value={
             printerStatus.status === "printing"
-              ? `${Math.round(printerStatus.progress)}%`
+              ? `${Math.round(printerStatus.progress ?? 0)}%`
               : printerStatus.status === "idle"
               ? "Idle"
               : "Offline"
           }
           subtitle={
             printerStatus.status === "printing"
-              ? `${printerStatus.printName || "Printing"}${printerStatus.remainingTime > 0 ? ` · ${Math.round(printerStatus.remainingTime)}min left` : ""}`
+              ? `${printerStatus.printName || "Printing"}${(printerStatus.remainingTime ?? 0) > 0 ? ` · ${Math.round(printerStatus.remainingTime ?? 0)}min left` : ""}`
               : undefined
           }
           valueClassName={
