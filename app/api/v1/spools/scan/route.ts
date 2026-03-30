@@ -98,9 +98,10 @@ export async function POST(request: NextRequest) {
       confidence: "high",
     });
   } catch (error) {
-    console.error("POST /api/v1/spools/scan error:", error);
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error("POST /api/v1/spools/scan error:", msg, error);
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: "Scan failed", details: msg },
       { status: 500 },
     );
   }
