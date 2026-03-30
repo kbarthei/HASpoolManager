@@ -2,6 +2,7 @@
 
 import { SpoolColorDot } from "@/components/spool/spool-color-dot";
 import { SpoolProgressBar } from "@/components/spool/spool-progress-bar";
+import { SpoolMaterialBadge } from "@/components/spool/spool-material-badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Archive, X } from "lucide-react";
@@ -87,6 +88,7 @@ export function AmsSlotCard({ slot, onClickSpool, onClickLoad, onClickUnload, on
       <div className="flex-1 min-w-0 space-y-0.5">
         <div className="flex items-center gap-1.5">
           <span className="text-sm font-medium truncate">{spool.filament.name}</span>
+          <SpoolMaterialBadge material={spool.filament.material} />
         </div>
         <div className="flex items-center gap-1.5">
           <span className="text-xs text-muted-foreground truncate">
@@ -94,6 +96,8 @@ export function AmsSlotCard({ slot, onClickSpool, onClickLoad, onClickUnload, on
           </span>
           <span className="text-xs text-muted-foreground">·</span>
           <span className="text-xs text-muted-foreground">Slot {slot.trayIndex + 1}</span>
+          <span className="text-xs text-muted-foreground">·</span>
+          <span className="text-xs font-mono text-muted-foreground">{spool.remainingWeight}g</span>
         </div>
       </div>
 
