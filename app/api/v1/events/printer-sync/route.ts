@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { prints, amsSlots, spools, syncLog, printUsage } from "@/lib/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { requireAuth } from "@/lib/auth";
 import { matchSpool } from "@/lib/matching";
 
@@ -22,7 +22,11 @@ type PrintTransition = "none" | "started" | "finished" | "failed";
 // (any case — we normalize to uppercase)
 const ACTIVE_STATES = new Set([
   "RUNNING", "PRINTING", "PREPARE", "SLICING", "PAUSE",
-  "DRUCKEN", "VORBEREITEN",  // German variants just in case
+  "DRUCKEN", "VORBEREITEN",  // German variants
+  // Bambu Lab calibration/preparation sub-states
+  "CALIBRATING_EXTRUSION", "CLEANING_NOZZLE_TIP", "SWEEPING_XY_MECH_MODE",
+  "HEATBED_PREHEATING", "NOZZLE_PREHEATING", "CHANGE_FILAMENT",
+  "M400_PAUSE", "FILAMENT_RUNOUT_PAUSE", "FRONT_COVER_PAUSE",
 ]);
 const FINISH_STATES = new Set(["FINISH", "FINISHED", "COMPLETE", "COMPLETED"]);
 const FAILED_STATES = new Set(["FAILED", "CANCELED", "CANCELLED", "ERROR"]);
@@ -201,31 +205,32 @@ export async function POST(request: NextRequest) {
     let affectedPrintId: string | null = runningPrint?.id ?? null;
 
     if (!runningPrint && isActive) {
-      // New print started
-      const haEventId = buildEventId(printName || "unknown", printer_id);
-      const existing = await db.query.prints.findFirst({
-        where: eq(prints.haEventId, haEventId),
-      });
-
-      if (!existing) {
-        const [newPrint] = await db
-          .insert(prints)
-          .values({
-            printerId: printer_id,
-            name: printName || null,
-            status: "running",
-            startedAt: new Date(),
-            totalLayers: printLayersTotal || null,
-            printWeight: printWeight || null,
-            haEventId,
-          })
-          .returning();
-        affectedPrintId = newPrint.id;
-        printTransition = "started";
-        console.log(`[printer-sync] STARTED: "${printName}" id=${newPrint.id}`);
-      } else {
-        affectedPrintId = existing.id;
+      // New print started — no running print exists, so create one.
+      // Use a unique event ID: if a finished print with the same name+date exists,
+      // append a counter to make the ID unique.
+      let haEventId = buildEventId(printName || "unknown", printer_id);
+      const existingCount = await db.select({ count: sql<number>`count(*)::int` })
+        .from(prints)
+        .where(sql`${prints.haEventId} LIKE ${haEventId + '%'}`);
+      if (existingCount[0].count > 0) {
+        haEventId = `${haEventId}_${existingCount[0].count + 1}`;
       }
+
+      const [newPrint] = await db
+        .insert(prints)
+        .values({
+          printerId: printer_id,
+          name: printName || null,
+          status: "running",
+          startedAt: new Date(),
+          totalLayers: printLayersTotal || null,
+          printWeight: printWeight || null,
+          haEventId,
+        })
+        .returning();
+      affectedPrintId = newPrint.id;
+      printTransition = "started";
+      console.log(`[printer-sync] STARTED: "${printName}" id=${newPrint.id} event=${haEventId}`);
     } else if (runningPrint && (isFinished || (isIdle && !printError))) {
       // Print completed (or idle = missed finish)
       const finalWeight = printWeight || runningPrint.printWeight;
