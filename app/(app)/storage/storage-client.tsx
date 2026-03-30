@@ -83,12 +83,13 @@ export function StorageClient({ spools, surplusSpools, workbenchSpools, rows, co
   }
 
   function handleCellClick(row: number, col: number, spool?: SpoolData | null) {
-    if (!spool) {
+    if (spool) {
+      openDetail(spool.id);
+    } else {
       setTargetRow(row);
       setTargetCol(col);
       setPickerOpen(true);
     }
-    // Occupied cells open via the DropdownMenu "View Details" item
   }
 
   async function handlePickerSelect(spoolId: string) {
