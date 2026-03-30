@@ -90,11 +90,14 @@ export function StorageCell({
             hex={spool.filament.colorHex ?? "888888"}
             size="md"
           />
-          <span className="text-[9px] leading-tight text-foreground text-center line-clamp-2 px-[2px] w-full truncate">
+          <span className="text-[9px] leading-tight text-foreground text-center line-clamp-1 px-[2px] w-full truncate">
             {spool.filament.name}
           </span>
           <span className="text-[8px] leading-none text-muted-foreground text-center w-full truncate">
-            {spool.filament.material}
+            {spool.filament.vendor.name}
+          </span>
+          <span className="text-[8px] leading-none text-muted-foreground text-center w-full truncate">
+            {spool.filament.material} · {spool.remainingWeight}g
           </span>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="center" side="bottom" className="w-44">
