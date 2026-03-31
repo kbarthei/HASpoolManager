@@ -98,7 +98,7 @@ export async function cleanupStaleTestData(): Promise<void> {
   const stalePrints = await db
     .select({ id: prints.id })
     .from(prints)
-    .where(sql`${prints.name} = 'Integration Test Print' OR ${prints.haEventId} LIKE 'test_%'`);
+    .where(sql`${prints.name} LIKE 'test-%' OR ${prints.name} = 'Integration Test Print' OR ${prints.haEventId} LIKE 'test_%' OR ${prints.haEventId} LIKE 'sync_%_test-%'`);
 
   if (stalePrints.length > 0) {
     const ids = stalePrints.map((p) => p.id);

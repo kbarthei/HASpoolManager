@@ -83,15 +83,15 @@ describe.skipIf(!process.env.DATABASE_URL)("printer-sync integration", () => {
   });
 
   afterAll(async () => {
-    // Remove all prints created by the sync endpoint during tests
+    // Remove ALL prints created by tests — match by name pattern and event ID pattern
     const testPrints = await db.select({ id: prints.id }).from(prints)
-      .where(sql`${prints.name} = 'Integration Test Print' OR ${prints.haEventId} LIKE 'test_%'`);
+      .where(sql`${prints.name} LIKE 'test-%' OR ${prints.name} = 'Integration Test Print' OR ${prints.haEventId} LIKE 'test_%' OR ${prints.haEventId} LIKE 'sync_%_test-%'`);
     for (const p of testPrints) {
       await db.delete(printUsage).where(eq(printUsage.printId, p.id)).catch(() => {});
     }
     if (testPrints.length > 0) {
       await db.delete(prints)
-        .where(sql`${prints.name} = 'Integration Test Print' OR ${prints.haEventId} LIKE 'test_%'`)
+        .where(sql`${prints.name} LIKE 'test-%' OR ${prints.name} = 'Integration Test Print' OR ${prints.haEventId} LIKE 'test_%' OR ${prints.haEventId} LIKE 'sync_%_test-%'`)
         .catch(() => {});
     }
 
