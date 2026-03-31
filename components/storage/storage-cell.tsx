@@ -1,6 +1,7 @@
 "use client";
 
 import { SpoolColorDot } from "@/components/spool/spool-color-dot";
+import { SpoolMaterialBadge } from "@/components/spool/spool-material-badge";
 import { getStockLevelBg } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import {
@@ -91,15 +92,15 @@ export function StorageCell({
             size="md"
             className="shrink-0"
           />
-          <div className="flex-1 min-w-0 space-y-0">
-            <span className="text-[10px] sm:text-[11px] leading-tight text-foreground block truncate">
-              {spool.filament.name}
-            </span>
+          <div className="flex-1 min-w-0 space-y-0.5">
+            <div className="flex items-center gap-1">
+              <span className="text-[10px] sm:text-[11px] leading-tight text-foreground truncate">
+                {spool.filament.name}
+              </span>
+              <SpoolMaterialBadge material={spool.filament.material} className="text-[8px] px-1 py-0 shrink-0" />
+            </div>
             <span className="text-[9px] sm:text-[10px] leading-tight text-muted-foreground block truncate">
-              {spool.filament.vendor.name}
-            </span>
-            <span className="text-[9px] sm:text-[10px] leading-tight text-muted-foreground block truncate">
-              {spool.filament.material} · {spool.remainingWeight}g
+              {spool.filament.vendor.name} · {spool.remainingWeight}g
             </span>
           </div>
         </DropdownMenuTrigger>
