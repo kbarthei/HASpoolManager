@@ -289,7 +289,7 @@ async function fuzzyMatch(
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 /** Normalize Bambu color format (RRGGBBAA → RRGGBB) */
-function normalizeColor(color?: string): string | null {
+export function normalizeColor(color?: string): string | null {
   if (!color) return null;
   const clean = color.replace("#", "");
   // Bambu sends RRGGBBAA, we only need RRGGBB

@@ -5,6 +5,11 @@ import { prints, amsSlots, spools, syncLog, printUsage, vendors, filaments, tagM
 import { eq, and, sql } from "drizzle-orm";
 import { requireAuth } from "@/lib/auth";
 import { matchSpool } from "@/lib/matching";
+import {
+  num, bool, str,
+  ACTIVE_STATES, FINISH_STATES, FAILED_STATES, IDLE_STATES,
+  buildEventId, bambuColorName, bambuFilamentName,
+} from "@/lib/printer-sync-helpers";
 
 /**
  * POST /api/v1/events/printer-sync
@@ -17,103 +22,6 @@ import { matchSpool } from "@/lib/matching";
  */
 
 type PrintTransition = "none" | "started" | "finished" | "failed";
-
-// ── State classification ─────────────────────────────────────────────────────
-// Accept both MQTT protocol values AND HA Bambu Lab integration values
-// (any case — we normalize to uppercase)
-const ACTIVE_STATES = new Set([
-  "RUNNING", "PRINTING", "PREPARE", "SLICING", "PAUSE",
-  "DRUCKEN", "VORBEREITEN",  // German variants
-  // Bambu Lab calibration/preparation sub-states
-  "CALIBRATING_EXTRUSION", "CLEANING_NOZZLE_TIP", "SWEEPING_XY_MECH_MODE",
-  "HEATBED_PREHEATING", "NOZZLE_PREHEATING", "CHANGE_FILAMENT",
-  "M400_PAUSE", "FILAMENT_RUNOUT_PAUSE", "FRONT_COVER_PAUSE",
-]);
-const FINISH_STATES = new Set(["FINISH", "FINISHED", "COMPLETE", "COMPLETED"]);
-const FAILED_STATES = new Set(["FAILED", "CANCELED", "CANCELLED", "ERROR"]);
-const IDLE_STATES = new Set(["IDLE", "OFFLINE", "UNKNOWN", ""]);
-
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
-/** Parse a string to number, returning the default for any non-numeric value */
-function num(val: unknown, def = 0): number {
-  if (val === null || val === undefined || val === "" || val === "None" || val === "unknown" || val === "unavailable") return def;
-  const n = Number(val);
-  return isNaN(n) ? def : n;
-}
-
-/** Parse a string to boolean */
-function bool(val: unknown): boolean {
-  if (typeof val === "boolean") return val;
-  if (typeof val === "string") {
-    const lower = val.toLowerCase().trim();
-    return lower === "true" || lower === "on" || lower === "1" || lower === "yes";
-  }
-  return false;
-}
-
-/** Clean a string value — treat HA's "None", "unknown", "unavailable" as empty */
-function str(val: unknown, def = ""): string {
-  if (val === null || val === undefined) return def;
-  const s = String(val).trim();
-  if (s === "None" || s === "unknown" || s === "unavailable" || s === "null") return def;
-  return s;
-}
-
-/** Build a stable ha_event_id from the print name + UTC date */
-function buildEventId(printName: string, printerId: string): string {
-  const date = new Date().toISOString().slice(0, 10);
-  const safeName = printName.trim().toLowerCase().replace(/\s+/g, "_");
-  return `sync_${printerId.slice(0, 8)}_${date}_${safeName}`.slice(0, 200);
-}
-
-// ── Bambu color hex → human-readable name map (common colors) ────────────────
-
-const BAMBU_COLOR_NAMES: Record<string, string> = {
-  "FFFFFF": "White",
-  "000000": "Black",
-  "FF0000": "Red",
-  "00FF00": "Green",
-  "0000FF": "Blue",
-  "FFFF00": "Yellow",
-  "FF6600": "Orange",
-  "FF00FF": "Magenta",
-  "00FFFF": "Cyan",
-  "808080": "Grey",
-  "C0C0C0": "Silver",
-  "A0522D": "Brown",
-  "FFC0CB": "Pink",
-  "800080": "Purple",
-  "00FF80": "Jade",
-  "1E90FF": "Blue (Light)",
-  "B0C4DE": "Steel Blue",
-  "F5F5DC": "Beige",
-  "FFD700": "Gold",
-};
-
-function bambuColorName(hex: string): string {
-  const upper = hex.toUpperCase().slice(0, 6);
-  if (BAMBU_COLOR_NAMES[upper]) return BAMBU_COLOR_NAMES[upper];
-  // Fallback: "#{hex}" shorthand
-  return `#${upper}`;
-}
-
-/** Derive a human-friendly filament name from tray_type + bambu_idx */
-function bambuFilamentName(trayType: string, bambuIdx: string): string {
-  // Known Bambu product line prefixes
-  const prefix = bambuIdx.slice(0, 3).toUpperCase();
-  const lineMap: Record<string, string> = {
-    GFA: `${trayType} Basic`,      // PLA Basic, PETG Basic
-    GFB: trayType,                  // ABS-GF (material IS the line)
-    GFC: `${trayType} Silk+`,
-    GFG: `${trayType} HF`,         // High Flow (PETG HF, etc.)
-    GFL: `${trayType}`,            // Third-party compat codes
-    GFN: `${trayType} Tough`,
-    GFT: `${trayType} Translucent`,
-    GFX: `${trayType} Support`,
-  };
-  return lineMap[prefix] ?? (trayType || "Filament");
-}
 
 /**
  * Auto-create a Bambu Lab spool for a known RFID tag that has no match.
