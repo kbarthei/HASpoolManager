@@ -8,7 +8,7 @@ import { matchSpool } from "@/lib/matching";
 import {
   num, bool, str,
   ACTIVE_STATES, FINISH_STATES, FAILED_STATES, IDLE_STATES,
-  buildEventId, bambuColorName, bambuFilamentName,
+  buildEventId, bambuColorName, bambuFilamentName, calculateWeightSync,
 } from "@/lib/printer-sync-helpers";
 
 /**
@@ -439,6 +439,7 @@ export async function POST(request: NextRequest) {
     // ── 2. Update AMS slots (flat key-value) ──────────────────────────────
 
     let slotsUpdated = 0;
+    const weightSyncs: Array<{ spoolId: string; from: number; to: number; remain: number }> = [];
 
     for (const def of SLOT_DEFS) {
       const prefix = def.key;
@@ -527,6 +528,35 @@ export async function POST(request: NextRequest) {
         await db.insert(amsSlots).values(slotData);
       }
       slotsUpdated++;
+
+      // Weight sync from AMS remain (only when idle, only Bambu spools)
+      if (matchedSpoolId && !isEmpty && remain >= 0) {
+        const spool = await db.query.spools.findFirst({
+          where: eq(spools.id, matchedSpoolId),
+        });
+        if (spool) {
+          const syncResult = calculateWeightSync({
+            remain,
+            initialWeight: spool.initialWeight,
+            currentWeight: spool.remainingWeight,
+            tagUid,
+            isIdle,
+          });
+          if (syncResult.shouldUpdate && syncResult.newWeight !== null) {
+            await db.update(spools).set({
+              remainingWeight: syncResult.newWeight,
+              updatedAt: new Date(),
+            }).where(eq(spools.id, matchedSpoolId));
+            weightSyncs.push({
+              spoolId: matchedSpoolId,
+              from: spool.remainingWeight,
+              to: syncResult.newWeight,
+              remain,
+            });
+            console.log(`[printer-sync] WEIGHT-SYNC: spool=${matchedSpoolId} ${spool.remainingWeight}g→${syncResult.newWeight}g (remain=${remain}%)`);
+          }
+        }
+      }
     }
 
     const responseData = {
@@ -537,6 +567,7 @@ export async function POST(request: NextRequest) {
       print_transition: printTransition,
       print_id: affectedPrintId,
       slots_updated: slotsUpdated,
+      weight_syncs: weightSyncs,
       timestamp: new Date().toISOString(),
     };
 

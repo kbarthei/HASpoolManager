@@ -99,6 +99,66 @@ export function bambuColorName(hex: string): string {
 // ── Bambu filament name ───────────────────────────────────────────────────────
 
 /** Derive a human-friendly filament name from tray_type + bambu_idx */
+// ── Weight sync from AMS remain ───────────────────────────────────────────────
+
+export interface WeightSyncResult {
+  shouldUpdate: boolean;
+  newWeight: number | null;
+  reason: string;
+}
+
+/**
+ * Determine if a spool's weight should be updated from AMS remain percentage.
+ * Returns shouldUpdate=true with newWeight if an update is warranted.
+ */
+export function calculateWeightSync(params: {
+  remain: number;        // AMS remain percentage (0-100, -1 = unknown)
+  initialWeight: number; // spool initial weight in grams
+  currentWeight: number; // spool current remaining weight in grams
+  tagUid: string;        // RFID tag UID (zeros = no RFID)
+  isIdle: boolean;       // printer is idle (not printing)
+  threshold?: number;    // minimum delta as fraction of initialWeight (default 0.05 = 5%)
+}): WeightSyncResult {
+  const { remain, initialWeight, currentWeight, tagUid, isIdle, threshold = 0.05 } = params;
+
+  // Rule 1: Only when idle
+  if (!isIdle) return { shouldUpdate: false, newWeight: null, reason: "printer_active" };
+
+  // Rule 2: Only Bambu spools (non-zero RFID tag)
+  if (!tagUid || tagUid === "0000000000000000" || tagUid.length < 8) {
+    return { shouldUpdate: false, newWeight: null, reason: "no_rfid" };
+  }
+
+  // Rule 3: Only valid remain
+  if (remain < 0 || remain > 100) {
+    return { shouldUpdate: false, newWeight: null, reason: "invalid_remain" };
+  }
+
+  // Calculate weight from percentage
+  if (initialWeight <= 0) {
+    return { shouldUpdate: false, newWeight: null, reason: "no_initial_weight" };
+  }
+
+  const calculatedWeight = Math.round(initialWeight * (remain / 100));
+
+  // Rule 5: Never increase weight
+  if (calculatedWeight >= currentWeight) {
+    return { shouldUpdate: false, newWeight: null, reason: "would_increase" };
+  }
+
+  // Rule 4: 5% threshold
+  const delta = currentWeight - calculatedWeight;
+  const minDelta = initialWeight * threshold;
+  if (delta < minDelta) {
+    return { shouldUpdate: false, newWeight: null, reason: "below_threshold" };
+  }
+
+  return { shouldUpdate: true, newWeight: calculatedWeight, reason: "synced" };
+}
+
+// ── Bambu filament name ───────────────────────────────────────────────────────
+
+/** Derive a human-friendly filament name from tray_type + bambu_idx */
 export function bambuFilamentName(trayType: string, bambuIdx: string): string {
   // Known Bambu product line prefixes
   const prefix = bambuIdx.slice(0, 3).toUpperCase();

@@ -7,6 +7,7 @@ import {
   buildEventId,
   bambuColorName,
   bambuFilamentName,
+  calculateWeightSync,
 } from "@/lib/printer-sync-helpers";
 import { normalizeColor } from "@/lib/matching";
 
@@ -346,6 +347,143 @@ describe("bambuColorName()", () => {
 
   it("0000FF → Blue", () => {
     expect(bambuColorName("0000FF")).toBe("Blue");
+  });
+});
+
+// ── calculateWeightSync() ─────────────────────────────────────────────────────
+
+describe("calculateWeightSync()", () => {
+  const base = {
+    remain: 80,
+    initialWeight: 1000,
+    currentWeight: 1000,
+    tagUid: "B568B1A400000100",
+    isIdle: true,
+    threshold: 0.05,
+  };
+
+  // Rule 1: Only when idle
+  it("skips when printer is active", () => {
+    const r = calculateWeightSync({ ...base, isIdle: false });
+    expect(r.shouldUpdate).toBe(false);
+    expect(r.reason).toBe("printer_active");
+  });
+
+  // Rule 2: Only Bambu spools
+  it("skips when tag_uid is zeros", () => {
+    const r = calculateWeightSync({ ...base, tagUid: "0000000000000000" });
+    expect(r.shouldUpdate).toBe(false);
+    expect(r.reason).toBe("no_rfid");
+  });
+  it("skips when tag_uid is empty", () => {
+    const r = calculateWeightSync({ ...base, tagUid: "" });
+    expect(r.shouldUpdate).toBe(false);
+    expect(r.reason).toBe("no_rfid");
+  });
+  it("skips when tag_uid is too short", () => {
+    const r = calculateWeightSync({ ...base, tagUid: "ABC" });
+    expect(r.shouldUpdate).toBe(false);
+    expect(r.reason).toBe("no_rfid");
+  });
+
+  // Rule 3: Valid remain
+  it("skips when remain is -1", () => {
+    const r = calculateWeightSync({ ...base, remain: -1 });
+    expect(r.shouldUpdate).toBe(false);
+    expect(r.reason).toBe("invalid_remain");
+  });
+  it("skips when remain is > 100", () => {
+    const r = calculateWeightSync({ ...base, remain: 101 });
+    expect(r.shouldUpdate).toBe(false);
+    expect(r.reason).toBe("invalid_remain");
+  });
+
+  // Rule 4: 5% threshold
+  it("skips when delta is below threshold (4% change)", () => {
+    // remain=96% → calculated=960, current=1000, delta=40 < 50 (5%)
+    const r = calculateWeightSync({ ...base, remain: 96, currentWeight: 1000 });
+    expect(r.shouldUpdate).toBe(false);
+    expect(r.reason).toBe("below_threshold");
+  });
+  it("updates when delta is at threshold (5% change)", () => {
+    // remain=95% → calculated=950, current=1000, delta=50 = 50 (5%)
+    const r = calculateWeightSync({ ...base, remain: 95, currentWeight: 1000 });
+    expect(r.shouldUpdate).toBe(true);
+    expect(r.newWeight).toBe(950);
+  });
+  it("updates when delta is above threshold", () => {
+    // remain=80% → calculated=800, current=1000, delta=200 > 50
+    const r = calculateWeightSync({ ...base, remain: 80, currentWeight: 1000 });
+    expect(r.shouldUpdate).toBe(true);
+    expect(r.newWeight).toBe(800);
+  });
+
+  // Rule 5: Never increase weight
+  it("skips when calculated weight would increase", () => {
+    // remain=90% → calculated=900, current=800 → would increase
+    const r = calculateWeightSync({ ...base, remain: 90, currentWeight: 800 });
+    expect(r.shouldUpdate).toBe(false);
+    expect(r.reason).toBe("would_increase");
+  });
+  it("skips when calculated equals current", () => {
+    // remain=80% → calculated=800, current=800 → no change
+    const r = calculateWeightSync({ ...base, remain: 80, currentWeight: 800 });
+    expect(r.shouldUpdate).toBe(false);
+    expect(r.reason).toBe("would_increase");
+  });
+
+  // Edge cases
+  it("skips when initialWeight is 0", () => {
+    const r = calculateWeightSync({ ...base, initialWeight: 0 });
+    expect(r.shouldUpdate).toBe(false);
+    expect(r.reason).toBe("no_initial_weight");
+  });
+  it("handles remain=0 (empty spool)", () => {
+    const r = calculateWeightSync({ ...base, remain: 0, currentWeight: 500 });
+    expect(r.shouldUpdate).toBe(true);
+    expect(r.newWeight).toBe(0);
+  });
+  it("handles remain=100 (full spool, same as initial)", () => {
+    const r = calculateWeightSync({ ...base, remain: 100, currentWeight: 1000 });
+    expect(r.shouldUpdate).toBe(false);
+    expect(r.reason).toBe("would_increase");
+  });
+  it("rounds to nearest gram", () => {
+    // remain=33% of 1000 = 330
+    const r = calculateWeightSync({ ...base, remain: 33, currentWeight: 1000 });
+    expect(r.shouldUpdate).toBe(true);
+    expect(r.newWeight).toBe(330);
+  });
+  it("works with custom threshold", () => {
+    // 2% threshold: delta must be > 20g; remain=97% → calculated=970, delta=30 > 20 → update
+    const r = calculateWeightSync({ ...base, remain: 97, currentWeight: 1000, threshold: 0.02 });
+    expect(r.shouldUpdate).toBe(true);
+    expect(r.newWeight).toBe(970);
+  });
+
+  // Real-world scenarios
+  it("scenario: fresh spool used for small print", () => {
+    // Spool was 1000g, printer says 95% remain, our tracking says 1000g
+    // Delta = 50g, threshold 50g → update
+    const r = calculateWeightSync({ ...base, remain: 95, currentWeight: 1000 });
+    expect(r.shouldUpdate).toBe(true);
+    expect(r.newWeight).toBe(950);
+  });
+  it("scenario: well-tracked spool, minor sensor drift", () => {
+    // Our tracking: 800g. Printer says 82% (= 820g). Would increase → skip
+    const r = calculateWeightSync({ ...base, remain: 82, currentWeight: 800 });
+    expect(r.shouldUpdate).toBe(false);
+  });
+  it("scenario: spool nearly empty", () => {
+    // Our tracking: 100g. Printer says 3% (= 30g). Delta 70g > 50g → update
+    const r = calculateWeightSync({ ...base, remain: 3, currentWeight: 100 });
+    expect(r.shouldUpdate).toBe(true);
+    expect(r.newWeight).toBe(30);
+  });
+  it("scenario: third-party spool in AMS (no RFID)", () => {
+    const r = calculateWeightSync({ ...base, tagUid: "0000000000000000", remain: 50 });
+    expect(r.shouldUpdate).toBe(false);
+    expect(r.reason).toBe("no_rfid");
   });
 });
 

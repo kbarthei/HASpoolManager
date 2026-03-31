@@ -677,6 +677,130 @@ describe.skipIf(!process.env.DATABASE_URL)("printer-sync integration", () => {
     });
   });
 
+  // ── I. Weight Sync from AMS remain ───────────────────────────────────────
+
+  describe("I. Weight Sync from AMS remain", () => {
+    let weightSyncVendorId: string;
+    let weightSyncFilamentId: string;
+    let weightSyncSpoolId: string;
+    let weightSyncTagUid: string;
+
+    beforeAll(async () => {
+      weightSyncVendorId = await makeVendor(`TestVendor_I_${Date.now()}`);
+      toClean.vendors.push(weightSyncVendorId);
+      weightSyncFilamentId = await makeFilament(weightSyncVendorId, {
+        name: `TestFil_I_${Date.now()}`,
+        material: "PLA",
+        colorHex: "00FF00",
+      });
+      toClean.filaments.push(weightSyncFilamentId);
+      weightSyncTagUid = `WSYNC${Date.now().toString(16).toUpperCase()}`.slice(0, 16);
+    });
+
+    afterAll(async () => {
+      if (weightSyncSpoolId) toClean.spools.push(weightSyncSpoolId);
+    });
+
+    it("I1: updates weight when idle with valid remain and >5% delta", async () => {
+      // Create a spool with 1000g remaining
+      weightSyncSpoolId = await makeSpool(weightSyncFilamentId, {
+        remainingWeight: 1000,
+        initialWeight: 1000,
+        purchasePrice: "20.00",
+      });
+      const tagMappingId = await makeTagMapping(weightSyncSpoolId, weightSyncTagUid);
+      toClean.tagMappings.push(tagMappingId);
+
+      // Send idle sync with remain=80 (calculated=800g, delta=200g > 50g threshold)
+      const { status, body } = await sync({
+        print_state: "idle",
+        slot_1_type: "PLA",
+        slot_1_color: "00FF00FF",
+        slot_1_tag: weightSyncTagUid,
+        slot_1_remain: 80,
+        slot_1_empty: false,
+      });
+      expect(status).toBe(200);
+      expect(body.weight_syncs).toBeDefined();
+      expect(body.weight_syncs.length).toBeGreaterThanOrEqual(1);
+
+      const syncEntry = body.weight_syncs.find(
+        (s: { spoolId: string }) => s.spoolId === weightSyncSpoolId
+      );
+      expect(syncEntry).toBeDefined();
+      expect(syncEntry.from).toBe(1000);
+      expect(syncEntry.to).toBe(800);
+      expect(syncEntry.remain).toBe(80);
+
+      // Verify DB was updated
+      const spool = await db.query.spools.findFirst({
+        where: eq(spools.id, weightSyncSpoolId),
+      });
+      expect(spool!.remainingWeight).toBe(800);
+    });
+
+    it("I2: does not update during printing", async () => {
+      // The spool is now at 800g from I1; start a print
+      const printName = `test-print-I2-${Date.now()}`;
+      const r1 = await sync({
+        print_state: "printing",
+        print_name: printName,
+        print_weight: 50,
+        active_slot_tag: weightSyncTagUid,
+        slot_1_type: "PLA",
+        slot_1_color: "00FF00FF",
+        slot_1_tag: weightSyncTagUid,
+        slot_1_remain: 50,
+        slot_1_empty: false,
+      });
+      expect(r1.body.print_transition).toBe("started");
+      toClean.prints.push(r1.body.print_id);
+
+      // Weight sync should be skipped during printing
+      expect(r1.body.weight_syncs).toBeDefined();
+      const syncEntry = r1.body.weight_syncs.find(
+        (s: { spoolId: string }) => s.spoolId === weightSyncSpoolId
+      );
+      expect(syncEntry).toBeUndefined();
+
+      // DB weight must not have changed (print handler tracks weight separately)
+      const spool = await db.query.spools.findFirst({
+        where: eq(spools.id, weightSyncSpoolId),
+      });
+      // Weight should still be 800 (unchanged by weight sync logic, print_usage handles deduction on finish)
+      expect(spool!.remainingWeight).toBe(800);
+
+      // Finish the print to clean up state
+      await sync({ print_state: "idle" });
+    });
+
+    it("I3: does not increase weight", async () => {
+      // Spool is at some lower weight; send remain=90 (=900g, would increase) → skip
+      // After I2's print finished, weight was deducted; re-seed at a known value
+      await db.update(spools).set({ remainingWeight: 500 }).where(eq(spools.id, weightSyncSpoolId));
+
+      const { status, body } = await sync({
+        print_state: "idle",
+        slot_1_type: "PLA",
+        slot_1_color: "00FF00FF",
+        slot_1_tag: weightSyncTagUid,
+        slot_1_remain: 90,  // 90% of 1000g = 900g, but spool is at 500g → would increase
+        slot_1_empty: false,
+      });
+      expect(status).toBe(200);
+
+      const syncEntry = body.weight_syncs.find(
+        (s: { spoolId: string }) => s.spoolId === weightSyncSpoolId
+      );
+      expect(syncEntry).toBeUndefined(); // no sync happened
+
+      const spool = await db.query.spools.findFirst({
+        where: eq(spools.id, weightSyncSpoolId),
+      });
+      expect(spool!.remainingWeight).toBe(500); // unchanged
+    });
+  });
+
   // ── H. Idempotency ────────────────────────────────────────────────────────
 
   describe("H. Idempotency", () => {
