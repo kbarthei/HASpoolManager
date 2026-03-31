@@ -90,7 +90,18 @@ export default async function PrintHistoryPage() {
                   </Badge>
                 </div>
                 <div className="flex flex-wrap gap-3 mt-2 text-xs text-muted-foreground items-center">
-                  {printerStatus.activeSpool && (
+                  {printerStatus.activeSpools && printerStatus.activeSpools.length > 0 ? (
+                    printerStatus.activeSpools.map((spool, i) => (
+                      <div key={i} className="flex items-center gap-1">
+                        <SpoolColorDot hex={spool.colorHex} size="sm" />
+                        <span>{spool.vendor} {spool.name}</span>
+                        <SpoolMaterialBadge material={spool.material} />
+                        {spool.colorName && (
+                          <span className="text-muted-foreground">({spool.colorName})</span>
+                        )}
+                      </div>
+                    ))
+                  ) : printerStatus.activeSpool ? (
                     <div className="flex items-center gap-1">
                       <SpoolColorDot hex={printerStatus.activeSpool.colorHex} size="sm" />
                       <span>{printerStatus.activeSpool.vendor} {printerStatus.activeSpool.name}</span>
@@ -99,7 +110,7 @@ export default async function PrintHistoryPage() {
                         <span className="text-muted-foreground">({printerStatus.activeSpool.colorName})</span>
                       )}
                     </div>
-                  )}
+                  ) : null}
                   {print.printWeight != null && (
                     <span className="font-mono">{print.printWeight}g</span>
                   )}

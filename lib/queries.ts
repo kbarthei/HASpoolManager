@@ -133,10 +133,14 @@ export async function getPrinterStatus() {
     where: eq(schema.prints.status, "running"),
   });
 
-  // Get progress from latest sync log + active spool from print record
+  // Get progress from latest sync log + active spool(s) from print record
   let progress = 0;
   let remainingTime = 0;
-  let activeSpool: { name: string; material: string; colorHex: string; colorName: string | null; vendor: string } | null = null;
+  type SpoolInfo = { name: string; material: string; colorHex: string; colorName: string | null; vendor: string };
+  let activeSpool: SpoolInfo | null = null;
+  let activeSpools: SpoolInfo[] = [];
+  let isMultiFilament = false;
+
   if (runningPrint) {
     const lastSync = await db.query.syncLog.findFirst({
       orderBy: (log, { desc }) => [desc(log.createdAt)],
@@ -150,22 +154,38 @@ export async function getPrinterStatus() {
       } catch { /* ignore */ }
     }
 
-    // Get active spool directly from print record (stored while printing)
-    if (runningPrint.activeSpoolId) {
-      const spool = await db.query.spools.findFirst({
-        where: eq(schema.spools.id, runningPrint.activeSpoolId),
-        with: { filament: { with: { vendor: true } } },
-      });
-      if (spool) {
-        const f = spool.filament;
-        activeSpool = {
-          name: f.name,
-          material: f.material,
-          colorHex: f.colorHex ?? "888888",
-          colorName: f.colorName ?? null,
-          vendor: f.vendor?.name ?? "",
-        };
-      }
+    // Collect all spool IDs seen during this print
+    let spoolIds: string[] = [];
+    if (runningPrint.activeSpoolIds) {
+      try { spoolIds = JSON.parse(runningPrint.activeSpoolIds); } catch { /* ignore */ }
+    }
+    // Fallback to single spool
+    if (spoolIds.length === 0 && runningPrint.activeSpoolId) {
+      spoolIds = [runningPrint.activeSpoolId];
+    }
+
+    if (spoolIds.length > 0) {
+      const spoolRecords = await Promise.all(
+        spoolIds.map((id) =>
+          db.query.spools.findFirst({
+            where: eq(schema.spools.id, id),
+            with: { filament: { with: { vendor: true } } },
+          })
+        )
+      );
+      activeSpools = spoolRecords
+        .filter((s): s is NonNullable<typeof s> => s != null)
+        .map((s) => ({
+          name: s.filament.name,
+          material: s.filament.material,
+          colorHex: s.filament.colorHex ?? "888888",
+          colorName: s.filament.colorName ?? null,
+          vendor: s.filament.vendor?.name ?? "",
+        }));
+
+      // Primary spool for backward compatibility (most recently active = last in array)
+      activeSpool = activeSpools[activeSpools.length - 1] ?? null;
+      isMultiFilament = activeSpools.length > 1;
     }
   }
 
@@ -176,6 +196,8 @@ export async function getPrinterStatus() {
     progress,
     remainingTime,
     activeSpool,
+    activeSpools,
+    isMultiFilament,
   };
 }
 

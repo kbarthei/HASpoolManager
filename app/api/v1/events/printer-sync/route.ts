@@ -196,70 +196,84 @@ const SLOT_DEFS = [
 ] as const;
 
 /**
- * Create print_usage record: link print to spool, deduct weight, calculate cost.
- * Uses the stored activeSpoolId from the print record (captured while printing),
- * NOT the current sync payload (which is cleared by the printer when it goes idle).
+ * Create print_usage records: link print to all spools used, deduct weight, calculate cost.
+ * Reads activeSpoolIds (accumulated during print) from the print record.
+ * Weight is distributed equally across all spools seen during the print.
+ * Falls back to single activeSpoolId for backward compatibility.
  */
 async function createPrintUsage(
   printId: string,
   _printerId: string,
-  weightUsed: number,
+  totalWeight: number,
 ) {
   try {
-    // Get the stored active spool from the print record
     const print = await db.query.prints.findFirst({
       where: eq(prints.id, printId),
     });
 
-    const spoolId = print?.activeSpoolId;
-    if (!spoolId) {
-      console.log(`[printer-sync] No activeSpoolId stored on print, skipping usage record`);
+    // Collect all spool IDs used in this print
+    let spoolIds: string[] = [];
+    if (print?.activeSpoolIds) {
+      try { spoolIds = JSON.parse(print.activeSpoolIds); } catch { /* ignore */ }
+    }
+    // Fallback to single spool for backward compatibility
+    if (spoolIds.length === 0 && print?.activeSpoolId) {
+      spoolIds = [print.activeSpoolId];
+    }
+    if (spoolIds.length === 0) {
+      console.log(`[printer-sync] No spool IDs stored on print, skipping usage record`);
       return;
     }
 
-    // Get the spool to calculate cost
-    const spool = await db.query.spools.findFirst({
-      where: eq(spools.id, spoolId),
-      with: { filament: true },
-    });
-    if (!spool) return;
+    // Distribute weight equally across all spools
+    const weightPerSpool = totalWeight / spoolIds.length;
+    let totalCost = 0;
 
-    // Calculate cost: (weight_used / initial_weight) * purchase_price
-    let cost: string | null = null;
-    if (spool.purchasePrice && spool.initialWeight > 0) {
-      const pricePerGram = Number(spool.purchasePrice) / spool.initialWeight;
-      cost = (pricePerGram * weightUsed).toFixed(2);
+    for (const spoolId of spoolIds) {
+      // Idempotency: skip if usage record already exists for this print+spool
+      const existing = await db.query.printUsage.findFirst({
+        where: and(eq(printUsage.printId, printId), eq(printUsage.spoolId, spoolId)),
+      });
+      if (existing) continue;
+
+      const spool = await db.query.spools.findFirst({
+        where: eq(spools.id, spoolId),
+        with: { filament: true },
+      });
+      if (!spool) continue;
+
+      // Calculate cost: (weight_per_spool / initial_weight) * purchase_price
+      let cost: string | null = null;
+      if (spool.purchasePrice && spool.initialWeight > 0) {
+        const pricePerGram = Number(spool.purchasePrice) / spool.initialWeight;
+        cost = (pricePerGram * weightPerSpool).toFixed(2);
+        totalCost += parseFloat(cost);
+      }
+
+      await db.insert(printUsage).values({
+        printId,
+        spoolId,
+        weightUsed: weightPerSpool,
+        cost,
+      });
+
+      const newWeight = Math.max(0, spool.remainingWeight - weightPerSpool);
+      await db.update(spools).set({
+        remainingWeight: newWeight,
+        status: newWeight <= 0 ? "empty" : "active",
+        updatedAt: new Date(),
+      }).where(eq(spools.id, spoolId));
+
+      console.log(`[printer-sync] USAGE: spool=${spool.filament.name} weight=${weightPerSpool.toFixed(1)}g cost=${cost}€ remaining=${newWeight}g`);
     }
 
-    // Check for existing usage record (idempotency)
-    const existing = await db.query.printUsage.findFirst({
-      where: eq(printUsage.printId, printId),
-    });
-    if (existing) return;
-
-    // Create usage record
-    await db.insert(printUsage).values({
-      printId,
-      spoolId,
-      weightUsed,
-      cost,
-    });
-
-    // Deduct weight from spool
-    const newWeight = Math.max(0, spool.remainingWeight - weightUsed);
-    await db.update(spools).set({
-      remainingWeight: newWeight,
-      status: newWeight <= 0 ? "empty" : "active",
-      updatedAt: new Date(),
-    }).where(eq(spools.id, spoolId));
-
     // Update total cost on print
-    await db.update(prints).set({
-      totalCost: cost,
-      updatedAt: new Date(),
-    }).where(eq(prints.id, printId));
-
-    console.log(`[printer-sync] USAGE: spool=${spool.filament.name} weight=${weightUsed}g cost=${cost}€ remaining=${newWeight}g`);
+    if (totalCost > 0) {
+      await db.update(prints).set({
+        totalCost: totalCost.toFixed(2),
+        updatedAt: new Date(),
+      }).where(eq(prints.id, printId));
+    }
   } catch (error) {
     console.error("[printer-sync] Error creating print usage:", error);
   }
@@ -330,6 +344,7 @@ export async function POST(request: NextRequest) {
         if (startMatch.match) startActiveSpoolId = startMatch.match.spool_id;
       }
 
+      const startIds = startActiveSpoolId ? [startActiveSpoolId] : [];
       const [newPrint] = await db
         .insert(prints)
         .values({
@@ -340,6 +355,7 @@ export async function POST(request: NextRequest) {
           totalLayers: printLayersTotal || null,
           printWeight: printWeight || null,
           activeSpoolId: startActiveSpoolId,
+          activeSpoolIds: JSON.stringify(startIds),
           haEventId,
         })
         .returning();
@@ -402,7 +418,17 @@ export async function POST(request: NextRequest) {
           tray_index: 0,
         });
         if (activeMatch.match) {
+          // Still update single activeSpoolId for backward compatibility
           updates.activeSpoolId = activeMatch.match.spool_id;
+
+          // Accumulate all spool IDs seen during this print
+          const existingIds: string[] = runningPrint.activeSpoolIds
+            ? (() => { try { return JSON.parse(runningPrint.activeSpoolIds); } catch { return []; } })()
+            : [];
+          if (!existingIds.includes(activeMatch.match.spool_id)) {
+            existingIds.push(activeMatch.match.spool_id);
+            updates.activeSpoolIds = JSON.stringify(existingIds);
+          }
         }
       }
 
