@@ -7,7 +7,8 @@ test.describe("Storage Rack", () => {
 
   test("shows rack title and dimensions", async ({ page }) => {
     await expect(page.getByText("Spool Rack")).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText("4 × 8")).toBeVisible();
+    // Dimensions are configurable — just check the format exists
+    await expect(page.getByText(/\d+ × \d+/).first()).toBeVisible();
   });
 
   test("shows grid with row and column headers", async ({ page }) => {

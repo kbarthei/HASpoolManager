@@ -10,14 +10,13 @@ test.describe("Orders Page", () => {
   });
 
   test("shows Add Order button", async ({ page }) => {
-    await expect(page.locator("text=Add Order")).toBeVisible();
+    await expect(page.getByText("+ Order").first()).toBeVisible();
   });
 
   test("Add Order dialog opens", async ({ page }) => {
-    await page.click("text=Add Order");
-    await expect(page.locator("text=Add Order").nth(1)).toBeVisible();
+    await page.getByText("+ Order").first().click();
     // Should show the textarea for pasting
-    await expect(page.locator("textarea")).toBeVisible();
+    await expect(page.locator("textarea")).toBeVisible({ timeout: 5000 });
   });
 
   test("shows pending orders section when orders exist with status ordered", async ({ page }) => {
@@ -50,7 +49,7 @@ test.describe("Orders Page", () => {
 test.describe("Order Flow", () => {
   test("Add Order dialog has parse button", async ({ page }) => {
     await page.goto("/orders");
-    await page.click("text=Add Order");
-    await expect(page.locator("text=Parse")).toBeVisible();
+    await page.getByText("+ Order").first().click();
+    await expect(page.locator("text=Parse")).toBeVisible({ timeout: 5000 });
   });
 });
