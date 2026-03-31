@@ -5,7 +5,7 @@ test.describe("Dashboard", () => {
     await page.goto("/");
     await expect(page.getByTestId("stat-active-spools")).toBeVisible({ timeout: 10000 });
     await expect(page.getByTestId("stat-printer")).toBeVisible();
-    await expect(page.getByTestId("stat-filament-costs")).toBeVisible();
+    await expect(page.getByTestId("stat-prints")).toBeVisible();
     await expect(page.getByTestId("stat-low-stock")).toBeVisible();
   });
 

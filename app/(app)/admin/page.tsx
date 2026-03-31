@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { getSyncLog, getSystemStats, getPrinterStatus, getRackConfig } from "@/lib/queries";
 import { formatDateTime, formatDate } from "@/lib/date";
 import { db } from "@/lib/db";
-import { prints, spools } from "@/lib/db/schema";
+import { prints, spools, printers as printersTable } from "@/lib/db/schema";
 import { eq, sql, ne } from "drizzle-orm";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +14,39 @@ import { ImportOrdersCard } from "./import-orders-card";
 import { AdminTools } from "./admin-tools";
 
 // ── Helpers ────────────────────────────────────────────────────────────────
+
+/** Show first 6 chars + "..." + last 4 chars of a secret value. */
+function maskSecret(value: string | undefined): string {
+  if (!value) return "not set";
+  if (value.length <= 10) return value.slice(0, 3) + "...";
+  return value.slice(0, 6) + "..." + value.slice(-4);
+}
+
+/** Parse the Neon region from a DATABASE_URL hostname like `ep-xxx.eu-central-1.aws.neon.tech`. */
+function parseNeonRegion(databaseUrl: string | undefined): string {
+  if (!databaseUrl) return "unknown";
+  try {
+    const hostname = new URL(databaseUrl).hostname;
+    // hostname pattern: ep-<name>.<region>.aws.neon.tech or <region>.pooler.neon.tech
+    const parts = hostname.split(".");
+    // Find the region segment — usually the second segment for standard, third for pooler
+    // e.g. ep-cool-fog-123456.eu-central-1.aws.neon.tech → parts[1] = "eu-central-1"
+    if (parts.length >= 4 && parts[parts.length - 2] === "neon") {
+      return parts[parts.length - 3] === "aws" ? parts[parts.length - 4] : parts[parts.length - 3];
+    }
+    return parts[1] ?? "unknown";
+  } catch {
+    return "unknown";
+  }
+}
+
+/** Determine if the DATABASE_URL uses pooler (pgbouncer) or direct connection. */
+function parseNeonConnectionType(databaseUrl: string | undefined): string {
+  if (!databaseUrl) return "unknown";
+  return databaseUrl.includes("-pooler.") || databaseUrl.includes("pooler.neon.tech")
+    ? "pooled (pgbouncer)"
+    : "direct";
+}
 
 function relativeTime(date: Date | string | null | undefined): string {
   if (!date) return "—";
@@ -41,12 +74,43 @@ export default async function AdminPage() {
     nodeEnv: process.env.NODE_ENV,
   };
 
-  const [stats, syncLogs, printerStatus, rackConfig] = await Promise.all([
+  const [stats, syncLogs, printerStatus, rackConfig, activePrinter] = await Promise.all([
     getSystemStats(),
     getSyncLog(50),
     getPrinterStatus(),
     getRackConfig(),
+    db.query.printers.findFirst({ where: eq(printersTable.isActive, true) }),
   ]);
+
+  // ── Config details ────────────────────────────────────────────────────────
+  const configDetails = {
+    ha: {
+      syncUrl: "https://haspoolmanager.vercel.app/api/v1/events/printer-sync",
+      syncInterval: "60 seconds",
+      authMethod: "Bearer token",
+      apiSecretKey: maskSecret(process.env.API_SECRET_KEY),
+      apiSecretSet: !!process.env.API_SECRET_KEY,
+    },
+    printer: {
+      name: activePrinter?.name ?? "—",
+      model: activePrinter?.model ?? "—",
+      amsSlots: "4 AMS + 1 HT + 1 External",
+      haDeviceId: activePrinter?.haDeviceId ?? "—",
+      ipAddress: activePrinter?.ipAddress ?? "—",
+    },
+    db: {
+      provider: "Neon Postgres",
+      region: parseNeonRegion(process.env.DATABASE_URL),
+      connection: parseNeonConnectionType(process.env.DATABASE_URL),
+      tableCount: stats.spools + stats.filaments + stats.prints + stats.vendors + stats.orders, // rough proxy; actual count below
+    },
+    ai: {
+      provider: "Anthropic Claude",
+      model: "claude-sonnet-4-6",
+      apiKeyMasked: maskSecret(process.env.ANTHROPIC_API_KEY),
+      apiKeySet: !!process.env.ANTHROPIC_API_KEY,
+    },
+  };
 
   const [runningCount] = await db
     .select({ count: sql<number>`count(*)::int` })
@@ -148,6 +212,133 @@ export default async function AdminPage() {
       <Card className="p-4 space-y-3">
         <h2 className="text-sm font-semibold">Build & Cache</h2>
         <AdminTools buildInfo={buildInfo} />
+      </Card>
+
+      {/* ── Configuration Details ────────────────────────────────────────── */}
+      <Card className="p-4 space-y-4">
+        <h2 className="text-sm font-semibold">Configuration Details</h2>
+
+        {/* Section: Home Assistant Integration */}
+        <div className="space-y-1.5">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Home Assistant Integration
+          </p>
+          <div className="space-y-1">
+            {[
+              { label: "Sync URL", value: configDetails.ha.syncUrl, mono: true },
+              { label: "Sync interval", value: configDetails.ha.syncInterval, mono: false },
+              { label: "Auth method", value: configDetails.ha.authMethod, mono: false },
+              {
+                label: "API_SECRET_KEY",
+                value: configDetails.ha.apiSecretKey,
+                mono: true,
+                status: configDetails.ha.apiSecretSet ? "ok" : "warn",
+              },
+              {
+                label: "Last sync",
+                value: lastSync ? relativeTime(lastSync.createdAt) : "No syncs yet",
+                mono: true,
+              },
+            ].map(({ label, value, mono, status }) => (
+              <div
+                key={label}
+                className="flex items-center justify-between bg-muted/30 rounded px-3 py-1.5 gap-4"
+              >
+                <span className="text-[11px] text-muted-foreground shrink-0">{label}</span>
+                <span
+                  className={`text-[11px] truncate text-right ${mono ? "font-mono" : ""} ${
+                    status === "warn" ? "text-amber-500" : ""
+                  }`}
+                >
+                  {value}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Section: Printer */}
+        <div className="space-y-1.5">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Printer
+          </p>
+          <div className="space-y-1">
+            {[
+              { label: "Name", value: configDetails.printer.name },
+              { label: "Model", value: configDetails.printer.model },
+              { label: "AMS slots", value: configDetails.printer.amsSlots },
+              { label: "HA Device ID", value: configDetails.printer.haDeviceId, mono: true },
+              { label: "IP Address", value: configDetails.printer.ipAddress, mono: true },
+            ].map(({ label, value, mono }) => (
+              <div
+                key={label}
+                className="flex items-center justify-between bg-muted/30 rounded px-3 py-1.5 gap-4"
+              >
+                <span className="text-[11px] text-muted-foreground shrink-0">{label}</span>
+                <span className={`text-[11px] text-right ${mono ? "font-mono" : ""}`}>{value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Section: Database */}
+        <div className="space-y-1.5">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Database
+          </p>
+          <div className="space-y-1">
+            {[
+              { label: "Provider", value: configDetails.db.provider },
+              { label: "Region", value: configDetails.db.region, mono: true },
+              { label: "Connection", value: configDetails.db.connection, mono: true },
+              {
+                label: "Records",
+                value: `${stats.spools} spools · ${stats.filaments} filaments · ${stats.prints} prints · ${stats.vendors} vendors · ${stats.orders} orders`,
+              },
+            ].map(({ label, value, mono }) => (
+              <div
+                key={label}
+                className="flex items-center justify-between bg-muted/30 rounded px-3 py-1.5 gap-4"
+              >
+                <span className="text-[11px] text-muted-foreground shrink-0">{label}</span>
+                <span className={`text-[11px] text-right ${mono ? "font-mono" : ""}`}>{value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Section: AI Integration */}
+        <div className="space-y-1.5">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            AI Integration
+          </p>
+          <div className="space-y-1">
+            {[
+              { label: "Provider", value: configDetails.ai.provider },
+              { label: "Model", value: configDetails.ai.model, mono: true },
+              {
+                label: "ANTHROPIC_API_KEY",
+                value: configDetails.ai.apiKeyMasked,
+                mono: true,
+                status: configDetails.ai.apiKeySet ? "ok" : "warn",
+              },
+            ].map(({ label, value, mono, status }) => (
+              <div
+                key={label}
+                className="flex items-center justify-between bg-muted/30 rounded px-3 py-1.5 gap-4"
+              >
+                <span className="text-[11px] text-muted-foreground shrink-0">{label}</span>
+                <span
+                  className={`text-[11px] text-right ${mono ? "font-mono" : ""} ${
+                    status === "warn" ? "text-amber-500" : ""
+                  }`}
+                >
+                  {value}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
       </Card>
 
       {/* ── Rack Configuration ──────────────────────────────────────────── */}

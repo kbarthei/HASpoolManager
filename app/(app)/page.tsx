@@ -65,7 +65,7 @@ export default async function Dashboard() {
           href="/prints"
           testId="stat-printer"
         />
-        <StatCard label="Filament Costs" value={`${stats.monthCost}€`} href="/prints" testId="stat-filament-costs" />
+        <StatCard label="Prints" value={stats.monthPrints} href="/prints" testId="stat-prints" />
         <StatCard
           label="Low Stock"
           value={stats.lowStockCount}
