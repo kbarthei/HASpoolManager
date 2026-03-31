@@ -805,3 +805,14 @@ export async function clearStaleRunningPrints() {
   revalidatePath("/");
   return result.length;
 }
+
+export async function purgeAllCaches() {
+  revalidatePath("/");
+  revalidatePath("/spools");
+  revalidatePath("/inventory");
+  revalidatePath("/orders");
+  revalidatePath("/prints");
+  revalidatePath("/history");
+  revalidatePath("/admin");
+  return true;
+}

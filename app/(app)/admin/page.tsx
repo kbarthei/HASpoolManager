@@ -10,6 +10,7 @@ import { ClearStaleButton } from "./clear-stale-button";
 import { SyncLogTable } from "./sync-log-table";
 import { RackSettings } from "./rack-settings";
 import { ImportOrdersCard } from "./import-orders-card";
+import { AdminTools } from "./admin-tools";
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -29,6 +30,16 @@ function relativeTime(date: Date | string | null | undefined): string {
 // ── Page ──────────────────────────────────────────────────────────────────
 
 export default async function AdminPage() {
+  // Build/deploy info from env vars (BUILD_TIMESTAMP set at build time in next.config.ts)
+  const buildInfo = {
+    commitSha: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? null,
+    deployedAt: process.env.BUILD_TIMESTAMP
+      ? new Date(process.env.BUILD_TIMESTAMP).toLocaleString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Berlin" })
+      : null,
+    region: process.env.VERCEL_REGION ?? null,
+    nodeEnv: process.env.NODE_ENV,
+  };
+
   const [stats, syncLogs, printerStatus, rackConfig] = await Promise.all([
     getSystemStats(),
     getSyncLog(50),
@@ -131,6 +142,12 @@ export default async function AdminPage() {
 
       {/* ── Import Historical Orders ──────────────────────────────────── */}
       <ImportOrdersCard allSpools={JSON.parse(JSON.stringify(allSpools))} />
+
+      {/* ── Build & Cache ─────────────────────────────────────────────── */}
+      <Card className="p-4 space-y-3">
+        <h2 className="text-sm font-semibold">Build & Cache</h2>
+        <AdminTools buildInfo={buildInfo} />
+      </Card>
 
       {/* ── Rack Configuration ──────────────────────────────────────────── */}
       <Card className="p-4 space-y-3">
