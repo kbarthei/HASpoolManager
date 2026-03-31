@@ -645,21 +645,3 @@ export const settings = pgTable("settings", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
-// ─── Audit Log ──────────────────────────────────────────────────────────────
-
-export const auditLog = pgTable(
-  "audit_log",
-  {
-    id: bigint("id", { mode: "number" }).generatedAlwaysAsIdentity().primaryKey(),
-    entityType: text("entity_type").notNull(),
-    entityId: uuid("entity_id").notNull(),
-    action: text("action").notNull(),
-    changes: jsonb("changes"),
-    source: text("source"),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  },
-  (table) => [
-    index("idx_audit_entity").on(table.entityType, table.entityId),
-    index("idx_audit_created").on(table.createdAt),
-  ]
-);

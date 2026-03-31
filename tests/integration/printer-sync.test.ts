@@ -12,7 +12,7 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { db } from "@/lib/db";
 import { prints, printUsage, amsSlots, tagMappings, spools, filaments, vendors, syncLog } from "@/lib/db/schema";
 import { eq, and, inArray, sql } from "drizzle-orm";
-import { makeVendor, makeFilament, makeSpool, makeTagMapping, cleanup } from "../fixtures/seed";
+import { makeVendor, makeFilament, makeSpool, makeTagMapping, cleanup, cleanupStaleTestData } from "../fixtures/seed";
 
 const BASE = "http://localhost:3000/api/v1";
 const AUTH_HEADERS = {
@@ -61,6 +61,9 @@ async function getRunningPrint(): Promise<{ id: string; name: string | null; act
 describe.skipIf(!process.env.DATABASE_URL)("printer-sync integration", () => {
 
   beforeAll(async () => {
+    // Clean up stale test data from previous crashed runs
+    await cleanupStaleTestData();
+
     // Fetch the real printer ID from the database
     const res = await fetch(`${BASE}/printers`, { headers: AUTH_HEADERS });
     const printers = await res.json();

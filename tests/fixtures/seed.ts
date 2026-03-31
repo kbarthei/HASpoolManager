@@ -13,7 +13,7 @@ import {
   prints,
   printUsage,
 } from "@/lib/db/schema";
-import { eq, inArray } from "drizzle-orm";
+import { eq, inArray, sql, like } from "drizzle-orm";
 
 // ── Vendors ──────────────────────────────────────────────────────────────────
 
@@ -85,6 +85,48 @@ export async function makeTagMapping(spoolId: string, tagUid: string): Promise<s
     .values({ tagUid, spoolId, source: "bambu" })
     .returning({ id: tagMappings.id });
   return row.id;
+}
+
+// ── Stale test data cleanup (call at START of tests) ──────────────────────────
+
+/**
+ * Clean up any leftover test data from previous crashed runs.
+ * Call this in beforeAll to ensure a clean state.
+ */
+export async function cleanupStaleTestData(): Promise<void> {
+  // Delete test prints (by name or event ID pattern)
+  const stalePrints = await db
+    .select({ id: prints.id })
+    .from(prints)
+    .where(sql`${prints.name} = 'Integration Test Print' OR ${prints.haEventId} LIKE 'test_%'`);
+
+  if (stalePrints.length > 0) {
+    const ids = stalePrints.map((p) => p.id);
+    await db.delete(printUsage).where(inArray(printUsage.printId, ids)).catch(() => {});
+    await db.delete(prints).where(inArray(prints.id, ids)).catch(() => {});
+  }
+
+  // Delete test vendors/filaments/spools (by name pattern)
+  const staleVendors = await db
+    .select({ id: vendors.id })
+    .from(vendors)
+    .where(like(vendors.name, "TestVendor_%"));
+  if (staleVendors.length > 0) {
+    const vids = staleVendors.map((v) => v.id);
+    // Find filaments for these vendors
+    const staleFils = await db.select({ id: filaments.id }).from(filaments).where(inArray(filaments.vendorId, vids));
+    if (staleFils.length > 0) {
+      const fids = staleFils.map((f) => f.id);
+      const staleSpools = await db.select({ id: spools.id }).from(spools).where(inArray(spools.filamentId, fids));
+      if (staleSpools.length > 0) {
+        const sids = staleSpools.map((s) => s.id);
+        await db.delete(tagMappings).where(inArray(tagMappings.spoolId, sids)).catch(() => {});
+        await db.delete(spools).where(inArray(spools.id, sids)).catch(() => {});
+      }
+      await db.delete(filaments).where(inArray(filaments.id, fids)).catch(() => {});
+    }
+    await db.delete(vendors).where(inArray(vendors.id, vids)).catch(() => {});
+  }
 }
 
 // ── Cleanup ───────────────────────────────────────────────────────────────────
