@@ -670,6 +670,88 @@ export async function importHistoricalOrder(data: {
   return { orderId: order.id };
 }
 
+export async function importBatchOrders(batchOrders: Array<{
+  shopName: string;
+  orderNumber: string;
+  orderedAt: string;
+  items: Array<{
+    filamentId: string | null;
+    spoolIds: string[];
+    quantity: number;
+    unitPrice: number;
+    name: string;
+  }>;
+}>) {
+  let ordersCreated = 0;
+  let spoolsUpdated = 0;
+
+  for (const order of batchOrders) {
+    // Find or create shop
+    let shopId: string | null = null;
+    if (order.shopName?.trim()) {
+      let shop = await db.query.shops.findFirst({
+        where: eq(shops.name, order.shopName.trim()),
+      });
+      if (!shop) {
+        [shop] = await db.insert(shops).values({ name: order.shopName.trim() }).returning();
+      }
+      shopId = shop.id;
+    }
+
+    // Calculate total cost
+    const totalCost = order.items.reduce(
+      (sum, item) => sum + (item.unitPrice || 0) * item.quantity,
+      0,
+    );
+
+    // Create order with status "delivered" (historical)
+    const [createdOrder] = await db
+      .insert(orders)
+      .values({
+        shopId,
+        orderNumber: order.orderNumber?.trim() || null,
+        orderDate: order.orderedAt,
+        status: "delivered",
+        actualDelivery: order.orderedAt,
+        totalCost: totalCost > 0 ? String(totalCost) : null,
+        currency: "EUR",
+      })
+      .returning();
+
+    // Create order items and update spool purchase prices
+    for (const item of order.items) {
+      if (!item.filamentId) continue;
+
+      await db.insert(orderItems).values({
+        orderId: createdOrder.id,
+        filamentId: item.filamentId,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice > 0 ? String(item.unitPrice) : null,
+      });
+
+      for (const spoolId of item.spoolIds) {
+        await db.update(spools)
+          .set({
+            purchasePrice: item.unitPrice > 0 ? String(item.unitPrice) : null,
+            purchaseDate: order.orderedAt,
+            updatedAt: new Date(),
+          })
+          .where(eq(spools.id, spoolId));
+        spoolsUpdated++;
+      }
+    }
+
+    ordersCreated++;
+  }
+
+  revalidatePath("/admin");
+  revalidatePath("/orders");
+  revalidatePath("/spools");
+  revalidatePath("/");
+
+  return { ordersCreated, spoolsUpdated };
+}
+
 export async function clearStaleRunningPrints() {
   const result = await db.update(prints)
     .set({ status: "cancelled", finishedAt: new Date(), updatedAt: new Date() })

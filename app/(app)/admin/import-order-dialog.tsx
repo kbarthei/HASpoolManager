@@ -12,9 +12,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { SpoolColorDot } from "@/components/spool/spool-color-dot";
-import { importHistoricalOrder } from "@/lib/actions";
+import { importHistoricalOrder, importBatchOrders } from "@/lib/actions";
 import { toast } from "sonner";
-import { Loader2, Check, AlertCircle, X } from "lucide-react";
+import { Loader2, Check, AlertCircle, X, Upload } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -66,18 +66,193 @@ interface EditableItem {
   quantity: string;
   price: string;
   currency: string;
-  // matched filament id used for spool lookup
   matchedFilamentId: string | null;
-  // spool selections: spoolId → checked boolean
   selectedSpoolIds: Set<string>;
-  // overridden spool per selection (spoolId override map — for "swap" use case)
   skip: boolean;
+}
+
+// ─── CSV types ────────────────────────────────────────────────────────────────
+
+interface CSVOrderItem {
+  name: string;
+  quantity: number;
+  unitPrice: number;
+}
+
+interface CSVParsedOrder {
+  shop: string;
+  orderNumber: string;
+  orderedAt: string; // YYYY-MM-DD
+  items: CSVOrderItem[];
+}
+
+interface BatchOrderRow extends CSVParsedOrder {
+  selected: boolean;
+  // auto-matched items with filament + spool ids
+  matchedItems: Array<{
+    name: string;
+    quantity: number;
+    unitPrice: number;
+    filamentId: string | null;
+    spoolIds: string[];
+  }>;
 }
 
 export interface ImportOrderDialogProps {
   open: boolean;
   onClose: () => void;
   allSpools: SpoolData[];
+}
+
+// ─── German → English color map ───────────────────────────────────────────────
+
+const DE_COLORS: Record<string, string> = {
+  "Grau": "Gray",
+  "Schwarz": "Black",
+  "Weiß": "White",
+  "Kohleschwarz": "Charcoal Black",
+  "Knochenweiß": "Bone White",
+  "Dunkelgrau": "Dark Gray",
+  "Leuchtend-Grün": "Glow Green",
+  "Champagner": "Champagne",
+  "Eisen-Metallgrau": "Iron Gray",
+  "Klar": "Clear",
+  "Pink": "Pink",
+  "Frozen": "Frozen",
+  "Milchkaffee-Braun": "Latte Brown",
+  "Jade-Weiß": "Jade White",
+};
+
+function translateColor(german: string): string {
+  return DE_COLORS[german] ?? german;
+}
+
+// ─── CSV Parsing ──────────────────────────────────────────────────────────────
+
+/**
+ * Parse "PETG HF – Grau (33101), Spule, 1kg"
+ * Returns { material, colorName, name }
+ * where name = "PETG HF Grau" (material + optional product line + color)
+ */
+function parseFilamentTyp(raw: string): { material: string; colorName: string; name: string } {
+  // Remove trailing weight/form descriptors: ", Spule, 1kg" / ", Nachfüllung" etc.
+  let cleaned = raw
+    .replace(/,\s*(Spule|Nachfüllung|Refill)\b.*/i, "")
+    .replace(/,\s*\d+(\.\d+)?kg\b.*/i, "")
+    .trim();
+
+  // Remove Bambu product code in parens: "(33101)"
+  cleaned = cleaned.replace(/\s*\(\d+\)\s*/g, " ").trim();
+
+  // Split on " – " (em-dash with spaces) or " - " to get [materialPart, colorPart]
+  const dashParts = cleaned.split(/\s+[–-]\s+/);
+
+  const materialPart = dashParts[0]?.trim() ?? cleaned;
+  const colorPart = dashParts[1]?.trim() ?? "";
+
+  // Extract material token (first word)
+  const materialMatch = materialPart.match(/^([A-Z][A-Z0-9-]*(?:\s+[A-Z][A-Z0-9-]*)*)/);
+  const material = materialMatch ? materialMatch[1] : materialPart;
+
+  // Translate color
+  const colorName = colorPart ? translateColor(colorPart) : "";
+
+  // Build display name: materialPart (without code) + colorName
+  const name = colorName
+    ? `${materialPart} ${colorName}`.trim()
+    : materialPart.trim();
+
+  return { material, colorName, name };
+}
+
+/**
+ * Parse "24,43 €" → 24.43
+ * Returns 0 if unparseable.
+ */
+function parsePrice(raw: string): number {
+  const cleaned = raw
+    .replace(/[€$£\s]/g, "")
+    .replace(",", ".");
+  const val = parseFloat(cleaned);
+  return isNaN(val) ? 0 : val;
+}
+
+/**
+ * Parse "27.12.2025" → "2025-12-27"
+ */
+function parseDDMMYYYY(raw: string): string {
+  const m = raw.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+  if (!m) return new Date().toISOString().slice(0, 10);
+  const [, d, mo, y] = m;
+  return `${y}-${mo.padStart(2, "0")}-${d.padStart(2, "0")}`;
+}
+
+function parseCSV(text: string): CSVParsedOrder[] {
+  const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
+  if (lines.length < 2) return [];
+
+  // Detect separator: tab wins if first line has tabs, else semicolon
+  const sep = lines[0].includes("\t") ? "\t" : ";";
+
+  const headers = lines[0].split(sep).map((h) => h.trim().toLowerCase());
+
+  const colIdx = (names: string[]): number => {
+    for (const name of names) {
+      const i = headers.findIndex((h) => h.includes(name));
+      if (i !== -1) return i;
+    }
+    return -1;
+  };
+
+  const iDatum = colIdx(["datum"]);
+  const iShop = colIdx(["shop"]);
+  const iBestellung = colIdx(["bestellnummer"]);
+  const iFilament = colIdx(["filament"]);
+  const iMenge = colIdx(["menge"]);
+  const iPreis = colIdx(["preis"]);
+
+  if ([iDatum, iShop, iBestellung, iFilament, iMenge, iPreis].includes(-1)) {
+    return [];
+  }
+
+  // Group rows by order number
+  const orderMap = new Map<string, CSVParsedOrder>();
+
+  for (let li = 1; li < lines.length; li++) {
+    const cols = lines[li].split(sep).map((c) => c.trim());
+
+    // Skip GESAMT row
+    if (cols.some((c) => c.toUpperCase() === "GESAMT")) continue;
+    // Skip empty rows
+    if (cols.every((c) => c === "")) continue;
+
+    const orderNumber = cols[iBestellung] ?? "";
+    const shop = cols[iShop] ?? "";
+    const datum = cols[iDatum] ?? "";
+    const filamentRaw = cols[iFilament] ?? "";
+    const mengeRaw = cols[iMenge] ?? "1";
+    const preisRaw = cols[iPreis] ?? "0";
+
+    if (!orderNumber) continue;
+
+    const orderedAt = parseDDMMYYYY(datum);
+    const { name } = parseFilamentTyp(filamentRaw);
+    const quantity = parseInt(mengeRaw, 10) || 1;
+    const unitPrice = parsePrice(preisRaw);
+
+    if (!orderMap.has(orderNumber)) {
+      orderMap.set(orderNumber, {
+        shop,
+        orderNumber,
+        orderedAt,
+        items: [],
+      });
+    }
+
+    orderMap.get(orderNumber)!.items.push({ name, quantity, unitPrice });
+  }
+
+  return Array.from(orderMap.values());
 }
 
 // ─── Matching logic ───────────────────────────────────────────────────────────
@@ -92,24 +267,18 @@ function matchLineItemToSpools(
       const f = spool.filament;
       let score = 0;
 
-      // Filament ID exact match (from parse endpoint)
       if (item.matchedFilamentId && f.id === item.matchedFilamentId) {
         score += 100;
       }
 
-      // Vendor name match
-      if (
-        f.vendor.name.toLowerCase() === item.vendor.toLowerCase()
-      ) {
+      if (f.vendor.name.toLowerCase() === item.vendor.toLowerCase()) {
         score += 20;
       }
 
-      // Material exact match
       if (f.material.toLowerCase() === item.material.toLowerCase()) {
         score += 30;
       }
 
-      // Filament name includes
       const fNameLower = f.name.toLowerCase();
       const itemNameLower = item.name.toLowerCase();
       if (fNameLower === itemNameLower) {
@@ -118,7 +287,6 @@ function matchLineItemToSpools(
         score += 10;
       }
 
-      // Color name similarity
       if (item.colorName && f.colorName) {
         const cItem = item.colorName.toLowerCase();
         const cFil = f.colorName.toLowerCase();
@@ -149,7 +317,6 @@ function toEditableItem(item: ParsedItem, allSpools: SpoolData[], qty: number): 
     allSpools
   );
 
-  // Pre-select top N spools matching quantity
   const preSelected = new Set<string>(
     matches.slice(0, qty).map((m) => m.spool.id)
   );
@@ -166,6 +333,33 @@ function toEditableItem(item: ParsedItem, allSpools: SpoolData[], qty: number): 
     selectedSpoolIds: preSelected,
     skip: false,
   };
+}
+
+/**
+ * Auto-match a CSV item name against filaments in allSpools.
+ * Returns { filamentId, spoolIds } for top N spools.
+ */
+function autoMatchCSVItem(
+  itemName: string,
+  quantity: number,
+  allSpools: SpoolData[]
+): { filamentId: string | null; spoolIds: string[] } {
+  // Parse filament name to extract material + color
+  const { material, colorName, name } = parseFilamentTyp(itemName);
+
+  const matches = matchLineItemToSpools(
+    { name, material, colorName, vendor: "", matchedFilamentId: null },
+    allSpools
+  );
+
+  if (matches.length === 0) return { filamentId: null, spoolIds: [] };
+
+  const topFilamentId = matches[0].spool.filament.id;
+  const spoolIds = matches
+    .slice(0, quantity)
+    .map((m) => m.spool.id);
+
+  return { filamentId: topFilamentId, spoolIds };
 }
 
 // ─── Step dots ────────────────────────────────────────────────────────────────
@@ -193,8 +387,9 @@ function StepDots({ step, total }: { step: number; total: number }) {
 
 export function ImportOrderDialog({ open, onClose, allSpools }: ImportOrderDialogProps) {
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
+  const [inputMode, setInputMode] = useState<"email" | "csv">("email");
 
-  // Step 1 state
+  // Step 1 — Email mode state
   const [pasteText, setPasteText] = useState("");
   const [orderDate, setOrderDate] = useState(
     () => new Date().toISOString().slice(0, 10)
@@ -202,13 +397,24 @@ export function ImportOrderDialog({ open, onClose, allSpools }: ImportOrderDialo
   const [parsing, setParsing] = useState(false);
   const [parseError, setParseError] = useState<string | null>(null);
 
-  // Step 2 state (review parsed data)
+  // Step 1 — CSV mode state
+  const [csvOrders, setCSVOrders] = useState<BatchOrderRow[]>([]);
+  const [csvParseError, setCSVParseError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
+
+  // Batch import state
+  const [batchImporting, setBatchImporting] = useState(false);
+  const [batchProgress, setBatchProgress] = useState("");
+  const [batchResult, setBatchResult] = useState<{ ordersCreated: number; spoolsUpdated: number } | null>(null);
+
+  // Step 2 state (review parsed data — email mode)
   const [shop, setShop] = useState("");
   const [orderNumber, setOrderNumber] = useState("");
   const [reviewDate, setReviewDate] = useState("");
   const [rawItems, setRawItems] = useState<ParsedItem[]>([]);
 
-  // Step 3 state (matching)
+  // Step 3 state (matching — email mode)
   const [editableItems, setEditableItems] = useState<EditableItem[]>([]);
 
   // Step 4 state
@@ -221,6 +427,7 @@ export function ImportOrderDialog({ open, onClose, allSpools }: ImportOrderDialo
     if (!open) {
       const t = setTimeout(() => {
         setStep(1);
+        setInputMode("email");
         setPasteText("");
         setOrderDate(new Date().toISOString().slice(0, 10));
         setParseError(null);
@@ -230,12 +437,16 @@ export function ImportOrderDialog({ open, onClose, allSpools }: ImportOrderDialo
         setRawItems([]);
         setEditableItems([]);
         setImportedOrderId(null);
+        setCSVOrders([]);
+        setCSVParseError(null);
+        setBatchResult(null);
+        setBatchProgress("");
       }, 300);
       return () => clearTimeout(t);
     }
   }, [open]);
 
-  // Auto-close after success
+  // Auto-close after single-order email import success
   useEffect(() => {
     if (step === 4 && importedOrderId) {
       closeTimerRef.current = setTimeout(() => {
@@ -247,7 +458,100 @@ export function ImportOrderDialog({ open, onClose, allSpools }: ImportOrderDialo
     };
   }, [step, importedOrderId, onClose]);
 
-  // ── Step 1: Parse ──────────────────────────────────────────────────────────
+  // ── CSV helpers ────────────────────────────────────────────────────────────
+
+  function processCSVFile(text: string) {
+    setCSVParseError(null);
+    const parsed = parseCSV(text);
+    if (parsed.length === 0) {
+      setCSVParseError("No orders found. Check that the file has the expected columns: Datum, Shop, Bestellnummer, Filament-Typ, Menge, Preis.");
+      setCSVOrders([]);
+      return;
+    }
+
+    // Auto-match each item
+    const rows: BatchOrderRow[] = parsed.map((order) => ({
+      ...order,
+      selected: true,
+      matchedItems: order.items.map((item) => {
+        const { filamentId, spoolIds } = autoMatchCSVItem(item.name, item.quantity, allSpools);
+        return {
+          name: item.name,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          filamentId,
+          spoolIds,
+        };
+      }),
+    }));
+
+    setCSVOrders(rows);
+  }
+
+  function handleFileChange(file: File) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target?.result as string;
+      processCSVFile(text);
+    };
+    reader.readAsText(file, "UTF-8");
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files[0];
+    if (file) handleFileChange(file);
+  }
+
+  function toggleOrderSelected(idx: number) {
+    setCSVOrders((prev) =>
+      prev.map((row, i) => (i === idx ? { ...row, selected: !row.selected } : row))
+    );
+  }
+
+  async function handleBatchImport() {
+    const selected = csvOrders.filter((o) => o.selected);
+    if (selected.length === 0) {
+      toast.error("Select at least one order to import");
+      return;
+    }
+
+    setBatchImporting(true);
+    setBatchProgress(`Importing 0/${selected.length}…`);
+
+    try {
+      const payload = selected.map((order) => ({
+        shopName: order.shop,
+        orderNumber: order.orderNumber,
+        orderedAt: order.orderedAt,
+        items: order.matchedItems,
+      }));
+
+      // Call in chunks so progress is visible
+      let done = 0;
+      const chunkSize = 3;
+      let totalSpools = 0;
+
+      for (let i = 0; i < payload.length; i += chunkSize) {
+        const chunk = payload.slice(i, i + chunkSize);
+        const result = await importBatchOrders(chunk);
+        done += result.ordersCreated;
+        totalSpools += result.spoolsUpdated;
+        setBatchProgress(`Importing ${done}/${selected.length}…`);
+      }
+
+      setBatchResult({ ordersCreated: done, spoolsUpdated: totalSpools });
+      toast.success(`Imported ${done} orders, updated ${totalSpools} spool prices`);
+    } catch (err) {
+      console.error(err);
+      toast.error("Batch import failed — please try again");
+    } finally {
+      setBatchImporting(false);
+    }
+  }
+
+  // ── Step 1: Parse (email mode) ─────────────────────────────────────────────
 
   async function handleParse() {
     if (!pasteText.trim()) return;
@@ -323,7 +627,6 @@ export function ImportOrderDialog({ open, onClose, allSpools }: ImportOrderDialo
   async function handleImport() {
     setSubmitting(true);
     try {
-      // Build items array — only non-skipped items that have spools selected
       const itemsToImport = editableItems
         .filter((item) => !item.skip && item.matchedFilamentId)
         .map((item) => ({
@@ -371,67 +674,277 @@ export function ImportOrderDialog({ open, onClose, allSpools }: ImportOrderDialo
         <DialogHeader>
           <div className="flex items-center justify-between pr-6">
             <DialogTitle className="text-base font-semibold">
-              {titles[step]}
+              {inputMode === "csv" && step === 1 ? "Import from CSV" : titles[step]}
             </DialogTitle>
-            <StepDots step={step} total={4} />
+            {inputMode === "email" && <StepDots step={step} total={4} />}
           </div>
         </DialogHeader>
 
-        {/* ── Step 1: Paste ──────────────────────────────────────────────── */}
+        {/* ── Step 1 ─────────────────────────────────────────────────────── */}
         {step === 1 && (
           <div className="space-y-4 pt-1">
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">
-                Paste order confirmation email text
-              </Label>
-              <textarea
-                className="w-full min-h-[180px] rounded-lg border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-y font-mono"
-                placeholder="Paste your order confirmation email here…"
-                value={pasteText}
-                onChange={(e) => setPasteText(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleParse();
-                }}
-              />
+            {/* Mode tabs */}
+            <div className="flex rounded-lg border border-border overflow-hidden text-xs">
+              <button
+                onClick={() => setInputMode("email")}
+                className={`flex-1 py-1.5 font-medium transition-colors ${
+                  inputMode === "email"
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-background text-muted-foreground hover:bg-muted/50"
+                }`}
+              >
+                Email
+              </button>
+              <button
+                onClick={() => setInputMode("csv")}
+                className={`flex-1 py-1.5 font-medium transition-colors border-l border-border ${
+                  inputMode === "csv"
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-background text-muted-foreground hover:bg-muted/50"
+                }`}
+              >
+                CSV
+              </button>
             </div>
 
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Order date (if not in email)</Label>
-              <Input
-                type="date"
-                value={orderDate}
-                onChange={(e) => setOrderDate(e.target.value)}
-                className="h-8 text-sm font-mono w-44"
-              />
-            </div>
+            {/* ── Email tab ──────────────────────────────────────────────── */}
+            {inputMode === "email" && (
+              <>
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">
+                    Paste order confirmation email text
+                  </Label>
+                  <textarea
+                    className="w-full min-h-[180px] rounded-lg border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-y font-mono"
+                    placeholder="Paste your order confirmation email here…"
+                    value={pasteText}
+                    onChange={(e) => setPasteText(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleParse();
+                    }}
+                  />
+                </div>
 
-            {parseError && (
-              <div className="flex items-center gap-2 rounded-lg bg-destructive/10 border border-destructive/20 px-3 py-2 text-xs text-destructive">
-                <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-                {parseError}
-              </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Order date (if not in email)</Label>
+                  <Input
+                    type="date"
+                    value={orderDate}
+                    onChange={(e) => setOrderDate(e.target.value)}
+                    className="h-8 text-sm font-mono w-44"
+                  />
+                </div>
+
+                {parseError && (
+                  <div className="flex items-center gap-2 rounded-lg bg-destructive/10 border border-destructive/20 px-3 py-2 text-xs text-destructive">
+                    <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                    {parseError}
+                  </div>
+                )}
+
+                <div className="flex justify-end">
+                  <Button
+                    onClick={handleParse}
+                    disabled={!pasteText.trim() || parsing}
+                    className="bg-primary hover:bg-primary/90 text-primary-foreground min-w-[100px]"
+                  >
+                    {parsing ? (
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                        Parsing…
+                      </>
+                    ) : (
+                      "Parse"
+                    )}
+                  </Button>
+                </div>
+              </>
             )}
 
-            <div className="flex justify-end">
-              <Button
-                onClick={handleParse}
-                disabled={!pasteText.trim() || parsing}
-                className="bg-primary hover:bg-primary/90 text-primary-foreground min-w-[100px]"
-              >
-                {parsing ? (
-                  <>
-                    <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-                    Parsing…
-                  </>
-                ) : (
-                  "Parse"
+            {/* ── CSV tab ────────────────────────────────────────────────── */}
+            {inputMode === "csv" && (
+              <>
+                {/* Drop zone */}
+                <div
+                  onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                  onDragLeave={() => setIsDragging(false)}
+                  onDrop={handleDrop}
+                  onClick={() => fileInputRef.current?.click()}
+                  className={`flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed cursor-pointer transition-colors py-8 px-4 ${
+                    isDragging
+                      ? "border-primary bg-primary/5"
+                      : "border-border hover:border-primary/50 hover:bg-muted/30"
+                  }`}
+                >
+                  <Upload className="h-6 w-6 text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground text-center">
+                    Drop your CSV / TSV file here, or <span className="text-primary font-medium">click to browse</span>
+                  </p>
+                  <p className="text-[11px] text-muted-foreground/60">
+                    Expects columns: Datum · Shop · Bestellnummer · Filament-Typ · Menge · Preis
+                  </p>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".csv,.tsv,.txt"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleFileChange(file);
+                    }}
+                  />
+                </div>
+
+                {csvParseError && (
+                  <div className="flex items-center gap-2 rounded-lg bg-destructive/10 border border-destructive/20 px-3 py-2 text-xs text-destructive">
+                    <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                    {csvParseError}
+                  </div>
                 )}
-              </Button>
-            </div>
+
+                {/* Parsed orders preview */}
+                {csvOrders.length > 0 && !batchResult && (
+                  <>
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs text-muted-foreground">
+                          {csvOrders.length} order{csvOrders.length !== 1 ? "s" : ""} found
+                          {" · "}
+                          {csvOrders.filter((o) => o.selected).length} selected
+                        </Label>
+                        <button
+                          onClick={() =>
+                            setCSVOrders((prev) =>
+                              prev.map((o) => ({ ...o, selected: !prev.every((p) => p.selected) }))
+                            )
+                          }
+                          className="text-[11px] text-primary hover:underline"
+                        >
+                          {csvOrders.every((o) => o.selected) ? "Deselect all" : "Select all"}
+                        </button>
+                      </div>
+
+                      <div className="rounded-xl border border-border divide-y divide-border overflow-hidden max-h-72 overflow-y-auto">
+                        {csvOrders.map((order, idx) => {
+                          const matchedCount = order.matchedItems.filter((i) => i.filamentId).length;
+                          const total = order.matchedItems.length;
+                          return (
+                            <label
+                              key={idx}
+                              className={`flex items-start gap-2.5 px-3 py-2 cursor-pointer transition-colors ${
+                                order.selected ? "bg-primary/5" : "hover:bg-muted/40"
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={order.selected}
+                                onChange={() => toggleOrderSelected(idx)}
+                                className="h-3.5 w-3.5 accent-primary mt-0.5 shrink-0"
+                              />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-medium truncate">
+                                  {order.shop}
+                                  {order.orderNumber ? (
+                                    <span className="text-muted-foreground font-normal ml-1.5 font-mono">
+                                      #{order.orderNumber}
+                                    </span>
+                                  ) : null}
+                                </p>
+                                <p className="text-[11px] text-muted-foreground">
+                                  {order.orderedAt}
+                                  {" · "}
+                                  {total} item{total !== 1 ? "s" : ""}
+                                  {" · "}
+                                  {order.items.reduce((s, i) => s + i.quantity, 0)} spools
+                                </p>
+                                {/* Items sub-list */}
+                                <div className="mt-1 space-y-0.5">
+                                  {order.matchedItems.map((item, ii) => (
+                                    <p key={ii} className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                      {item.filamentId ? (
+                                        <Check className="h-2.5 w-2.5 text-emerald-500 shrink-0" />
+                                      ) : (
+                                        <X className="h-2.5 w-2.5 text-muted-foreground/40 shrink-0" />
+                                      )}
+                                      ×{item.quantity} {item.name}
+                                      {item.unitPrice > 0 ? ` · €${item.unitPrice.toFixed(2)}` : ""}
+                                    </p>
+                                  ))}
+                                </div>
+                              </div>
+                              <span
+                                className={`text-[10px] font-medium shrink-0 mt-0.5 ${
+                                  matchedCount === total
+                                    ? "text-emerald-500"
+                                    : matchedCount > 0
+                                    ? "text-amber-500"
+                                    : "text-muted-foreground"
+                                }`}
+                              >
+                                {matchedCount}/{total}
+                              </span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {batchImporting && (
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        {batchProgress}
+                      </div>
+                    )}
+
+                    <div className="flex justify-end">
+                      <Button
+                        onClick={handleBatchImport}
+                        disabled={batchImporting || csvOrders.filter((o) => o.selected).length === 0}
+                        className="bg-primary hover:bg-primary/90 text-primary-foreground min-w-[140px]"
+                      >
+                        {batchImporting ? (
+                          <>
+                            <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                            {batchProgress}
+                          </>
+                        ) : (
+                          `Match & Import All (${csvOrders.filter((o) => o.selected).length})`
+                        )}
+                      </Button>
+                    </div>
+                  </>
+                )}
+
+                {/* Batch import success */}
+                {batchResult && (
+                  <div className="flex flex-col items-center gap-4 py-6 text-center">
+                    <div className="h-12 w-12 rounded-full bg-emerald-500/15 flex items-center justify-center">
+                      <Check className="h-6 w-6 text-emerald-500" />
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium">Batch import complete</p>
+                      <p className="text-xs text-muted-foreground">
+                        {batchResult.ordersCreated} order{batchResult.ordersCreated !== 1 ? "s" : ""} imported
+                        {" · "}
+                        {batchResult.spoolsUpdated} spool price{batchResult.spoolsUpdated !== 1 ? "s" : ""} updated
+                      </p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={onClose}
+                      className="h-7 text-xs"
+                    >
+                      Close
+                    </Button>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         )}
 
-        {/* ── Step 2: Review parsed data ─────────────────────────────────── */}
+        {/* ── Step 2: Review parsed data (email only) ────────────────────── */}
         {step === 2 && (
           <div className="space-y-4 pt-1">
             <div className="grid grid-cols-3 gap-2">
@@ -464,7 +977,6 @@ export function ImportOrderDialog({ open, onClose, allSpools }: ImportOrderDialo
               </div>
             </div>
 
-            {/* Line items preview */}
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">
                 Line Items ({rawItems.length})
@@ -530,7 +1042,7 @@ export function ImportOrderDialog({ open, onClose, allSpools }: ImportOrderDialo
           </div>
         )}
 
-        {/* ── Step 3: Spool matching ─────────────────────────────────────── */}
+        {/* ── Step 3: Spool matching (email only) ───────────────────────── */}
         {step === 3 && (
           <div className="space-y-3 pt-1">
             <p className="text-xs text-muted-foreground">
@@ -557,7 +1069,6 @@ export function ImportOrderDialog({ open, onClose, allSpools }: ImportOrderDialo
                     key={itemIdx}
                     className={`rounded-xl border ${item.skip ? "border-border opacity-50" : "border-border"} overflow-hidden`}
                   >
-                    {/* Item header */}
                     <div className="px-3 py-2 bg-muted/30 flex items-center justify-between gap-2">
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-medium truncate">
@@ -571,7 +1082,6 @@ export function ImportOrderDialog({ open, onClose, allSpools }: ImportOrderDialo
                             {item.material}
                             {item.colorName ? ` · ${item.colorName}` : ""}
                           </span>
-                          {/* Price override */}
                           <div className="flex items-center gap-1">
                             <span className="text-[10px] text-muted-foreground">€</span>
                             <input
@@ -600,7 +1110,6 @@ export function ImportOrderDialog({ open, onClose, allSpools }: ImportOrderDialo
                       </button>
                     </div>
 
-                    {/* Spool matches */}
                     {!item.skip && (
                       <div className="divide-y divide-border">
                         {matches.length === 0 ? (
@@ -687,14 +1196,13 @@ export function ImportOrderDialog({ open, onClose, allSpools }: ImportOrderDialo
           </div>
         )}
 
-        {/* ── Step 4: Confirm & Import ───────────────────────────────────── */}
+        {/* ── Step 4: Confirm & Import (email only) ─────────────────────── */}
         {step === 4 && !importedOrderId && (
           <div className="space-y-4 pt-1">
             <p className="text-xs text-muted-foreground">
               Review what will be created, then confirm import.
             </p>
 
-            {/* Summary */}
             <div className="rounded-xl border border-border overflow-hidden">
               <div className="px-3 py-2 bg-muted/30 border-b border-border">
                 <p className="text-xs font-medium">
@@ -769,7 +1277,7 @@ export function ImportOrderDialog({ open, onClose, allSpools }: ImportOrderDialo
           </div>
         )}
 
-        {/* ── Done ───────────────────────────────────────────────────────── */}
+        {/* ── Done (email only) ───────────────────────────────────────────── */}
         {step === 4 && importedOrderId && (
           <div className="flex flex-col items-center gap-4 py-8 text-center">
             <div className="h-12 w-12 rounded-full bg-emerald-500/15 flex items-center justify-center">
