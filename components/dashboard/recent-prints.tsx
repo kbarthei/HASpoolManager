@@ -64,7 +64,7 @@ export function RecentPrints({ prints }: { prints: PrintData[] }) {
                   {/* Print name */}
                   <span
                     className={cn(
-                      "text-xs flex-1 truncate",
+                      "text-sm flex-1 truncate",
                       isFailed && "line-through"
                     )}
                   >
@@ -72,11 +72,11 @@ export function RecentPrints({ prints }: { prints: PrintData[] }) {
                   </span>
 
                   {/* Weight + cost */}
-                  <span className="text-xs font-mono shrink-0 text-muted-foreground">
+                  <span className="text-sm font-mono shrink-0 text-muted-foreground">
                     {Math.round(totalWeight)}g
                   </span>
                   {totalCost > 0 && (
-                    <span className="text-xs font-mono shrink-0 text-muted-foreground">
+                    <span className="text-sm font-mono shrink-0 text-muted-foreground">
                       {totalCost.toFixed(2)}€
                     </span>
                   )}

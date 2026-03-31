@@ -70,8 +70,8 @@ export function StorageCell({
           onDrop={onDrop}
           onDragEnd={onDragEnd}
           className={cn(
-            "relative min-h-[56px] sm:min-h-[72px] w-full",
-            "flex flex-col items-center justify-center gap-[3px] py-1 px-[2px]",
+            "relative min-h-[48px] sm:min-h-[56px] w-full",
+            "flex items-center gap-1.5 py-1.5 px-1.5",
             "bg-card border border-border rounded-lg",
             "cursor-grab hover:bg-accent/50 transition-colors select-none",
             isDragging && "opacity-50",
@@ -82,23 +82,26 @@ export function StorageCell({
           {/* Stock level dot — top right */}
           <span
             className={cn(
-              "absolute top-1 right-1 w-[8px] h-[8px] rounded-full",
+              "absolute top-1 right-1 w-[6px] h-[6px] rounded-full",
               stockDotClass
             )}
           />
           <SpoolColorDot
             hex={spool.filament.colorHex ?? "888888"}
             size="md"
+            className="shrink-0"
           />
-          <span className="text-[9px] leading-tight text-foreground text-center line-clamp-1 px-[2px] w-full truncate">
-            {spool.filament.name}
-          </span>
-          <span className="text-[8px] leading-none text-muted-foreground text-center w-full truncate">
-            {spool.filament.vendor.name}
-          </span>
-          <span className="text-[8px] leading-none text-muted-foreground text-center w-full truncate">
-            {spool.filament.material} · {spool.remainingWeight}g
-          </span>
+          <div className="flex-1 min-w-0 space-y-0">
+            <span className="text-[10px] sm:text-[11px] leading-tight text-foreground block truncate">
+              {spool.filament.name}
+            </span>
+            <span className="text-[9px] sm:text-[10px] leading-tight text-muted-foreground block truncate">
+              {spool.filament.vendor.name}
+            </span>
+            <span className="text-[9px] sm:text-[10px] leading-tight text-muted-foreground block truncate">
+              {spool.filament.material} · {spool.remainingWeight}g
+            </span>
+          </div>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="center" side="bottom" className="w-44">
           <DropdownMenuItem onClick={onClick}>

@@ -24,19 +24,17 @@ export function LowStockList({ spools }: { spools: SpoolWithFilament[] }) {
                 ? Math.round((spool.remainingWeight / spool.initialWeight) * 100)
                 : 0;
               const colorClass = getStockLevelColor(percent);
-              const name = filament.colorName
-                ? `${filament.vendor?.name ?? ""} ${filament.colorName}`
-                : `${filament.vendor?.name ?? ""} ${filament.name}`;
+              const name = `${filament.vendor?.name ?? ""} ${filament.name}`;
 
               return (
                 <Link
                   key={spool.id}
                   href={`/spools/${spool.id}`}
-                  className="flex items-center gap-2 rounded px-1 -mx-1 hover:bg-accent/50 transition cursor-pointer"
+                  className="flex items-center gap-2 rounded px-1 -mx-1 py-0.5 hover:bg-accent/50 transition cursor-pointer"
                 >
                   <SpoolColorDot hex={hex} size="sm" />
-                  <span className="text-xs flex-1 truncate">{name.trim()}</span>
-                  <span className={`text-xs font-mono shrink-0 ${colorClass}`}>
+                  <span className="text-sm flex-1 truncate">{name.trim()}</span>
+                  <span className={`text-sm font-mono shrink-0 ${colorClass}`}>
                     {spool.remainingWeight}g
                   </span>
                 </Link>
