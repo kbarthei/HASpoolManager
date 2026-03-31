@@ -15,7 +15,7 @@ test.describe("Orders Page", () => {
   });
 
   test("shows shopping list section", async ({ page }) => {
-    await expect(page.locator("text=Shopping List")).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole("heading", { name: "Shopping List" })).toBeVisible({ timeout: 10000 });
   });
 
   test("shows pending orders section when orders exist", async ({ page }) => {
