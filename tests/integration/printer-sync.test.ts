@@ -50,9 +50,10 @@ async function sync(overrides: Record<string, unknown> = {}) {
 // ── Collect print IDs created by sync ────────────────────────────────────────
 
 async function getRunningPrint(): Promise<{ id: string; name: string | null; activeSpoolId: string | null } | null> {
-  return db.query.prints.findFirst({
+  const result = await db.query.prints.findFirst({
     where: and(eq(prints.printerId, testPrinterId), eq(prints.status, "running")),
-  }) ?? null;
+  });
+  return result ?? null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
