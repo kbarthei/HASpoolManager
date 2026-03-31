@@ -11,7 +11,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { db } from "@/lib/db";
 import { prints, printUsage, amsSlots, tagMappings, spools, filaments, vendors, syncLog } from "@/lib/db/schema";
-import { eq, and, inArray } from "drizzle-orm";
+import { eq, and, inArray, sql } from "drizzle-orm";
 import { makeVendor, makeFilament, makeSpool, makeTagMapping, cleanup } from "../fixtures/seed";
 
 const BASE = "http://localhost:3000/api/v1";
@@ -79,17 +79,25 @@ describe.skipIf(!process.env.DATABASE_URL)("printer-sync integration", () => {
   });
 
   afterAll(async () => {
-    // Remove all prints we created (by running → finished/failed queries)
-    // Also purge any auto-created spools/filaments/vendors from AMS slot tests
-    await cleanup(toClean);
-
-    // Clean up any sync_log entries pointing to our test prints (fire-and-forget)
-    if (toClean.prints.length) {
-      await db
-        .delete(syncLog)
-        .where(inArray(syncLog.printerId, [testPrinterId]))
+    // Remove all prints created by the sync endpoint during tests
+    const testPrints = await db.select({ id: prints.id }).from(prints)
+      .where(sql`${prints.name} = 'Integration Test Print' OR ${prints.haEventId} LIKE 'test_%'`);
+    for (const p of testPrints) {
+      await db.delete(printUsage).where(eq(printUsage.printId, p.id)).catch(() => {});
+    }
+    if (testPrints.length > 0) {
+      await db.delete(prints)
+        .where(sql`${prints.name} = 'Integration Test Print' OR ${prints.haEventId} LIKE 'test_%'`)
         .catch(() => {});
     }
+
+    // Remove all test-created spools/filaments/vendors/tags
+    await cleanup(toClean);
+
+    // Clean up sync_log entries from tests
+    await db.delete(syncLog)
+      .where(inArray(syncLog.printerId, [testPrinterId]))
+      .catch(() => {});
   });
 
   // ── A. Print Lifecycle ─────────────────────────────────────────────────────
