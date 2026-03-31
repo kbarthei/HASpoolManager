@@ -177,6 +177,8 @@ describe("classifyState()", () => {
     "CLEANING_NOZZLE_TIP",
     "SWEEPING_XY_MECH_MODE",
     "HEATBED_PREHEATING",
+    "CHANGING_FILAMENT",
+    "CHANGE_FILAMENT",
   ])("classifies calibration state '%s' as active", (state) => {
     expect(classifyState(state)).toBe("active");
   });

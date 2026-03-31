@@ -127,6 +127,24 @@ export async function cleanupStaleTestData(): Promise<void> {
     }
     await db.delete(vendors).where(inArray(vendors.id, vids)).catch(() => {});
   }
+
+  // Delete auto-created spools from integration test E3/E4 runs.
+  // These are created under "Bambu Lab" / "Unknown" vendors with test-specific material names
+  // and persist across runs, causing fuzzy-match false positives in subsequent test runs.
+  const staleTestFilaments = await db
+    .select({ id: filaments.id })
+    .from(filaments)
+    .where(sql`${filaments.material} LIKE 'TPU_TEST_E3%' OR ${filaments.material} LIKE 'DRAFT_E4_%'`);
+  if (staleTestFilaments.length > 0) {
+    const fids = staleTestFilaments.map((f) => f.id);
+    const staleSpools = await db.select({ id: spools.id }).from(spools).where(inArray(spools.filamentId, fids));
+    if (staleSpools.length > 0) {
+      const sids = staleSpools.map((s) => s.id);
+      await db.delete(tagMappings).where(inArray(tagMappings.spoolId, sids)).catch(() => {});
+      await db.delete(spools).where(inArray(spools.id, sids)).catch(() => {});
+    }
+    await db.delete(filaments).where(inArray(filaments.id, fids)).catch(() => {});
+  }
 }
 
 // ── Cleanup ───────────────────────────────────────────────────────────────────
