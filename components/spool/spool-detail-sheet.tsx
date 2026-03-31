@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { formatDate } from "@/lib/date";
 import { SpoolColorDot } from "@/components/spool/spool-color-dot";
 import { SpoolMaterialBadge } from "@/components/spool/spool-material-badge";
 import { SpoolProgressBar } from "@/components/spool/spool-progress-bar";
@@ -113,11 +114,7 @@ export function SpoolDetailSheet({ spoolId, open, onClose }: SpoolDetailSheetPro
               const order = oi.order;
               const shop = order.shop?.name ?? "Unknown Shop";
               const orderNum = order.orderNumber ? `#${order.orderNumber}` : null;
-              const date = new Date(order.orderDate).toLocaleDateString("de-DE", {
-                day: "2-digit",
-                month: "2-digit",
-                year: "numeric",
-              });
+              const date = formatDate(order.orderDate);
               return (
                 <div className="rounded-lg bg-muted/40 px-3 py-2 space-y-1">
                   <div className="flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">

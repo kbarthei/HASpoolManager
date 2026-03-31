@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
+import { formatDate } from "@/lib/date";
 import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { SpoolColorDot } from "@/components/spool/spool-color-dot";
@@ -119,7 +120,7 @@ export default async function SpoolDetailPage({
               </div>
               {orderItem.order.orderDate && (
                 <div className="text-xs text-muted-foreground mt-0.5">
-                  {new Date(orderItem.order.orderDate).toLocaleDateString("de-DE")}
+                  {formatDate(orderItem.order.orderDate)}
                   {orderItem.order.orderNumber && ` · #${orderItem.order.orderNumber}`}
                 </div>
               )}
@@ -160,9 +161,7 @@ export default async function SpoolDetailPage({
                 <div>
                   <span className="font-medium">{usage.print?.name || "Unknown print"}</span>
                   <span className="text-muted-foreground ml-2">
-                    {usage.createdAt
-                      ? new Date(usage.createdAt).toLocaleDateString("de-DE")
-                      : ""}
+                    {usage.createdAt ? formatDate(usage.createdAt) : ""}
                   </span>
                 </div>
                 <div className="font-mono">

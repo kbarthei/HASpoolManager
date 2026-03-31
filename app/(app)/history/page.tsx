@@ -1,6 +1,7 @@
 import { getAllPrintUsage, getAllSpools } from "@/lib/queries";
 import { SpoolColorDot } from "@/components/spool/spool-color-dot";
 import { Printer, Package } from "lucide-react";
+import { formatTime, formatDateLong } from "@/lib/date";
 
 // ── Types ─────────────────────────────────────────────────────────────────
 
@@ -24,22 +25,10 @@ type HistoryEvent =
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
-function formatTime(date: Date): string {
-  return date.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
-}
-
-function formatDateHeader(date: Date): string {
-  return date.toLocaleDateString("de-DE", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
-}
-
 function groupByDate(events: HistoryEvent[]): Map<string, HistoryEvent[]> {
   const map = new Map<string, HistoryEvent[]>();
   for (const ev of events) {
-    const key = formatDateHeader(ev.date);
+    const key = formatDateLong(ev.date);
     if (!map.has(key)) map.set(key, []);
     map.get(key)!.push(ev);
   }

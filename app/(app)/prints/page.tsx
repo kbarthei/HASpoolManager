@@ -4,20 +4,9 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SpoolColorDot } from "@/components/spool/spool-color-dot";
 import { CheckCircle2, XCircle } from "lucide-react";
+import { formatDateTime, formatDateLong, formatDateShort } from "@/lib/date";
 
 // ── Helpers ────────────────────────────────────────────────────────────────
-
-function formatDateTime(date: Date | null | string | undefined): string {
-  if (!date) return "—";
-  const d = date instanceof Date ? date : new Date(date);
-  return d.toLocaleString("de-DE", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
 
 function formatDuration(seconds: number | null | undefined): string {
   if (!seconds) return "—";
@@ -32,13 +21,7 @@ function groupByDate<T extends { startedAt: Date | null | string | undefined }>(
   const map = new Map<string, T[]>();
   for (const item of items) {
     const d = item.startedAt ? new Date(item.startedAt) : null;
-    const key = d
-      ? d.toLocaleDateString("de-DE", {
-          day: "numeric",
-          month: "long",
-          year: "numeric",
-        })
-      : "Unknown";
+    const key = d ? formatDateLong(d) : "Unknown";
     if (!map.has(key)) map.set(key, []);
     map.get(key)!.push(item);
   }
@@ -98,12 +81,7 @@ export default async function PrintHistoryPage() {
                     </div>
                     <div className="text-xs text-muted-foreground mt-0.5">
                       Started{" "}
-                      {new Date(print.startedAt!).toLocaleString("de-DE", {
-                        day: "2-digit",
-                        month: "short",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
+                      {formatDateShort(print.startedAt!)}
                       {print.printer && ` · ${print.printer.name}`}
                     </div>
                   </div>

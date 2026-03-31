@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { getSyncLog, getSystemStats, getPrinterStatus, getRackConfig } from "@/lib/queries";
+import { formatDateTime, formatDate } from "@/lib/date";
 import { db } from "@/lib/db";
 import { prints, spools } from "@/lib/db/schema";
 import { eq, sql, ne } from "drizzle-orm";
@@ -24,7 +25,7 @@ function relativeTime(date: Date | string | null | undefined): string {
   if (diffMin < 60) return `${diffMin}m ago`;
   const diffHr = Math.floor(diffMin / 60);
   if (diffHr < 24) return `${diffHr}h ago`;
-  return d.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });
+  return formatDate(d);
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────
@@ -34,7 +35,7 @@ export default async function AdminPage() {
   const buildInfo = {
     commitSha: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? null,
     deployedAt: process.env.BUILD_TIMESTAMP
-      ? new Date(process.env.BUILD_TIMESTAMP).toLocaleString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Berlin" })
+      ? formatDateTime(process.env.BUILD_TIMESTAMP)
       : null,
     region: process.env.VERCEL_REGION ?? null,
     nodeEnv: process.env.NODE_ENV,

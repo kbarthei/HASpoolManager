@@ -2,6 +2,7 @@
 
 import { Fragment, useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import { formatDateTime } from "@/lib/date";
 
 interface SyncLogEntry {
   id: string;
@@ -26,13 +27,6 @@ function relativeTime(date: Date | string | null): string {
   return `${Math.floor(diffSec / 86400)}d ago`;
 }
 
-function formatAbsTime(date: Date | string | null): string {
-  if (!date) return "";
-  return new Date(date).toLocaleString("de-DE", {
-    day: "2-digit", month: "2-digit", year: "numeric",
-    hour: "2-digit", minute: "2-digit", second: "2-digit",
-  });
-}
 
 function TransitionBadge({ transition }: { transition: string | null }) {
   if (!transition || transition === "none")
@@ -86,11 +80,11 @@ export function SyncLogTable({ logs }: { logs: SyncLogEntry[] }) {
                 className="hover:bg-muted/30 transition-colors cursor-pointer group"
                 onClick={() => setExpandedId(isExpanded ? null : log.id)}
               >
-                <td className="py-1.5 pr-3 font-mono text-muted-foreground whitespace-nowrap" title={formatAbsTime(log.createdAt)}>
+                <td className="py-1.5 pr-3 font-mono text-muted-foreground whitespace-nowrap" title={formatDateTime(log.createdAt)}>
                   <div>{relativeTime(log.createdAt)}</div>
                   {isExpanded && (
                     <div className="text-[10px] text-muted-foreground/60 mt-0.5">
-                      {formatAbsTime(log.createdAt)}
+                      {formatDateTime(log.createdAt)}
                     </div>
                   )}
                 </td>

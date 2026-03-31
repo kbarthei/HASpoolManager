@@ -3,6 +3,7 @@
 import { useState, useCallback } from "react";
 import { AddOrderDialog } from "@/components/orders/add-order-dialog";
 import { OrderDetailSheet } from "@/components/orders/order-detail-sheet";
+import { formatDate, formatMonthYear } from "@/lib/date";
 import { ReceiveWizard } from "@/components/orders/receive-wizard";
 import { SpoolColorDot } from "@/components/spool/spool-color-dot";
 import { Badge } from "@/components/ui/badge";
@@ -120,10 +121,7 @@ function PendingOrderCard({
             {order.shop?.name ?? "Unknown"}
           </span>
           <span className="text-xs text-muted-foreground ml-2">
-            {new Date(order.orderDate).toLocaleDateString("en-US", {
-              month: "short",
-              day: "numeric",
-            })}
+            {formatDate(order.orderDate)}
             {daysAgo > 0 && ` · ${daysAgo}d ago`}
           </span>
         </div>
@@ -197,10 +195,7 @@ function DeliveredOrderCard({ order, onCardClick }: { order: Order; onCardClick:
         <div className="flex items-center gap-2 text-xs">
           <span className="font-medium">{order.shop?.name ?? "Unknown"}</span>
           <span className="text-muted-foreground">
-            {new Date(order.orderDate).toLocaleDateString("en-US", {
-              month: "short",
-              day: "numeric",
-            })}
+            {formatDate(order.orderDate)}
           </span>
         </div>
         <p className="text-[11px] text-muted-foreground truncate">
@@ -326,10 +321,7 @@ export function OrdersClient({ orders, rack, shoppingList, allFilaments }: Order
     (groups, order) => {
       const date = new Date(order.orderDate);
       const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-      const label = date.toLocaleDateString("en-US", {
-        month: "long",
-        year: "numeric",
-      });
+      const label = formatMonthYear(date);
       if (!groups[key]) groups[key] = { label, orders: [], totalCost: 0 };
       groups[key].orders.push(order);
       groups[key].totalCost += order.totalCost

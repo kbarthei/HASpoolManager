@@ -8,6 +8,7 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
+import { formatDate } from "@/lib/date";
 import { Badge } from "@/components/ui/badge";
 import { SpoolColorDot } from "@/components/spool/spool-color-dot";
 import { SpoolMaterialBadge } from "@/components/spool/spool-material-badge";
@@ -73,12 +74,7 @@ export function OrderDetailSheet({ order, open, onClose }: OrderDetailSheetProps
 
   if (!order) return null;
 
-  const formattedDate = new Date(order.orderDate).toLocaleDateString("en-US", {
-    weekday: "short",
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
+  const formattedDate = formatDate(order.orderDate);
 
   const currency = order.currency ?? "€";
   const currencySymbol = currency === "EUR" ? "€" : currency;
