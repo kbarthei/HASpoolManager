@@ -11,6 +11,7 @@ import { SpoolProgressBar } from "@/components/spool/spool-progress-bar";
 import { ExternalLink } from "lucide-react";
 import { WeightAdjuster } from "@/components/spool/weight-adjuster";
 import { ArchiveButton } from "@/components/spool/archive-button";
+import { AddToShoppingListButton } from "@/components/spool/add-to-shopping-list-button";
 
 export default async function SpoolDetailPage({
   params,
@@ -141,9 +142,15 @@ export default async function SpoolDetailPage({
         </Link>
       )}
 
-      {/* Archive action */}
-      <div className="flex justify-end">
-        <ArchiveButton spoolId={spool.id} spoolName={`${spool.filament.vendor.name} ${spool.filament.name}`} />
+      {/* Shopping list + Archive actions */}
+      <div className="flex flex-col gap-2">
+        <AddToShoppingListButton
+          filamentId={spool.filament.id}
+          filamentName={`${spool.filament.vendor.name} ${spool.filament.name}`}
+        />
+        <div className="flex justify-end">
+          <ArchiveButton spoolId={spool.id} spoolName={`${spool.filament.vendor.name} ${spool.filament.name}`} />
+        </div>
       </div>
 
       {/* Usage History */}

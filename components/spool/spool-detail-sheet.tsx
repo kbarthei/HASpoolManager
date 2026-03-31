@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { ExternalLink, Package } from "lucide-react";
 import { WeightAdjuster } from "@/components/spool/weight-adjuster";
 import { ArchiveButton } from "@/components/spool/archive-button";
+import { AddToShoppingListButton } from "@/components/spool/add-to-shopping-list-button";
 
 interface SpoolDetailSheetProps {
   spoolId: string | null;
@@ -175,6 +176,13 @@ export function SpoolDetailSheet({ spoolId, open, onClose }: SpoolDetailSheetPro
                 <ExternalLink className="h-3 w-3 mr-1" /> View Full Details
               </Button>
             </Link>
+
+            {spool.filament?.id && (
+              <AddToShoppingListButton
+                filamentId={spool.filament.id}
+                filamentName={`${spool.filament?.vendor?.name ?? ""} ${spool.filament?.name ?? ""}`.trim()}
+              />
+            )}
 
             <div className="mt-2">
               <ArchiveButton
