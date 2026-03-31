@@ -471,10 +471,10 @@ export async function POST(request: NextRequest) {
         matchedSpoolId = await autoCreateDraftSpool(trayType, trayColor, def);
       }
 
-      // Move old spool back to storage if swapped
+      // Move old spool back to workbench if swapped
       if (existingSlot?.spoolId && existingSlot.spoolId !== matchedSpoolId) {
         await db.update(spools).set({
-          location: "storage",
+          location: "workbench",
           updatedAt: new Date(),
         }).where(eq(spools.id, existingSlot.spoolId));
       }

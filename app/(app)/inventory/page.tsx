@@ -36,11 +36,18 @@ export default async function InventoryPage({
   const rackConfig = await getRackConfig();
   const { rows, columns: cols } = rackConfig;
 
-  // Auto-move out-of-bounds spools to workbench
+  // Auto-move out-of-bounds rack spools and orphaned "storage" spools to workbench
   const allRackSpools = await db.query.spools.findMany({
-    where: like(schema.spools.location, "rack:%"),
+    where: or(like(schema.spools.location, "rack:%"), eq(schema.spools.location, "storage")),
   });
   for (const spool of allRackSpools) {
+    if (spool.location === "storage") {
+      // "storage" is a limbo state — move to workbench so it's visible
+      await db.update(schema.spools)
+        .set({ location: "workbench", updatedAt: new Date() })
+        .where(eq(schema.spools.id, spool.id));
+      continue;
+    }
     const match = spool.location?.match(/^rack:(\d+)-(\d+)$/);
     if (!match) continue;
     const r = parseInt(match[1], 10);
