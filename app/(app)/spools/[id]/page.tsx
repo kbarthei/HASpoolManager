@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { SpoolColorDot } from "@/components/spool/spool-color-dot";
 import { SpoolMaterialBadge } from "@/components/spool/spool-material-badge";
@@ -108,7 +109,8 @@ export default async function SpoolDetailPage({
 
       {/* Purchase Info */}
       {orderItem?.order && (
-        <Card className="p-3 rounded-xl">
+        <Link href="/orders">
+        <Card className="p-3 rounded-xl hover:bg-accent/50 transition-colors cursor-pointer">
           <div className="flex justify-between items-start">
             <div>
               <div className="text-xs text-muted-foreground">Purchased from</div>
@@ -135,6 +137,7 @@ export default async function SpoolDetailPage({
             )}
           </div>
         </Card>
+        </Link>
       )}
 
       {/* Archive action */}
