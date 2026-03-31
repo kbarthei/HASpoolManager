@@ -1,14 +1,18 @@
 import { describe, it, expect } from "vitest";
 import { deltaEHex } from "@/lib/color";
+import { normalizeColor } from "@/lib/matching";
+
+// These tests cover the scoring algorithm design (thresholds, weights) used in
+// fuzzyMatch(). The full matching pipeline requires a DB and is covered by
+// integration tests. Here we test the pure, exported helpers directly.
 
 describe("Matching scoring concepts", () => {
-  describe("Color scoring thresholds", () => {
-    it("identical colors score full points", () => {
+  describe("Color scoring thresholds — via real deltaEHex", () => {
+    it("identical colors score full points (ΔE = 0)", () => {
       expect(deltaEHex("C6C6C6", "C6C6C6")).toBe(0);
     });
 
     it("nearly identical colors (deltaE < 2.3) are imperceptible", () => {
-      // Very slightly different grays
       expect(deltaEHex("C6C6C6", "C5C5C5")).toBeLessThan(2.3);
     });
 
@@ -27,7 +31,31 @@ describe("Matching scoring concepts", () => {
     });
   });
 
-  describe("Bambu filament index matching", () => {
+  describe("normalizeColor — strips alpha and # prefix", () => {
+    it("passes 6-char hex through unchanged", () => {
+      expect(normalizeColor("C6C6C6")).toBe("C6C6C6");
+    });
+
+    it("strips leading # from hex", () => {
+      expect(normalizeColor("#FF0000")).toBe("FF0000");
+    });
+
+    it("truncates RRGGBBAA to RRGGBB", () => {
+      expect(normalizeColor("FF0000FF")).toBe("FF0000");
+    });
+
+    it("returns null for undefined input", () => {
+      expect(normalizeColor(undefined)).toBeNull();
+    });
+
+    it("returns null for empty string", () => {
+      expect(normalizeColor("")).toBeNull();
+    });
+  });
+
+  // Algorithm-design tests: validate the SCORING RULES, not the implementation.
+  // The actual scoring runs inside private fuzzyMatch(); these document intent.
+  describe("Bambu filament index matching — algorithm design", () => {
     it("exact match has highest priority", () => {
       const idx1 = "GFA00";
       const idx2 = "GFA00";
@@ -59,7 +87,7 @@ describe("Matching scoring concepts", () => {
     });
   });
 
-  describe("Material matching", () => {
+  describe("Material matching — algorithm design", () => {
     it("case-insensitive exact match", () => {
       expect("PLA".toLowerCase() === "pla".toLowerCase()).toBe(true);
     });
@@ -77,7 +105,7 @@ describe("Matching scoring concepts", () => {
     });
   });
 
-  describe("Vendor keyword matching", () => {
+  describe("Vendor keyword matching — algorithm design", () => {
     it("vendor name found in tray_sub_brands", () => {
       const subBrands = "Bambu Lab PLA Basic";
       expect(subBrands.toLowerCase().includes("bambu lab".toLowerCase())).toBe(true);
@@ -99,11 +127,11 @@ describe("Matching scoring concepts", () => {
     });
   });
 
-  describe("Score composition", () => {
+  describe("Score composition — via real deltaEHex", () => {
     it("color penalty increases with perceptual distance", () => {
-      const nearIdentical = deltaEHex("C6C6C6", "C5C5C5"); // ~0.36
-      const slightlyDiff = deltaEHex("C6C6C6", "BABABA"); // ~4.37
-      const veryDiff = deltaEHex("FF0000", "0000FF"); // ~176
+      const nearIdentical = deltaEHex("C6C6C6", "C5C5C5");
+      const slightlyDiff = deltaEHex("C6C6C6", "BABABA");
+      const veryDiff = deltaEHex("FF0000", "0000FF");
 
       expect(nearIdentical).toBeLessThan(slightlyDiff);
       expect(slightlyDiff).toBeLessThan(veryDiff);

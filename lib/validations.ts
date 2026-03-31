@@ -183,6 +183,24 @@ export const priceRefreshSchema = z.object({
   filamentId: uuid.optional(),
 }).optional();
 
+// ─── Pure weight helpers ────────────────────────────────────────────────────────
+
+/** Validate a proposed new weight against the spool's initial weight. */
+export function validateWeight(
+  newWeight: number,
+  initialWeight: number,
+): { valid: boolean; error?: string } {
+  if (isNaN(newWeight)) return { valid: false, error: "Invalid number" };
+  if (newWeight < 0) return { valid: false, error: "Weight cannot be negative" };
+  if (newWeight > initialWeight * 1.1) return { valid: false, error: "Weight exceeds initial weight" };
+  return { valid: true };
+}
+
+/** Derive spool status from remaining weight (mirrors adjustSpoolWeight logic). */
+export function getSpoolStatusForWeight(weight: number): "empty" | "active" {
+  return weight <= 0 ? "empty" : "active";
+}
+
 // ─── Helper ────────────────────────────────────────────────────────────────────
 export function validateBody<T>(
   schema: z.ZodSchema<T>,

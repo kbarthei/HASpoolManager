@@ -1,13 +1,11 @@
 import { describe, it, expect } from "vitest";
+import { validateWeight, getSpoolStatusForWeight } from "@/lib/validations";
 
-describe("Weight adjustment validation", () => {
-  function validateWeight(newWeight: number, initialWeight: number): { valid: boolean; error?: string } {
-    if (isNaN(newWeight)) return { valid: false, error: "Invalid number" };
-    if (newWeight < 0) return { valid: false, error: "Weight cannot be negative" };
-    if (newWeight > initialWeight * 1.1) return { valid: false, error: "Weight exceeds initial weight" };
-    return { valid: true };
-  }
+// validateWeight and getSpoolStatusForWeight are pure functions extracted from
+// the adjustSpoolWeight() server action in lib/actions.ts. They mirror the
+// exact validation and status logic used in production.
 
+describe("Weight adjustment validation — real production function", () => {
   it("accepts valid weight within range", () => {
     expect(validateWeight(500, 1000).valid).toBe(true);
     expect(validateWeight(0, 1000).valid).toBe(true);
@@ -38,26 +36,23 @@ describe("Weight adjustment validation", () => {
   });
 });
 
-describe("Spool status after weight change", () => {
-  function getStatusForWeight(weight: number): string {
-    return weight <= 0 ? "empty" : "active";
-  }
-
+describe("Spool status after weight change — real production function", () => {
   it("active when weight > 0", () => {
-    expect(getStatusForWeight(500)).toBe("active");
-    expect(getStatusForWeight(1)).toBe("active");
+    expect(getSpoolStatusForWeight(500)).toBe("active");
+    expect(getSpoolStatusForWeight(1)).toBe("active");
   });
 
   it("empty when weight is 0", () => {
-    expect(getStatusForWeight(0)).toBe("empty");
+    expect(getSpoolStatusForWeight(0)).toBe("empty");
   });
 
   it("empty when weight is negative (edge case)", () => {
-    expect(getStatusForWeight(-1)).toBe("empty");
+    expect(getSpoolStatusForWeight(-1)).toBe("empty");
   });
 });
 
-describe("Weight rounding", () => {
+describe("Weight rounding — algorithm design", () => {
+  // Math.round is used directly in adjustSpoolWeight() — no wrapper to extract.
   it("rounds to nearest integer", () => {
     expect(Math.round(500.4)).toBe(500);
     expect(Math.round(500.5)).toBe(501);

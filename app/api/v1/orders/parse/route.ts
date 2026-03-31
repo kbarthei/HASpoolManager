@@ -5,6 +5,19 @@ import { optionalAuth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { validateBody, orderParseSchema } from "@/lib/validations";
 
+/** Detect whether input text is a URL, an email/order confirmation, or a plain search query. */
+export function detectInputType(text: string): "url" | "email" | "search" {
+  if (text.trim().startsWith("http")) return "url";
+  if (
+    text.includes("@") ||
+    text.toLowerCase().includes("order") ||
+    text.toLowerCase().includes("bestellung") ||
+    text.toLowerCase().includes("bestätigung")
+  )
+    return "email";
+  return "search";
+}
+
 const SYSTEM_PROMPT = `You extract 3D printing filament order data from text (email confirmations, product pages, or product descriptions).
 
 Return ONLY valid JSON with this exact structure:
@@ -53,14 +66,7 @@ export async function POST(request: NextRequest) {
     const { text } = validation.data;
 
     // Detect input type
-    const inputType = text.trim().startsWith("http")
-      ? "url"
-      : text.includes("@") ||
-          text.toLowerCase().includes("order") ||
-          text.toLowerCase().includes("bestellung") ||
-          text.toLowerCase().includes("bestätigung")
-        ? "email"
-        : "search";
+    const inputType = detectInputType(text);
 
     let contentToParse = text;
 
@@ -90,7 +96,7 @@ export async function POST(request: NextRequest) {
 
     // Call AI to extract order data
     const { text: aiResponse } = await generateText({
-      model: anthropic("claude-sonnet-4-6"),
+      model: anthropic("claude-sonnet-4.6"),
       system: SYSTEM_PROMPT,
       prompt: contentToParse,
     });

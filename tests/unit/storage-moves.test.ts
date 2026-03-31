@@ -1,6 +1,12 @@
 import { describe, it, expect } from "vitest";
+import { parseRackPosition } from "@/lib/actions";
 
-describe("Storage location types", () => {
+// parseRackPosition is the real production function exported from lib/actions.ts.
+// The move/assign/unload server actions (moveSpoolInRack, moveSpoolTo, etc.)
+// require a DB connection and are covered by integration tests — they are not
+// tested here.
+
+describe("Storage location types — algorithm design", () => {
   const validLocations = ["rack:1-1", "rack:4-8", "surplus", "workbench", "storage", "ordered", "ams", "ams-ht", "external"];
 
   it("rack positions follow rack:R-C format", () => {
@@ -28,7 +34,7 @@ describe("Storage location types", () => {
   });
 });
 
-describe("Move spool logic", () => {
+describe("Move spool logic — algorithm design", () => {
   it("can move from rack to surplus", () => {
     const from = "rack:2-3";
     const to = "surplus";
@@ -62,13 +68,7 @@ describe("Move spool logic", () => {
   });
 });
 
-describe("Rack position parsing", () => {
-  function parseRackPosition(location: string): { row: number; col: number } | null {
-    const match = location.match(/^rack:(\d+)-(\d+)$/);
-    if (!match) return null;
-    return { row: parseInt(match[1]), col: parseInt(match[2]) };
-  }
-
+describe("Rack position parsing — real production function", () => {
   it("parses valid rack positions", () => {
     expect(parseRackPosition("rack:1-3")).toEqual({ row: 1, col: 3 });
     expect(parseRackPosition("rack:4-8")).toEqual({ row: 4, col: 8 });

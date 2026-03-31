@@ -198,4 +198,27 @@ function parseGeneric(html: string): PriceResult {
   return { price: null, currency: "EUR", inStock: null, source: "failed" };
 }
 
+// ─── Pure helpers (no fetch, safe to import in tests) ────────────────────────
+
+/** Classify a current price relative to an average price.
+ *  Returns "below" if cheaper, "above" if >10% more expensive, "at" if within
+ *  10%, or "unknown" when either value is null. */
+export function comparePrices(
+  currentPrice: number | null,
+  avgPrice: number | null,
+): "below" | "above" | "at" | "unknown" {
+  if (currentPrice === null || avgPrice === null) return "unknown";
+  if (currentPrice < avgPrice) return "below";
+  if (currentPrice > avgPrice * 1.1) return "above";
+  return "at";
+}
+
+/** Detect the shop from a product URL hostname. */
+export function detectShopFromUrl(url: string): "bambulab" | "3djake" | "unknown" {
+  const domain = new URL(url).hostname.toLowerCase();
+  if (domain.includes("bambulab.com")) return "bambulab";
+  if (domain.includes("3djake")) return "3djake";
+  return "unknown";
+}
+
 export type { PriceResult };

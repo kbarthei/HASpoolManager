@@ -1,15 +1,11 @@
 import { describe, it, expect } from "vitest";
+import { detectInputType } from "@/app/api/v1/orders/parse/route";
 
-describe("Order input type detection", () => {
-  // The parse route detects input type based on text content
-  function detectInputType(text: string): "url" | "email" | "search" {
-    if (text.trim().startsWith("http")) return "url";
-    if (text.includes("@") || text.toLowerCase().includes("order") ||
-        text.toLowerCase().includes("bestellung") || text.toLowerCase().includes("bestätigung"))
-      return "email";
-    return "search";
-  }
+// detectInputType is the real production function exported from the parse route.
+// The remaining describe blocks test algorithm-design logic (data shapes, filter
+// rules) that lives inline in UI components or is too DB-coupled to extract.
 
+describe("Order input type detection — real production function", () => {
   it("detects URLs", () => {
     expect(detectInputType("https://eu.store.bambulab.com/products/pla-basic")).toBe("url");
     expect(detectInputType("http://amazon.de/dp/B0123")).toBe("url");
@@ -38,13 +34,17 @@ describe("Order input type detection", () => {
     expect(detectInputType("")).toBe("search");
   });
 
-  it("handles URLs with trailing whitespace", () => {
+  it("handles URLs with leading whitespace", () => {
     expect(detectInputType("  https://3djake.de/product/123  ")).toBe("url");
   });
 });
 
-describe("Order data validation", () => {
-  // Test the structure of parsed order data
+// Algorithm-design tests: the shapes below match the AI response contract and
+// the createOrderFromParsed() server action input. They validate structure rules
+// that are enforced by the AI prompt and by runtime checks, not a single
+// extractable pure function.
+
+describe("Order data validation — algorithm design", () => {
   interface ParsedItem {
     name: string;
     vendor: string;
@@ -111,7 +111,9 @@ describe("Order data validation", () => {
   });
 });
 
-describe("Month grouping logic", () => {
+describe("Month grouping logic — algorithm design", () => {
+  // groupByMonth runs in a React component (orders page). The logic is simple
+  // enough to validate here without extracting it separately.
   function groupByMonth(orders: { orderDate: string }[]): Map<string, typeof orders> {
     const groups = new Map<string, typeof orders>();
     for (const order of orders) {
@@ -157,7 +159,7 @@ describe("Month grouping logic", () => {
   });
 });
 
-describe("Filter logic", () => {
+describe("Filter logic — algorithm design", () => {
   const orders = [
     { shop: "Bambu Lab", filaments: ["PLA Basic", "ABS"], orderNumber: "EN001" },
     { shop: "3DJake", filaments: ["PETG CF"], orderNumber: "DJ002" },
@@ -214,7 +216,7 @@ describe("Filter logic", () => {
   });
 });
 
-describe("Progressive filter visibility", () => {
+describe("Progressive filter visibility — algorithm design", () => {
   it("shows no filters for <6 orders", () => {
     const showFilters = (count: number) => count > 5;
     expect(showFilters(0)).toBe(false);
@@ -234,7 +236,7 @@ describe("Progressive filter visibility", () => {
   });
 });
 
-describe("Days ago calculation", () => {
+describe("Days ago calculation — algorithm design", () => {
   it("calculates days correctly", () => {
     const daysAgo = (orderDate: string, now: number) =>
       Math.floor((now - new Date(orderDate).getTime()) / 86400000);

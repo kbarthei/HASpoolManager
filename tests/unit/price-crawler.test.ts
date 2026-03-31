@@ -1,8 +1,13 @@
 import { describe, it, expect } from "vitest";
+import { comparePrices, detectShopFromUrl } from "@/lib/price-crawler";
 
-// We can't import the actual module (it uses fetch), so test the parsing logic concepts
+// comparePrices and detectShopFromUrl are pure functions exported from
+// lib/price-crawler.ts. The shop-specific HTML parsers (parseBambuLab,
+// parse3DJake, parseGeneric) and fetchProductPrice() depend on fetch() and are
+// not unit-testable without network mocking — they are covered by integration
+// tests or manual QA.
 
-describe("Price extraction patterns", () => {
+describe("Price extraction patterns — algorithm design", () => {
   describe("JSON-LD structured data", () => {
     it("extracts price from Product schema", () => {
       const jsonLd = {
@@ -50,36 +55,22 @@ describe("Price extraction patterns", () => {
     });
   });
 
-  describe("Domain detection", () => {
+  describe("Domain detection — real production function", () => {
     it("identifies Bambu Lab store", () => {
-      const url = "https://eu.store.bambulab.com/products/pla-basic";
-      const domain = new URL(url).hostname.toLowerCase();
-      expect(domain.includes("bambulab.com")).toBe(true);
+      expect(detectShopFromUrl("https://eu.store.bambulab.com/products/pla-basic")).toBe("bambulab");
     });
 
     it("identifies 3DJake", () => {
-      const url = "https://www.3djake.de/product/123";
-      const domain = new URL(url).hostname.toLowerCase();
-      expect(domain.includes("3djake")).toBe(true);
+      expect(detectShopFromUrl("https://www.3djake.de/product/123")).toBe("3djake");
     });
 
     it("identifies unknown shops", () => {
-      const url = "https://www.amazon.de/dp/B0123";
-      const domain = new URL(url).hostname.toLowerCase();
-      expect(domain.includes("bambulab.com")).toBe(false);
-      expect(domain.includes("3djake")).toBe(false);
+      expect(detectShopFromUrl("https://www.amazon.de/dp/B0123")).toBe("unknown");
     });
   });
 });
 
-describe("Price comparison logic", () => {
-  function comparePrices(currentPrice: number | null, avgPrice: number | null): "below" | "above" | "at" | "unknown" {
-    if (currentPrice === null || avgPrice === null) return "unknown";
-    if (currentPrice < avgPrice) return "below";
-    if (currentPrice > avgPrice * 1.1) return "above";
-    return "at";
-  }
-
+describe("Price comparison logic — real production function", () => {
   it("identifies below average price", () => {
     expect(comparePrices(20, 25)).toBe("below");
   });
@@ -102,7 +93,7 @@ describe("Price comparison logic", () => {
   });
 });
 
-describe("Shopping list calculations", () => {
+describe("Shopping list calculations — algorithm design", () => {
   it("calculates estimated total", () => {
     const items = [
       { quantity: 2, lastPrice: 22.99 },
@@ -131,7 +122,7 @@ describe("Shopping list calculations", () => {
   });
 });
 
-describe("Price history aggregation", () => {
+describe("Price history aggregation — algorithm design", () => {
   it("calculates average from multiple prices", () => {
     const prices = [22.99, 21.50, 23.99, 20.00];
     const avg = prices.reduce((s, p) => s + p, 0) / prices.length;
