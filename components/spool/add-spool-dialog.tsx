@@ -59,7 +59,7 @@ export function AddSpoolDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger
         render={
-          <Button size="sm" className="h-7 text-xs px-2.5" />
+          <Button size="sm" data-testid="btn-add-spool" className="h-7 text-xs px-2.5" />
         }
       >
         <Plus className="size-3.5 mr-1" />

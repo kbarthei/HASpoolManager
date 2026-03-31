@@ -22,6 +22,7 @@ export default async function Dashboard() {
       {/* Draft spool notification */}
       {stats.draftSpoolCount > 0 && (
         <Link
+          data-testid="draft-notification"
           href="/spools?status=draft"
           className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-sm hover:bg-amber-500/20 transition-colors"
         >
@@ -38,8 +39,8 @@ export default async function Dashboard() {
         <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Dashboard</h2>
         <AddOrderButton />
       </div>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-        <StatCard label="Active Spools" value={stats.activeSpools} href="/spools" />
+      <div data-testid="dashboard-stats" className="grid grid-cols-2 md:grid-cols-4 gap-2">
+        <StatCard label="Active Spools" value={stats.activeSpools} href="/spools" testId="stat-active-spools" />
         <StatCard
           label="Printer"
           value={
@@ -62,18 +63,20 @@ export default async function Dashboard() {
               : "text-muted-foreground"
           }
           href="/prints"
+          testId="stat-printer"
         />
-        <StatCard label="Filament Costs" value={`${stats.monthCost}€`} href="/prints" />
+        <StatCard label="Filament Costs" value={`${stats.monthCost}€`} href="/prints" testId="stat-filament-costs" />
         <StatCard
           label="Low Stock"
           value={stats.lowStockCount}
           valueClassName={stats.lowStockCount > 0 ? "text-amber-500" : undefined}
           href="/spools?status=low"
+          testId="stat-low-stock"
         />
       </div>
 
       {/* AMS + Low Stock + Filaments in Stock */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+      <div data-testid="dashboard-ams" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
         <AmsMiniView slots={slots} />
         <LowStockList spools={lowStock} />
         <FilamentSummary summary={filamentSummary} />

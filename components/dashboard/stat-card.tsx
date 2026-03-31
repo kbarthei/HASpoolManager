@@ -8,11 +8,12 @@ interface StatCardProps {
   subtitle?: string;
   valueClassName?: string;
   href?: string;
+  testId?: string;
 }
 
-export function StatCard({ label, value, subtitle, valueClassName, href }: StatCardProps) {
+export function StatCard({ label, value, subtitle, valueClassName, href, testId }: StatCardProps) {
   const card = (
-    <Card className={cn("rounded-xl shadow-sm dark:shadow-none p-3", href && "cursor-pointer hover:bg-accent/50 transition")}>
+    <Card data-testid={testId} className={cn("rounded-xl shadow-sm dark:shadow-none p-3", href && "cursor-pointer hover:bg-accent/50 transition")}>
       <div className="text-2xl font-bold font-[family-name:var(--font-geist-mono)] tabular-nums leading-none mb-1">
         <span className={cn(valueClassName)}>{value}</span>
       </div>

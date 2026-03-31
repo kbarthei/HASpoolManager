@@ -64,7 +64,7 @@ function SlotRow({ slot }: { slot: AmsSlotData }) {
 
 export function AmsMiniView({ slots }: { slots: AmsSlotData[] }) {
   return (
-    <Card className="rounded-xl shadow-sm dark:shadow-none">
+    <Card data-testid="ams-mini-view" className="rounded-xl shadow-sm dark:shadow-none">
       <CardHeader className="p-3 pb-2">
         <Link href="/inventory" className="hover:underline underline-offset-2">
           <CardTitle className="text-sm font-semibold">AMS Slots</CardTitle>

@@ -21,7 +21,7 @@ function timeAgo(date: Date | string | null): string {
 
 export function RecentPrints({ prints }: { prints: PrintData[] }) {
   return (
-    <Card className="rounded-xl shadow-sm dark:shadow-none">
+    <Card data-testid="recent-prints" className="rounded-xl shadow-sm dark:shadow-none">
       <CardHeader className="p-3 pb-2">
         <CardTitle className="text-sm font-semibold">Recent Prints</CardTitle>
       </CardHeader>

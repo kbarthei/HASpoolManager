@@ -12,6 +12,7 @@ export function AddOrderButton() {
     <>
       <Button
         size="sm"
+        data-testid="btn-add-order"
         onClick={() => setOpen(true)}
         className="h-7 text-xs gap-1 bg-primary hover:bg-primary/90 text-primary-foreground shrink-0"
       >

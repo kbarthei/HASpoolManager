@@ -8,7 +8,7 @@ type SpoolWithFilament = Awaited<ReturnType<typeof getLowStockSpools>>[number];
 
 export function LowStockList({ spools }: { spools: SpoolWithFilament[] }) {
   return (
-    <Card className="rounded-xl shadow-sm dark:shadow-none">
+    <Card data-testid="low-stock-list" className="rounded-xl shadow-sm dark:shadow-none">
       <CardHeader className="p-3 pb-2">
         <CardTitle className="text-sm font-semibold">Low Stock</CardTitle>
       </CardHeader>

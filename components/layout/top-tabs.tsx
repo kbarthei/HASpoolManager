@@ -11,18 +11,21 @@ const tabs = [
     label: "Dashboard",
     href: "/",
     icon: LayoutDashboard,
+    testId: "nav-dashboard",
     isActive: (path: string) => path === "/",
   },
   {
     label: "Spools",
     href: "/spools",
     icon: Circle,
+    testId: "nav-spools",
     isActive: (path: string) => path.startsWith("/spools"),
   },
   {
     label: "Inventory",
     href: "/inventory",
     icon: Package,
+    testId: "nav-inventory",
     isActive: (path: string) =>
       path.startsWith("/inventory") ||
       path.startsWith("/ams") ||
@@ -32,24 +35,28 @@ const tabs = [
     label: "Orders",
     href: "/orders",
     icon: ShoppingCart,
+    testId: "nav-orders",
     isActive: (path: string) => path.startsWith("/orders"),
   },
   {
     label: "Prints",
     href: "/prints",
     icon: Printer,
+    testId: "nav-prints",
     isActive: (path: string) => path.startsWith("/prints"),
   },
   {
     label: "History",
     href: "/history",
     icon: Clock,
+    testId: "nav-history",
     isActive: (path: string) => path.startsWith("/history"),
   },
   {
     label: "Admin",
     href: "/admin",
     icon: Settings,
+    testId: "nav-admin",
     isActive: (path: string) => path.startsWith("/admin"),
   },
 ];
@@ -66,12 +73,13 @@ export function TopTabs() {
 
         {/* Center: tabs */}
         <nav className="flex items-center gap-0.5">
-          {tabs.map(({ label, href, icon: Icon, isActive }) => {
+          {tabs.map(({ label, href, icon: Icon, testId, isActive }) => {
             const active = isActive(pathname);
             return (
               <Link
                 key={href}
                 href={href}
+                data-testid={testId}
                 className={`flex items-center gap-1 px-2.5 h-12 text-xs transition-colors ${
                   active
                     ? "border-b-2 border-primary text-foreground"

@@ -302,7 +302,7 @@ export function InventoryClient({
     <>
       {/* PRINTER SECTION */}
       {typedSlots.length > 0 && (
-        <section className="space-y-2">
+        <section data-testid="printer-section" className="space-y-2">
           <div className="text-xs uppercase tracking-wide text-muted-foreground font-medium">
             Printer · {printerName ?? "H2S"}
           </div>
@@ -323,7 +323,7 @@ export function InventoryClient({
       )}
 
       {/* SPOOL RACK SECTION */}
-      <section className="space-y-2">
+      <section data-testid="rack-section" className="space-y-2">
         <div className="flex items-baseline gap-2">
           <span className="text-xs uppercase tracking-wide text-muted-foreground font-medium">
             Spool Rack · {rows} × {cols}
@@ -344,7 +344,7 @@ export function InventoryClient({
       </section>
 
       {/* SURPLUS SECTION */}
-      <section className="space-y-2">
+      <section data-testid="surplus-section" className="space-y-2">
         <p className="text-xs uppercase tracking-wide text-muted-foreground font-medium">
           Surplus · {surplusSpools.length} spool{surplusSpools.length !== 1 ? "s" : ""}
         </p>
@@ -392,7 +392,7 @@ export function InventoryClient({
       </section>
 
       {/* WORKBENCH SECTION */}
-      <section className="space-y-2">
+      <section data-testid="workbench-section" className="space-y-2">
         <p className="text-xs uppercase tracking-wide text-muted-foreground font-medium">
           Workbench · {workbenchSpools.length} spool{workbenchSpools.length !== 1 ? "s" : ""}
         </p>
