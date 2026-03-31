@@ -18,8 +18,9 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
-import { Plus, X, ExternalLink, ShoppingBag, ArrowRight } from "lucide-react";
+import { Plus, X, ExternalLink, ShoppingBag, ArrowRight, RefreshCw } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import {
   addToShoppingList,
   removeFromShoppingList,
@@ -309,6 +310,22 @@ export function ShoppingList({
   const router = useRouter();
   const [addOpen, setAddOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefreshPrices = async () => {
+    setIsRefreshing(true);
+    try {
+      const res = await fetch("/api/v1/prices/refresh", { method: "POST" });
+      if (!res.ok) throw new Error("request failed");
+      const data = await res.json();
+      toast.success(`Refreshed ${data.refreshed} price${data.refreshed === 1 ? "" : "s"}`);
+      router.refresh();
+    } catch {
+      toast.error("Failed to refresh prices");
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   const existingIds = new Set(items.map((i) => i.filament.id));
 
@@ -359,22 +376,34 @@ export function ShoppingList({
       <div className="rounded-xl border border-border bg-muted/30 p-3 mb-4 space-y-3">
         {/* Toolbar */}
         <div className="flex items-center justify-between gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-7 text-xs gap-1.5"
-            onClick={() => setAddOpen(true)}
-            disabled={isPending}
-          >
-            <Plus className="h-3.5 w-3.5" /> Add Filament
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs gap-1.5"
+              onClick={() => setAddOpen(true)}
+              disabled={isPending || isRefreshing}
+            >
+              <Plus className="h-3.5 w-3.5" /> Add Filament
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs gap-1.5"
+              onClick={handleRefreshPrices}
+              disabled={isPending || isRefreshing}
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? "animate-spin" : ""}`} />
+              {isRefreshing ? "Refreshing…" : "Refresh Prices"}
+            </Button>
+          </div>
           {items.length > 0 && (
             <Button
               size="sm"
               variant="ghost"
               className="h-7 text-xs text-muted-foreground hover:text-destructive"
               onClick={handleClearAll}
-              disabled={isPending}
+              disabled={isPending || isRefreshing}
             >
               Clear All
             </Button>

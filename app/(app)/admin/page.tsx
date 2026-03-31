@@ -12,6 +12,7 @@ import { SyncLogTable } from "./sync-log-table";
 import { RackSettings } from "./rack-settings";
 import { ImportOrdersCard } from "./import-orders-card";
 import { AdminTools } from "./admin-tools";
+import { RefreshPricesButton } from "./refresh-prices-button";
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -337,6 +338,20 @@ export default async function AdminPage() {
                 </span>
               </div>
             ))}
+          </div>
+        </div>
+
+        {/* Section: Price Data */}
+        <div className="space-y-1.5">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Price Data
+          </p>
+          <div className="flex items-center justify-between bg-muted/30 rounded px-3 py-1.5 gap-4">
+            <div>
+              <p className="text-[11px] font-medium">Refresh Shop Prices</p>
+              <p className="text-[10px] text-muted-foreground">Fetch current prices from all active shop listings</p>
+            </div>
+            <RefreshPricesButton />
           </div>
         </div>
       </Card>
