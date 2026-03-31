@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { spools } from "@/lib/db/schema";
+import { spools, orderItems } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { requireAuth, optionalAuth } from "@/lib/auth";
 
@@ -20,6 +20,12 @@ export async function GET(
         filament: { with: { vendor: true } },
         tagMappings: true,
         printUsage: true,
+        orderItems: {
+          with: {
+            order: { with: { shop: true } },
+          },
+          limit: 1,
+        },
       },
     });
 

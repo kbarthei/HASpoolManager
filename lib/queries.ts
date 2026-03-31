@@ -44,6 +44,7 @@ export async function getOrders() {
       items: {
         with: {
           filament: { with: { vendor: true } },
+          spool: true,
         },
       },
     },

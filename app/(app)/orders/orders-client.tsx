@@ -28,6 +28,8 @@ interface OrderItem {
   spool: {
     id: string;
     location: string | null;
+    remainingWeight: number;
+    initialWeight: number;
   } | null;
   spools?: Array<{
     id: string;

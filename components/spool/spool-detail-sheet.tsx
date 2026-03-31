@@ -7,7 +7,7 @@ import { SpoolMaterialBadge } from "@/components/spool/spool-material-badge";
 import { SpoolProgressBar } from "@/components/spool/spool-progress-bar";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, Package } from "lucide-react";
 import { WeightAdjuster } from "@/components/spool/weight-adjuster";
 import { ArchiveButton } from "@/components/spool/archive-button";
 
@@ -81,6 +81,46 @@ export function SpoolDetailSheet({ spoolId, open, onClose }: SpoolDetailSheetPro
                 <span className="font-mono">{parseFloat(spool.purchasePrice).toFixed(2)}€</span>
               </div>
             )}
+
+            {/* Order provenance */}
+            {spool.orderItems?.[0]?.order && (() => {
+              const oi = spool.orderItems[0];
+              const order = oi.order;
+              const shop = order.shop?.name ?? "Unknown Shop";
+              const orderNum = order.orderNumber ? `#${order.orderNumber}` : null;
+              const date = new Date(order.orderDate).toLocaleDateString("de-DE", {
+                day: "2-digit",
+                month: "2-digit",
+                year: "numeric",
+              });
+              return (
+                <div className="rounded-lg bg-muted/40 px-3 py-2 space-y-1">
+                  <div className="flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+                    <Package className="h-3 w-3" />
+                    Order
+                  </div>
+                  <Link
+                    href="/orders"
+                    onClick={onClose}
+                    className="flex items-center justify-between hover:text-primary transition-colors"
+                  >
+                    <div className="text-xs">
+                      <span className="font-medium">{shop}</span>
+                      {orderNum && (
+                        <span className="text-muted-foreground font-mono ml-1.5">{orderNum}</span>
+                      )}
+                      <span className="text-muted-foreground ml-1.5">· {date}</span>
+                    </div>
+                    <ExternalLink className="h-3 w-3 text-muted-foreground shrink-0" />
+                  </Link>
+                  {oi.unitPrice && (
+                    <div className="text-[11px] text-muted-foreground">
+                      {parseFloat(oi.unitPrice).toFixed(2)}€ per spool
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             <Link href={`/spools/${spool.id}`} onClick={onClose}>
               <Button variant="outline" size="sm" className="w-full mt-2">

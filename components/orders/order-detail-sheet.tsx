@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   Sheet,
   SheetContent,
@@ -10,7 +11,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { SpoolColorDot } from "@/components/spool/spool-color-dot";
 import { SpoolMaterialBadge } from "@/components/spool/spool-material-badge";
-import { ExternalLink } from "lucide-react";
+import { SpoolDetailSheet } from "@/components/spool/spool-detail-sheet";
+import { ExternalLink, Box } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -34,6 +36,12 @@ interface OrderDetailSheetProps {
         colorHex: string | null;
         vendor: { name: string };
       };
+      spool?: {
+        id: string;
+        location: string | null;
+        remainingWeight: number;
+        initialWeight: number;
+      } | null;
     }>;
   } | null;
   open: boolean;
@@ -60,6 +68,9 @@ function StatusBadge({ status }: { status: string }) {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function OrderDetailSheet({ order, open, onClose }: OrderDetailSheetProps) {
+  const [spoolDetailId, setSpoolDetailId] = useState<string | null>(null);
+  const [spoolDetailOpen, setSpoolDetailOpen] = useState(false);
+
   if (!order) return null;
 
   const formattedDate = new Date(order.orderDate).toLocaleDateString("en-US", {
@@ -73,6 +84,7 @@ export function OrderDetailSheet({ order, open, onClose }: OrderDetailSheetProps
   const currencySymbol = currency === "EUR" ? "€" : currency;
 
   return (
+    <>
     <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
       <SheetContent side="right" className="flex flex-col gap-0 p-0 overflow-y-auto sm:max-w-sm">
         {/* Header */}
@@ -101,42 +113,62 @@ export function OrderDetailSheet({ order, open, onClose }: OrderDetailSheetProps
           {order.items.map((item) => (
             <div
               key={item.id}
-              className="flex items-center gap-2.5 rounded-lg bg-muted/40 px-2.5 py-2"
+              className="rounded-lg bg-muted/40 overflow-hidden"
             >
-              {/* Color dot */}
-              <SpoolColorDot
-                hex={item.filament.colorHex ?? "888888"}
-                size="md"
-                className="shrink-0"
-              />
+              <div className="flex items-center gap-2.5 px-2.5 py-2">
+                {/* Color dot */}
+                <SpoolColorDot
+                  hex={item.filament.colorHex ?? "888888"}
+                  size="md"
+                  className="shrink-0"
+                />
 
-              {/* Name + vendor */}
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium leading-tight truncate">
-                  {item.filament.name}
-                </p>
-                <p className="text-[11px] text-muted-foreground truncate">
-                  {item.filament.vendor.name}
-                </p>
+                {/* Name + vendor */}
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium leading-tight truncate">
+                    {item.filament.name}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground truncate">
+                    {item.filament.vendor.name}
+                  </p>
+                </div>
+
+                {/* Material */}
+                <SpoolMaterialBadge
+                  material={item.filament.material}
+                  className="shrink-0"
+                />
+
+                {/* Qty × price */}
+                <div className="shrink-0 text-right">
+                  <p className="text-xs font-mono text-foreground">
+                    {item.quantity > 1 && (
+                      <span className="text-muted-foreground">{item.quantity}× </span>
+                    )}
+                    {item.unitPrice
+                      ? `${parseFloat(item.unitPrice).toFixed(2)}${currencySymbol}`
+                      : "—"}
+                  </p>
+                </div>
               </div>
 
-              {/* Material */}
-              <SpoolMaterialBadge
-                material={item.filament.material}
-                className="shrink-0"
-              />
-
-              {/* Qty × price */}
-              <div className="shrink-0 text-right">
-                <p className="text-xs font-mono text-foreground">
-                  {item.quantity > 1 && (
-                    <span className="text-muted-foreground">{item.quantity}× </span>
-                  )}
-                  {item.unitPrice
-                    ? `${parseFloat(item.unitPrice).toFixed(2)}${currencySymbol}`
-                    : "—"}
-                </p>
-              </div>
+              {/* Spool link */}
+              {item.spool && (
+                <button
+                  onClick={() => {
+                    setSpoolDetailId(item.spool!.id);
+                    setSpoolDetailOpen(true);
+                  }}
+                  className="w-full flex items-center gap-2 px-2.5 py-1.5 border-t border-border/50 bg-muted/20 hover:bg-muted/50 transition-colors text-left"
+                >
+                  <Box className="h-3 w-3 text-muted-foreground shrink-0" />
+                  <span className="text-[11px] text-muted-foreground flex-1 truncate">
+                    {item.spool.remainingWeight}g / {item.spool.initialWeight}g
+                    <span className="ml-1.5">{item.spool.location ?? "—"}</span>
+                  </span>
+                  <ExternalLink className="h-3 w-3 text-muted-foreground shrink-0" />
+                </button>
+              )}
             </div>
           ))}
         </div>
@@ -166,5 +198,13 @@ export function OrderDetailSheet({ order, open, onClose }: OrderDetailSheetProps
         </div>
       </SheetContent>
     </Sheet>
+
+    {/* Nested spool detail */}
+    <SpoolDetailSheet
+      spoolId={spoolDetailId}
+      open={spoolDetailOpen}
+      onClose={() => { setSpoolDetailOpen(false); setSpoolDetailId(null); }}
+    />
+  </>
   );
 }

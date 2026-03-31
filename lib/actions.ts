@@ -226,14 +226,6 @@ export async function createOrderFromParsed(data: {
       }
     }
 
-    // Create order item
-    await db.insert(orderItems).values({
-      orderId: order.id,
-      filamentId,
-      quantity: item.quantity,
-      unitPrice: item.price ? String(item.price) : null,
-    });
-
     // Create or update shop listing (links filament to shop product URL for price tracking)
     if (shopId && item.url && filamentId) {
       const existingListing = await db.query.shopListings.findFirst({
@@ -262,9 +254,9 @@ export async function createOrderFromParsed(data: {
       }
     }
 
-    // Create one spool per quantity unit
+    // Create one order item and spool per quantity unit, linking them directly
     for (let i = 0; i < item.quantity; i++) {
-      await db.insert(spools).values({
+      const [newSpool] = await db.insert(spools).values({
         filamentId,
         initialWeight: item.weight || 1000,
         remainingWeight: item.weight || 1000,
@@ -273,6 +265,14 @@ export async function createOrderFromParsed(data: {
         purchaseDate: data.orderDate ?? new Date().toISOString().slice(0, 10),
         location: "ordered",
         status: "active",
+      }).returning();
+
+      await db.insert(orderItems).values({
+        orderId: order.id,
+        filamentId,
+        quantity: 1,
+        unitPrice: item.price ? String(item.price) : null,
+        spoolId: newSpool.id,
       });
     }
   }
@@ -640,17 +640,36 @@ export async function importHistoricalOrder(data: {
 
   // 4. Create order items and update spool purchase prices
   for (const item of data.items) {
-    // Create order item (one per unique filament)
-    await db.insert(orderItems).values({
-      orderId: order.id,
-      filamentId: item.filamentId,
-      quantity: item.quantity,
-      unitPrice: item.unitPrice > 0 ? String(item.unitPrice) : null,
-    });
+    if (item.spoolIds.length <= 1) {
+      // Single spool (or none) — one order item, optionally linked directly
+      await db.insert(orderItems).values({
+        orderId: order.id,
+        filamentId: item.filamentId,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice > 0 ? String(item.unitPrice) : null,
+        spoolId: item.spoolIds[0] ?? null,
+      });
 
-    // Update purchase price on each matched spool
-    if (item.spoolIds.length > 0) {
+      if (item.spoolIds[0]) {
+        await db.update(spools)
+          .set({
+            purchasePrice: item.unitPrice > 0 ? String(item.unitPrice) : null,
+            purchaseDate: data.orderedAt,
+            updatedAt: new Date(),
+          })
+          .where(eq(spools.id, item.spoolIds[0]));
+      }
+    } else {
+      // Multiple spools — create one order item per spool for direct linkage
       for (const spoolId of item.spoolIds) {
+        await db.insert(orderItems).values({
+          orderId: order.id,
+          filamentId: item.filamentId,
+          quantity: 1,
+          unitPrice: item.unitPrice > 0 ? String(item.unitPrice) : null,
+          spoolId,
+        });
+
         await db.update(spools)
           .set({
             purchasePrice: item.unitPrice > 0 ? String(item.unitPrice) : null,
@@ -722,22 +741,46 @@ export async function importBatchOrders(batchOrders: Array<{
     for (const item of order.items) {
       if (!item.filamentId) continue;
 
-      await db.insert(orderItems).values({
-        orderId: createdOrder.id,
-        filamentId: item.filamentId,
-        quantity: item.quantity,
-        unitPrice: item.unitPrice > 0 ? String(item.unitPrice) : null,
-      });
+      if (item.spoolIds.length <= 1) {
+        // Single spool (or none) — one order item, optionally linked directly
+        await db.insert(orderItems).values({
+          orderId: createdOrder.id,
+          filamentId: item.filamentId,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice > 0 ? String(item.unitPrice) : null,
+          spoolId: item.spoolIds[0] ?? null,
+        });
 
-      for (const spoolId of item.spoolIds) {
-        await db.update(spools)
-          .set({
-            purchasePrice: item.unitPrice > 0 ? String(item.unitPrice) : null,
-            purchaseDate: order.orderedAt,
-            updatedAt: new Date(),
-          })
-          .where(eq(spools.id, spoolId));
-        spoolsUpdated++;
+        if (item.spoolIds[0]) {
+          await db.update(spools)
+            .set({
+              purchasePrice: item.unitPrice > 0 ? String(item.unitPrice) : null,
+              purchaseDate: order.orderedAt,
+              updatedAt: new Date(),
+            })
+            .where(eq(spools.id, item.spoolIds[0]));
+          spoolsUpdated++;
+        }
+      } else {
+        // Multiple spools — create one order item per spool for direct linkage
+        for (const spoolId of item.spoolIds) {
+          await db.insert(orderItems).values({
+            orderId: createdOrder.id,
+            filamentId: item.filamentId,
+            quantity: 1,
+            unitPrice: item.unitPrice > 0 ? String(item.unitPrice) : null,
+            spoolId,
+          });
+
+          await db.update(spools)
+            .set({
+              purchasePrice: item.unitPrice > 0 ? String(item.unitPrice) : null,
+              purchaseDate: order.orderedAt,
+              updatedAt: new Date(),
+            })
+            .where(eq(spools.id, spoolId));
+          spoolsUpdated++;
+        }
       }
     }
 
