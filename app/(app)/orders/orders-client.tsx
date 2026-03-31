@@ -354,6 +354,7 @@ export function OrdersClient({ orders, rack, shoppingList, allFilaments }: Order
         <h2 className="text-lg font-semibold">Orders</h2>
         <Button
           size="sm"
+          data-testid="btn-add-order"
           onClick={() => setAddOpen(true)}
           className="h-8 text-xs gap-1.5"
         >
