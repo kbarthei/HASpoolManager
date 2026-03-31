@@ -156,4 +156,64 @@ describe("Matching scoring concepts", () => {
       }
     });
   });
+
+  describe("normalizeColor — edge cases", () => {
+    it("handles 8-char RRGGBBAA from Bambu (strips alpha)", () => {
+      expect(normalizeColor("FF0000FF")).toBe("FF0000");
+    });
+
+    it("handles # prefix with 8-char RRGGBBAA", () => {
+      // strip # first, then slice to 6
+      expect(normalizeColor("#FF0000FF")).toBe("FF00000".slice(0, 6)); // "FF0000"
+      expect(normalizeColor("#FF0000FF")).toBe("FF0000");
+    });
+
+    it("handles fully transparent color (alpha=00)", () => {
+      expect(normalizeColor("FFFFFF00")).toBe("FFFFFF");
+    });
+
+    it("handles lowercase hex", () => {
+      expect(normalizeColor("ff0000")).toBe("ff0000");
+    });
+
+    it("null input returns null", () => {
+      expect(normalizeColor(null as unknown as undefined)).toBeNull();
+    });
+  });
+
+  describe("deltaEHex — boundary values", () => {
+    it("pure black vs pure white has maximum distance", () => {
+      const de = deltaEHex("000000", "FFFFFF");
+      // L* range is 0-100, so max Delta-E is ~100
+      expect(de).toBeGreaterThan(90);
+    });
+
+    it("pure red vs pure green has high distance", () => {
+      expect(deltaEHex("FF0000", "00FF00")).toBeGreaterThan(40);
+    });
+
+    it("adjacent gray steps are imperceptible", () => {
+      // Single-step gray difference in 8-bit is well below JND of ~2.3
+      expect(deltaEHex("808080", "818181")).toBeLessThan(2.3);
+    });
+
+    it("distance is non-negative for any input pair", () => {
+      const pairs: [string, string][] = [
+        ["000000", "FFFFFF"],
+        ["FF0000", "00FF00"],
+        ["123456", "654321"],
+      ];
+      for (const [a, b] of pairs) {
+        expect(deltaEHex(a, b)).toBeGreaterThanOrEqual(0);
+      }
+    });
+
+    it("triangle inequality holds for three colors", () => {
+      // d(a,c) <= d(a,b) + d(b,c) (approximately — CIE76 is Euclidean)
+      const ab = deltaEHex("FF0000", "00FF00");
+      const bc = deltaEHex("00FF00", "0000FF");
+      const ac = deltaEHex("FF0000", "0000FF");
+      expect(ac).toBeLessThanOrEqual(ab + bc + 0.001); // small float tolerance
+    });
+  });
 });
