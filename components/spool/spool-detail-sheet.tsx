@@ -75,10 +75,35 @@ export function SpoolDetailSheet({ spoolId, open, onClose }: SpoolDetailSheetPro
               <span>{spool.location}</span>
             </div>
 
-            {spool.purchasePrice && (
+            {/* Stats row: Used + Cost/g + Price */}
+            <div className="grid grid-cols-3 gap-2">
+              <div className="bg-muted/30 rounded-lg px-2 py-1.5 text-center">
+                <div className="text-sm font-semibold font-mono">
+                  {Math.max(0, spool.initialWeight - spool.remainingWeight)}g
+                </div>
+                <div className="text-[10px] text-muted-foreground">Used</div>
+              </div>
+              <div className="bg-muted/30 rounded-lg px-2 py-1.5 text-center">
+                <div className="text-sm font-semibold font-mono">
+                  {spool.purchasePrice && spool.initialWeight > 0
+                    ? `${(parseFloat(spool.purchasePrice) / spool.initialWeight).toFixed(3)}€`
+                    : "—"}
+                </div>
+                <div className="text-[10px] text-muted-foreground">Cost/g</div>
+              </div>
+              <div className="bg-muted/30 rounded-lg px-2 py-1.5 text-center">
+                <div className="text-sm font-semibold font-mono">
+                  {spool.purchasePrice ? `${parseFloat(spool.purchasePrice).toFixed(2)}€` : "—"}
+                </div>
+                <div className="text-[10px] text-muted-foreground">Price</div>
+              </div>
+            </div>
+
+            {/* RFID Tag */}
+            {spool.tagMappings?.[0] && (
               <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Price</span>
-                <span className="font-mono">{parseFloat(spool.purchasePrice).toFixed(2)}€</span>
+                <span className="text-muted-foreground">RFID Tag</span>
+                <span className="font-mono text-xs">{spool.tagMappings[0].tagUid}</span>
               </div>
             )}
 
@@ -121,6 +146,32 @@ export function SpoolDetailSheet({ spoolId, open, onClose }: SpoolDetailSheetPro
                 </div>
               );
             })()}
+
+            {/* Usage History */}
+            {spool.printUsage && spool.printUsage.length > 0 && (
+              <div className="rounded-lg bg-muted/40 px-3 py-2 space-y-1.5">
+                <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+                  Usage History
+                </div>
+                <div className="space-y-1">
+                  {spool.printUsage.slice(0, 5).map((u: { id: string; weightUsed: number; cost: string | null; print?: { name: string | null; startedAt: string | null } }) => (
+                    <div key={u.id} className="flex items-center justify-between text-xs">
+                      <span className="truncate flex-1 text-muted-foreground">
+                        {u.print?.name ?? "Unknown print"}
+                      </span>
+                      <span className="font-mono shrink-0 ml-2">{u.weightUsed?.toFixed(1)}g</span>
+                      {u.cost && <span className="font-mono shrink-0 ml-2">{parseFloat(u.cost).toFixed(2)}€</span>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {spool.printUsage && spool.printUsage.length === 0 && (
+              <div className="rounded-lg bg-muted/40 px-3 py-2">
+                <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Usage History</div>
+                <div className="text-xs text-muted-foreground mt-1">No usage recorded yet.</div>
+              </div>
+            )}
 
             <Link href={`/spools/${spool.id}`} onClick={onClose}>
               <Button variant="outline" size="sm" className="w-full mt-2">

@@ -19,7 +19,7 @@ export async function GET(
       with: {
         filament: { with: { vendor: true } },
         tagMappings: true,
-        printUsage: true,
+        printUsage: { with: { print: true } },
         orderItems: {
           with: {
             order: { with: { shop: true } },
