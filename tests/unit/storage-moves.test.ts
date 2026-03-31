@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { parseRackPosition } from "@/lib/actions";
+import { parseRackPosition } from "@/lib/rack-helpers";
 
-// parseRackPosition is the real production function exported from lib/actions.ts.
+// parseRackPosition is the real production function exported from lib/rack-helpers.ts.
 // The move/assign/unload server actions (moveSpoolInRack, moveSpoolTo, etc.)
 // require a DB connection and are covered by integration tests — they are not
 // tested here.
