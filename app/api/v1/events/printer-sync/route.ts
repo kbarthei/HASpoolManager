@@ -471,9 +471,9 @@ export async function POST(request: NextRequest) {
         matchedSpoolId = await autoCreateDraftSpool(trayType, trayColor, def);
       }
 
-      // Move old spool: to storage if slot became empty, to workbench if swapped
+      // Move old spool: to surplus if slot became empty (unloaded), to workbench if swapped
       if (existingSlot?.spoolId && existingSlot.spoolId !== matchedSpoolId) {
-        const oldSpoolLocation = isEmpty ? "storage" : "workbench";
+        const oldSpoolLocation = isEmpty ? "surplus" : "workbench";
         await db.update(spools).set({
           location: oldSpoolLocation,
           updatedAt: new Date(),

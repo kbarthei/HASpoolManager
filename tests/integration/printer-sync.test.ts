@@ -511,10 +511,10 @@ describe.skipIf(!process.env.DATABASE_URL)("printer-sync integration", () => {
       expect(slot!.isEmpty).toBe(true);
       expect(slot!.spoolId).toBeNull();
 
-      // Old spool should be moved to storage
+      // Old spool should be moved to surplus (unloaded from AMS)
       if (previousSpoolId) {
         const prevSpool = await db.query.spools.findFirst({ where: eq(spools.id, previousSpoolId) });
-        expect(prevSpool!.location).toBe("storage");
+        expect(prevSpool!.location).toBe("surplus");
       }
     });
 
