@@ -36,9 +36,52 @@ Read these before starting any implementation:
 ```bash
 npm run dev          # Start dev server
 npm run build        # Production build
+npm run test:unit    # Run unit tests (246 tests, no DB needed)
+npm run test:integration  # Run integration tests (50 tests, needs DB + dev server)
 npm run db:push      # Push schema to Neon
 npm run db:studio    # Open Drizzle Studio
 ```
+
+## Testing Convention
+
+**Every code change must include appropriate tests.** Follow the test pyramid:
+
+### What to test where
+
+| Change type | Required tests | Command |
+|-------------|---------------|---------|
+| Pure function in `lib/` | Unit test in `tests/unit/` | `npm run test:unit` |
+| API endpoint | Integration test in `tests/integration/` | `npm run test:integration` |
+| New UI page/route | E2e spec in `tests/e2e/` + update smoke test | `npx playwright test` |
+| Schema change | Update fixtures in `tests/fixtures/seed.ts` | — |
+
+### Rules
+
+- **Import real code** in unit tests — never re-implement logic inline
+- **Use `data-testid`** for e2e selectors — never match on text content
+- **Extract pure functions** from route handlers into `lib/` modules for testability
+- **Run `npm run test:unit` before committing** — must pass
+- **Run `npm run test:integration` if backend changed** — must pass
+
+### Test file locations
+
+```
+tests/
+  unit/              # Pure functions, no DB (vitest)
+  integration/       # API endpoints with real DB (vitest)
+  e2e/               # Browser tests (playwright)
+  fixtures/seed.ts   # Factory functions for test data
+```
+
+### Templates
+
+See `docs/test-templates.md` for copy-paste patterns.
+
+### CI Pipeline
+
+- **Always** (PR + push): lint + typecheck + unit tests
+- **Backend changes** (push to main): integration tests
+- **Main only**: e2e tests + smoke tests against production
 
 ## Conventions
 
