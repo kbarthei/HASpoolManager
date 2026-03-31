@@ -471,10 +471,11 @@ export async function POST(request: NextRequest) {
         matchedSpoolId = await autoCreateDraftSpool(trayType, trayColor, def);
       }
 
-      // Move old spool back to workbench if swapped
+      // Move old spool: to storage if slot became empty, to workbench if swapped
       if (existingSlot?.spoolId && existingSlot.spoolId !== matchedSpoolId) {
+        const oldSpoolLocation = isEmpty ? "storage" : "workbench";
         await db.update(spools).set({
-          location: "workbench",
+          location: oldSpoolLocation,
           updatedAt: new Date(),
         }).where(eq(spools.id, existingSlot.spoolId));
       }
