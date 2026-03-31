@@ -2,13 +2,14 @@ export const dynamic = "force-dynamic";
 
 import { getSyncLog, getSystemStats, getPrinterStatus, getRackConfig } from "@/lib/queries";
 import { db } from "@/lib/db";
-import { prints } from "@/lib/db/schema";
-import { eq, sql } from "drizzle-orm";
+import { prints, spools } from "@/lib/db/schema";
+import { eq, sql, ne } from "drizzle-orm";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ClearStaleButton } from "./clear-stale-button";
 import { SyncLogTable } from "./sync-log-table";
 import { RackSettings } from "./rack-settings";
+import { ImportOrdersCard } from "./import-orders-card";
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -39,6 +40,12 @@ export default async function AdminPage() {
     .select({ count: sql<number>`count(*)::int` })
     .from(prints)
     .where(eq(prints.status, "running"));
+
+  // Fetch active spools with filament + vendor for the import dialog
+  const allSpools = await db.query.spools.findMany({
+    where: ne(spools.status, "archived"),
+    with: { filament: { with: { vendor: true } } },
+  });
 
   const lastSync = syncLogs[0];
 
@@ -121,6 +128,9 @@ export default async function AdminPage() {
           <ClearStaleButton runningCount={runningCount.count} />
         </div>
       </Card>
+
+      {/* ── Import Historical Orders ──────────────────────────────────── */}
+      <ImportOrdersCard allSpools={JSON.parse(JSON.stringify(allSpools))} />
 
       {/* ── Rack Configuration ──────────────────────────────────────────── */}
       <Card className="p-4 space-y-3">
