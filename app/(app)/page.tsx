@@ -1,20 +1,24 @@
-import { getDashboardStats, getAmsSlots, getLowStockSpools, getRecentPrints, getPrinterStatus, getFilamentSummary } from "@/lib/queries";
+import { getDashboardStats, getAmsSlots, getLowStockSpools, getRecentPrints, getPrinterStatus, getFilamentSummary, getDashboardChartData } from "@/lib/queries";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { AmsMiniView } from "@/components/dashboard/ams-mini-view";
 import { LowStockList } from "@/components/dashboard/low-stock-list";
 import { RecentPrints } from "@/components/dashboard/recent-prints";
 import { FilamentSummary } from "@/components/dashboard/filament-summary";
+import { MonthlySpendChart } from "@/components/dashboard/monthly-spend-chart";
+import { InventoryChart } from "@/components/dashboard/inventory-chart";
+import { PrintsChart } from "@/components/dashboard/prints-chart";
 import { AddOrderButton } from "@/components/orders/add-order-button";
 import Link from "next/link";
 
 export default async function Dashboard() {
-  const [stats, slots, lowStock, prints, printerStatus, filamentSummary] = await Promise.all([
+  const [stats, slots, lowStock, prints, printerStatus, filamentSummary, chartData] = await Promise.all([
     getDashboardStats(),
     getAmsSlots(),
     getLowStockSpools(),
     getRecentPrints(),
     getPrinterStatus(),
     getFilamentSummary(),
+    getDashboardChartData(),
   ]);
 
   return (
@@ -84,6 +88,13 @@ export default async function Dashboard() {
 
       {/* Recent Prints */}
       <RecentPrints prints={prints} />
+
+      {/* Charts */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+        <MonthlySpendChart data={chartData.monthlySpend} />
+        <InventoryChart data={chartData.inventory} />
+        <PrintsChart data={chartData.printsPerMonth} />
+      </div>
     </div>
   );
 }

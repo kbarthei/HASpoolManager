@@ -349,3 +349,95 @@ export async function getFilamentSummary() {
     }))
     .sort((a, b) => b.count - a.count);
 }
+
+// ─── Dashboard Chart Data ────────────────────────────────────────────────────
+
+export type MonthlySpend = { month: string; spend: number };
+export type InventoryByMaterial = { material: string; count: number; weight: number };
+export type PrintsPerMonth = { month: string; finished: number; failed: number };
+
+export async function getDashboardChartData(): Promise<{
+  monthlySpend: MonthlySpend[];
+  inventory: InventoryByMaterial[];
+  printsPerMonth: PrintsPerMonth[];
+}> {
+  // German abbreviated month names
+  const DE_MONTHS = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"];
+
+  // Build array of last 6 months (oldest first)
+  const now = new Date();
+  const months: { year: number; month: number; label: string }[] = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    months.push({ year: d.getFullYear(), month: d.getMonth() + 1, label: DE_MONTHS[d.getMonth()] });
+  }
+
+  // 1. Monthly spend: sum unit_price * quantity from order_items joined to orders
+  const spendRows = await db.select({
+    year: sql<number>`extract(year from ${schema.orders.orderDate})::int`,
+    month: sql<number>`extract(month from ${schema.orders.orderDate})::int`,
+    spend: sql<number>`coalesce(sum(${schema.orderItems.unitPrice}::numeric * ${schema.orderItems.quantity}), 0)::float`,
+  })
+    .from(schema.orderItems)
+    .innerJoin(schema.orders, eq(schema.orderItems.orderId, schema.orders.id))
+    .where(sql`${schema.orders.orderDate} >= (current_date - interval '6 months')`)
+    .groupBy(
+      sql`extract(year from ${schema.orders.orderDate})`,
+      sql`extract(month from ${schema.orders.orderDate})`,
+    );
+
+  const spendMap = new Map(spendRows.map(r => [`${r.year}-${r.month}`, r.spend]));
+  const monthlySpend: MonthlySpend[] = months.map(m => ({
+    month: m.label,
+    spend: Math.round((spendMap.get(`${m.year}-${m.month}`) ?? 0) * 100) / 100,
+  }));
+
+  // 2. Inventory by material: active spools grouped by filament.material
+  const invRows = await db.select({
+    material: schema.filaments.material,
+    count: sql<number>`count(*)::int`,
+    weight: sql<number>`coalesce(sum(${schema.spools.remainingWeight}), 0)::int`,
+  })
+    .from(schema.spools)
+    .innerJoin(schema.filaments, eq(schema.spools.filamentId, schema.filaments.id))
+    .where(eq(schema.spools.status, "active"))
+    .groupBy(schema.filaments.material)
+    .orderBy(sql`count(*) desc`);
+
+  const inventory: InventoryByMaterial[] = invRows.map(r => ({
+    material: r.material,
+    count: r.count,
+    weight: r.weight,
+  }));
+
+  // 3. Prints per month: last 6 months, grouped by status bucket
+  const printRows = await db.select({
+    year: sql<number>`extract(year from ${schema.prints.startedAt})::int`,
+    month: sql<number>`extract(month from ${schema.prints.startedAt})::int`,
+    status: schema.prints.status,
+    count: sql<number>`count(*)::int`,
+  })
+    .from(schema.prints)
+    .where(sql`${schema.prints.startedAt} >= (now() - interval '6 months')`)
+    .groupBy(
+      sql`extract(year from ${schema.prints.startedAt})`,
+      sql`extract(month from ${schema.prints.startedAt})`,
+      schema.prints.status,
+    );
+
+  const printMap = new Map<string, { finished: number; failed: number }>();
+  for (const row of printRows) {
+    const key = `${row.year}-${row.month}`;
+    if (!printMap.has(key)) printMap.set(key, { finished: 0, failed: 0 });
+    const entry = printMap.get(key)!;
+    if (row.status === "finished") entry.finished += row.count;
+    else if (row.status === "failed" || row.status === "cancelled") entry.failed += row.count;
+  }
+
+  const printsPerMonth: PrintsPerMonth[] = months.map(m => {
+    const entry = printMap.get(`${m.year}-${m.month}`) ?? { finished: 0, failed: 0 };
+    return { month: m.label, ...entry };
+  });
+
+  return { monthlySpend, inventory, printsPerMonth };
+}
