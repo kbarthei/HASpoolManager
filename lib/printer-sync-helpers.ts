@@ -17,6 +17,7 @@ export const ACTIVE_STATES = new Set([
   // Pre-print preparation states (part of the print job)
   "AUTO_BED_LEVELING", "HOMING_TOOLHEAD", "HOMING",
   "CHECKING_EXTRUDER_TEMP", "HEATING", "BED_LEVELING",
+  "CALIBRATING_MOTOR_NOISE",
   // Temporary connectivity loss — printer is still printing
   "OFFLINE", "UNKNOWN",
 ]);

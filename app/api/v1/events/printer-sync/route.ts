@@ -316,7 +316,12 @@ export async function POST(request: NextRequest) {
     let printTransition: PrintTransition = "none";
     let affectedPrintId: string | null = runningPrint?.id ?? null;
 
-    if (!runningPrint && isActive) {
+    // Skip creating new prints for auto-calibration routines
+    // (homing, bed leveling, motor calibration are NOT print jobs)
+    const CALIBRATION_NAMES = ["auto_cali", "auto_calibration", "user_param", "default_param"];
+    const isCalibration = printName && CALIBRATION_NAMES.some(c => printName.toLowerCase().includes(c));
+
+    if (!runningPrint && isActive && !isCalibration) {
       // New print started — no running print exists, so create one.
       // Use a unique event ID: if a finished print with the same name+date exists,
       // append a counter to make the ID unique.
