@@ -31,6 +31,7 @@ const toClean: {
 } = { vendors: [], filaments: [], spools: [], prints: [], tagMappings: [] };
 
 let testPrinterId: string;
+let testStartTime: Date;
 
 // ── Helper: POST /api/v1/events/printer-sync ──────────────────────────────────
 
@@ -61,6 +62,9 @@ async function getRunningPrint(): Promise<{ id: string; name: string | null; act
 describe.skipIf(!process.env.DATABASE_URL)("printer-sync integration", () => {
 
   beforeAll(async () => {
+    // Record test start time — used to scope sync_log cleanup to only test entries
+    testStartTime = new Date();
+
     // Clean up stale test data from previous crashed runs
     await cleanupStaleTestData();
 
@@ -98,9 +102,13 @@ describe.skipIf(!process.env.DATABASE_URL)("printer-sync integration", () => {
     // Remove all test-created spools/filaments/vendors/tags
     await cleanup(toClean);
 
-    // Clean up sync_log entries from tests
+    // Clean up sync_log entries created DURING this test run only
+    // (not all entries for the printer — that would delete real HA sync data!)
     await db.delete(syncLog)
-      .where(inArray(syncLog.printerId, [testPrinterId]))
+      .where(and(
+        eq(syncLog.printerId, testPrinterId),
+        sql`${syncLog.createdAt} >= ${testStartTime.toISOString()}`
+      ))
       .catch(() => {});
   });
 
