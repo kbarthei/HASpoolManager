@@ -329,14 +329,18 @@ export async function POST(request: NextRequest) {
       }
 
       // Try to identify active spool at print start
+      // Use RFID tag if available, otherwise fall back to fuzzy matching (type+color+filament_id)
       let startActiveSpoolId: string | null = null;
       const startTag = str(body.active_slot_tag);
-      if (startTag && startTag !== "0000000000000000") {
+      const startType = str(body.active_slot_type);
+      const startColor = str(body.active_slot_color).replace("#", "").slice(0, 8);
+      const startFilamentId = str(body.active_slot_filament_id);
+      if (startType || (startTag && startTag !== "0000000000000000")) {
         const startMatch = await matchSpool({
-          tag_uid: startTag,
-          tray_info_idx: str(body.active_slot_filament_id) || undefined,
-          tray_type: str(body.active_slot_type) || undefined,
-          tray_color: str(body.active_slot_color).replace("#", "").slice(0, 8) || undefined,
+          tag_uid: startTag !== "0000000000000000" ? startTag : undefined,
+          tray_info_idx: startFilamentId || undefined,
+          tray_type: startType || undefined,
+          tray_color: startColor || undefined,
           printer_id,
           ams_index: 0,
           tray_index: 0,
@@ -406,13 +410,17 @@ export async function POST(request: NextRequest) {
 
       // Store the active spool ID on the print while we still have the data
       // (the printer clears active_slot when it goes idle)
+      // Use RFID tag if available, otherwise fall back to fuzzy matching
       const activeTag = str(body.active_slot_tag);
-      if (activeTag && activeTag !== "0000000000000000") {
+      const activeType = str(body.active_slot_type);
+      const activeColor = str(body.active_slot_color).replace("#", "").slice(0, 8);
+      const activeFilamentId = str(body.active_slot_filament_id);
+      if (activeType || (activeTag && activeTag !== "0000000000000000")) {
         const activeMatch = await matchSpool({
-          tag_uid: activeTag,
-          tray_info_idx: str(body.active_slot_filament_id) || undefined,
-          tray_type: str(body.active_slot_type) || undefined,
-          tray_color: str(body.active_slot_color).replace("#", "").slice(0, 8) || undefined,
+          tag_uid: activeTag !== "0000000000000000" ? activeTag : undefined,
+          tray_info_idx: activeFilamentId || undefined,
+          tray_type: activeType || undefined,
+          tray_color: activeColor || undefined,
           printer_id,
           ams_index: 0,
           tray_index: 0,
