@@ -14,10 +14,15 @@ export const ACTIVE_STATES = new Set([
   "HEATBED_PREHEATING", "NOZZLE_PREHEATING",
   "CHANGE_FILAMENT", "CHANGING_FILAMENT",
   "M400_PAUSE", "FILAMENT_RUNOUT_PAUSE", "FRONT_COVER_PAUSE",
+  // Pre-print preparation states (part of the print job)
+  "AUTO_BED_LEVELING", "HOMING_TOOLHEAD", "HOMING",
+  "CHECKING_EXTRUDER_TEMP", "HEATING", "BED_LEVELING",
+  // Temporary connectivity loss — printer is still printing
+  "OFFLINE", "UNKNOWN",
 ]);
 export const FINISH_STATES = new Set(["FINISH", "FINISHED", "COMPLETE", "COMPLETED"]);
 export const FAILED_STATES = new Set(["FAILED", "CANCELED", "CANCELLED", "ERROR"]);
-export const IDLE_STATES = new Set(["IDLE", "OFFLINE", "UNKNOWN", ""]);
+export const IDLE_STATES = new Set(["IDLE", ""]);
 
 // ── State classifier ──────────────────────────────────────────────────────────
 

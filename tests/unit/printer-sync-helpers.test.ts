@@ -196,12 +196,24 @@ describe("classifyState()", () => {
   });
 
   it.each([
-    "IDLE", "", "OFFLINE", "UNKNOWN",
+    "IDLE", "",
   ])("classifies '%s' as idle", (state) => {
     expect(classifyState(state)).toBe("idle");
   });
 
-  it("classifies unknown string as idle", () => {
+  it.each([
+    "OFFLINE", "UNKNOWN",
+  ])("classifies '%s' as active (network glitch, printer may still be printing)", (state) => {
+    expect(classifyState(state)).toBe("active");
+  });
+
+  it.each([
+    "AUTO_BED_LEVELING", "HOMING_TOOLHEAD", "HOMING",
+  ])("classifies prep state '%s' as active", (state) => {
+    expect(classifyState(state)).toBe("active");
+  });
+
+  it("classifies truly unknown string as idle", () => {
     expect(classifyState("SOMETHING_RANDOM")).toBe("idle");
   });
 
