@@ -7,6 +7,10 @@ import { FilamentSummary } from "@/components/dashboard/filament-summary";
 import { MonthlySpendChart } from "@/components/dashboard/monthly-spend-chart";
 import { InventoryChart } from "@/components/dashboard/inventory-chart";
 import { PrintsChart } from "@/components/dashboard/prints-chart";
+import { SpendByVendorChart } from "@/components/dashboard/spend-by-vendor-chart";
+import { FilamentConsumedChart } from "@/components/dashboard/filament-consumed-chart";
+import { SpoolLifecycleChart } from "@/components/dashboard/spool-lifecycle-chart";
+import { MaterialUsageChart } from "@/components/dashboard/material-usage-chart";
 import { AddOrderButton } from "@/components/orders/add-order-button";
 import Link from "next/link";
 
@@ -89,11 +93,21 @@ export default async function Dashboard() {
       {/* Recent Prints */}
       <RecentPrints prints={prints} />
 
-      {/* Charts */}
+      {/* Charts row 1 */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
         <MonthlySpendChart data={chartData.monthlySpend} />
         <InventoryChart data={chartData.inventory} />
         <PrintsChart data={chartData.printsPerMonth} />
+      </div>
+
+      {/* Charts row 2 */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+        <SpendByVendorChart data={chartData.spendByVendor} />
+        <FilamentConsumedChart data={chartData.filamentConsumed} />
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+        <SpoolLifecycleChart data={chartData.spoolLifecycle} />
+        <MaterialUsageChart data={chartData.materialUsage} />
       </div>
     </div>
   );

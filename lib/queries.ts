@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
-import { eq, desc, sql, and } from "drizzle-orm";
+import { eq, desc, sql, and, inArray } from "drizzle-orm";
 
 export async function getRackConfig(): Promise<{ rows: number; columns: number }> {
   const [rowsSetting, colsSetting] = await Promise.all([
@@ -355,11 +355,37 @@ export async function getFilamentSummary() {
 export type MonthlySpend = { month: string; spend: number };
 export type InventoryByMaterial = { material: string; count: number; weight: number };
 export type PrintsPerMonth = { month: string; finished: number; failed: number };
+export type SpendByVendor = { vendor: string; spend: number };
+export type FilamentConsumed = { month: string; grams: number };
+export type SpoolLifecycle = {
+  id: string;
+  name: string;
+  color: string;
+  vendor: string;
+  material: string;
+  initial: number;
+  remaining: number;
+  used: number;
+  status: string;
+};
+export type MaterialUsage = {
+  name: string;
+  color: string;
+  vendor: string;
+  material: string;
+  colorHex: string;
+  totalUsed: number;
+  printCount: number;
+};
 
 export async function getDashboardChartData(): Promise<{
   monthlySpend: MonthlySpend[];
   inventory: InventoryByMaterial[];
   printsPerMonth: PrintsPerMonth[];
+  spendByVendor: SpendByVendor[];
+  filamentConsumed: FilamentConsumed[];
+  spoolLifecycle: SpoolLifecycle[];
+  materialUsage: MaterialUsage[];
 }> {
   // German abbreviated month names
   const DE_MONTHS = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"];
@@ -439,5 +465,108 @@ export async function getDashboardChartData(): Promise<{
     return { month: m.label, ...entry };
   });
 
-  return { monthlySpend, inventory, printsPerMonth };
+  // 4. Spend by vendor: sum order_items.unit_price * quantity grouped by vendor, last 6 months
+  const vendorSpendRows = await db.select({
+    vendor: schema.vendors.name,
+    spend: sql<number>`coalesce(sum(${schema.orderItems.unitPrice}::numeric * ${schema.orderItems.quantity}), 0)::float`,
+  })
+    .from(schema.orderItems)
+    .innerJoin(schema.filaments, eq(schema.orderItems.filamentId, schema.filaments.id))
+    .innerJoin(schema.vendors, eq(schema.filaments.vendorId, schema.vendors.id))
+    .innerJoin(schema.orders, eq(schema.orderItems.orderId, schema.orders.id))
+    .where(sql`${schema.orders.orderDate} >= (current_date - interval '6 months')`)
+    .groupBy(schema.vendors.name)
+    .orderBy(sql`sum(${schema.orderItems.unitPrice}::numeric * ${schema.orderItems.quantity}) desc`);
+
+  const spendByVendor: SpendByVendor[] = vendorSpendRows.map(r => ({
+    vendor: r.vendor,
+    spend: Math.round(r.spend * 100) / 100,
+  }));
+
+  // 5. Filament consumed: monthly grams from print_usage, last 6 months
+  const consumedRows = await db.select({
+    year: sql<number>`extract(year from ${schema.printUsage.createdAt})::int`,
+    month: sql<number>`extract(month from ${schema.printUsage.createdAt})::int`,
+    grams: sql<number>`coalesce(sum(${schema.printUsage.weightUsed}), 0)::float`,
+  })
+    .from(schema.printUsage)
+    .where(sql`${schema.printUsage.createdAt} >= (now() - interval '6 months')`)
+    .groupBy(
+      sql`extract(year from ${schema.printUsage.createdAt})`,
+      sql`extract(month from ${schema.printUsage.createdAt})`,
+    );
+
+  const consumedMap = new Map(consumedRows.map(r => [`${r.year}-${r.month}`, r.grams]));
+  const filamentConsumed: FilamentConsumed[] = months.map(m => ({
+    month: m.label,
+    grams: Math.round(consumedMap.get(`${m.year}-${m.month}`) ?? 0),
+  }));
+
+  // 6. Spool lifecycle: active + empty spools, sorted by most used
+  const lifecycleRows = await db.select({
+    id: schema.spools.id,
+    initialWeight: schema.spools.initialWeight,
+    remainingWeight: schema.spools.remainingWeight,
+    status: schema.spools.status,
+    filamentName: schema.filaments.name,
+    colorName: schema.filaments.colorName,
+    material: schema.filaments.material,
+    vendorName: schema.vendors.name,
+  })
+    .from(schema.spools)
+    .innerJoin(schema.filaments, eq(schema.spools.filamentId, schema.filaments.id))
+    .innerJoin(schema.vendors, eq(schema.filaments.vendorId, schema.vendors.id))
+    .where(inArray(schema.spools.status, ["active", "empty"]))
+    .orderBy(sql`(${schema.spools.initialWeight} - ${schema.spools.remainingWeight}) desc`)
+    .limit(15);
+
+  const spoolLifecycle: SpoolLifecycle[] = lifecycleRows.map(r => ({
+    id: r.id,
+    name: r.filamentName,
+    color: r.colorName ?? "Unknown",
+    vendor: r.vendorName,
+    material: r.material,
+    initial: r.initialWeight,
+    remaining: r.remainingWeight,
+    used: r.initialWeight - r.remainingWeight,
+    status: r.status,
+  }));
+
+  // 7. Material usage: top 10 filaments by weight consumed from print_usage
+  const materialUsageRows = await db.select({
+    filamentId: schema.filaments.id,
+    name: schema.filaments.name,
+    colorName: schema.filaments.colorName,
+    material: schema.filaments.material,
+    colorHex: schema.filaments.colorHex,
+    vendorName: schema.vendors.name,
+    totalUsed: sql<number>`coalesce(sum(${schema.printUsage.weightUsed}), 0)::float`,
+    printCount: sql<number>`count(distinct ${schema.printUsage.printId})::int`,
+  })
+    .from(schema.printUsage)
+    .innerJoin(schema.spools, eq(schema.printUsage.spoolId, schema.spools.id))
+    .innerJoin(schema.filaments, eq(schema.spools.filamentId, schema.filaments.id))
+    .innerJoin(schema.vendors, eq(schema.filaments.vendorId, schema.vendors.id))
+    .groupBy(
+      schema.filaments.id,
+      schema.filaments.name,
+      schema.filaments.colorName,
+      schema.filaments.material,
+      schema.filaments.colorHex,
+      schema.vendors.name,
+    )
+    .orderBy(sql`sum(${schema.printUsage.weightUsed}) desc`)
+    .limit(10);
+
+  const materialUsage: MaterialUsage[] = materialUsageRows.map(r => ({
+    name: r.name,
+    color: r.colorName ?? "Unknown",
+    vendor: r.vendorName,
+    material: r.material,
+    colorHex: r.colorHex ?? "888888",
+    totalUsed: Math.round(r.totalUsed),
+    printCount: r.printCount,
+  }));
+
+  return { monthlySpend, inventory, printsPerMonth, spendByVendor, filamentConsumed, spoolLifecycle, materialUsage };
 }
