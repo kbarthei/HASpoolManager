@@ -1,10 +1,10 @@
 export const dynamic = "force-dynamic";
 
-import { getSyncLog, getSystemStats, getPrinterStatus, getRackConfig } from "@/lib/queries";
+import { getSystemStats, getPrinterStatus, getRackConfig } from "@/lib/queries";
 import { formatDateTime, formatDate } from "@/lib/date";
 import { db } from "@/lib/db";
-import { prints, spools, printers as printersTable } from "@/lib/db/schema";
-import { eq, sql, ne } from "drizzle-orm";
+import { prints, spools, printers as printersTable, syncLog } from "@/lib/db/schema";
+import { eq, sql, ne, desc } from "drizzle-orm";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ClearStaleButton } from "./clear-stale-button";
@@ -75,9 +75,9 @@ export default async function AdminPage() {
     nodeEnv: process.env.NODE_ENV,
   };
 
-  const [stats, syncLogs, printerStatus, rackConfig, activePrinter] = await Promise.all([
+  const [stats, [lastSyncEntry], printerStatus, rackConfig, activePrinter] = await Promise.all([
     getSystemStats(),
-    getSyncLog(50),
+    db.select().from(syncLog).orderBy(desc(syncLog.createdAt)).limit(1),
     getPrinterStatus(),
     getRackConfig(),
     db.query.printers.findFirst({ where: eq(printersTable.isActive, true) }),
@@ -124,7 +124,7 @@ export default async function AdminPage() {
     with: { filament: { with: { vendor: true } } },
   });
 
-  const lastSync = syncLogs[0];
+  const lastSync = lastSyncEntry;
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
@@ -368,13 +368,8 @@ export default async function AdminPage() {
       </Card>
 
       {/* ── Sync Log ─────────────────────────────────────────────────────── */}
-      <Card className="p-4 space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold">Sync Log</h2>
-          <span className="text-xs text-muted-foreground">{syncLogs.length} recent entries</span>
-        </div>
-
-        <SyncLogTable logs={syncLogs} />
+      <Card className="p-4">
+        <SyncLogTable />
       </Card>
     </div>
   );
