@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { prints, amsSlots, spools, syncLog, printUsage, vendors, filaments, tagMappings } from "@/lib/db/schema";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, lt } from "drizzle-orm";
 import { requireAuth } from "@/lib/auth";
 import { matchSpool } from "@/lib/matching";
 import {
@@ -603,10 +603,10 @@ export async function POST(request: NextRequest) {
       responseJson: JSON.stringify({ request: body, response: responseData }),
     }).catch(() => {}); // fire-and-forget, don't fail the sync
 
-    // Retention: delete sync logs older than 24 hours (run every ~60 syncs ≈ 1 hour)
+    // Retention: delete sync logs older than 72 hours (run every ~60 syncs ≈ 1 hour)
     if (Math.random() < 0.017) {
       await db.delete(syncLog)
-        .where(sql`${syncLog.createdAt} < NOW() - INTERVAL '24 hours'`)
+        .where(lt(syncLog.createdAt, sql`NOW() - INTERVAL '72 hours'`))
         .catch(() => {});
     }
 
