@@ -3,6 +3,7 @@ import { SpoolMaterialBadge } from "@/components/spool/spool-material-badge";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SpoolColorDot } from "@/components/spool/spool-color-dot";
+import { UsageWeightAdjuster } from "@/components/prints/usage-weight-adjuster";
 import { CheckCircle2, XCircle } from "lucide-react";
 import { formatDateTime, formatDateLong, formatDateShort } from "@/lib/date";
 
@@ -206,8 +207,13 @@ export default async function PrintHistoryPage() {
                               <div key={u.id} className="flex items-center gap-1">
                                 <SpoolColorDot hex={hex} size="sm" />
                                 <span className="text-xs text-muted-foreground">
-                                  {name} &middot; {u.weightUsed.toFixed(1)}g
+                                  {name} &middot;{" "}
                                 </span>
+                                <UsageWeightAdjuster
+                                  printId={print.id}
+                                  usageId={u.id}
+                                  weightUsed={u.weightUsed}
+                                />
                               </div>
                             );
                           })}

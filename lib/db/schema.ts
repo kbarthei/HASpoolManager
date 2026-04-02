@@ -240,6 +240,7 @@ export const prints = pgTable(
     totalCost: numeric("total_cost", { precision: 8, scale: 2 }),
     activeSpoolId: uuid("active_spool_id").references(() => spools.id),
     activeSpoolIds: text("active_spool_ids"), // JSON array of all spool IDs seen during print
+    remainSnapshot: text("remain_snapshot"), // JSON: {"slot_1": 80, "slot_2": 100, ...} — captured at print start
     haEventId: text("ha_event_id"),
     notes: text("notes"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),

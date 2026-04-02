@@ -198,13 +198,15 @@ const SLOT_DEFS = [
 /**
  * Create print_usage records: link print to all spools used, deduct weight, calculate cost.
  * Reads activeSpoolIds (accumulated during print) from the print record.
- * Weight is distributed equally across all spools seen during the print.
+ * Uses proportional weight distribution based on remain deltas when available.
+ * Falls back to equal split if deltas are all zero or unavailable.
  * Falls back to single activeSpoolId for backward compatibility.
  */
 async function createPrintUsage(
   printId: string,
-  _printerId: string,
+  printerId: string,
   totalWeight: number,
+  endRemains?: Record<string, number>,
 ) {
   try {
     const print = await db.query.prints.findFirst({
@@ -225,8 +227,56 @@ async function createPrintUsage(
       return;
     }
 
-    // Distribute weight equally across all spools
-    const weightPerSpool = totalWeight / spoolIds.length;
+    // ── Proportional weight distribution using remain deltas ──────────────
+    let proportionalWeights: Record<string, number> | null = null;
+
+    const startRemains: Record<string, number> = print?.remainSnapshot
+      ? (() => { try { return JSON.parse(print.remainSnapshot!); } catch { return {}; } })()
+      : {};
+
+    if (Object.keys(startRemains).length > 0 && endRemains && spoolIds.length > 1) {
+      const deltas: { spoolId: string; delta: number }[] = [];
+
+      for (const spoolId of spoolIds) {
+        // Find which slot this spool is currently in
+        const slot = await db.query.amsSlots.findFirst({
+          where: and(eq(amsSlots.printerId, printerId), eq(amsSlots.spoolId, spoolId)),
+        });
+        if (slot) {
+          const defKey = SLOT_DEFS.find(
+            (d) => d.slotType === slot.slotType && d.amsIndex === slot.amsIndex && d.trayIndex === slot.trayIndex
+          )?.key;
+          if (defKey && startRemains[defKey] !== undefined && endRemains[defKey] !== undefined) {
+            const delta = startRemains[defKey] - endRemains[defKey];
+            deltas.push({ spoolId, delta: Math.max(0, delta) });
+          } else {
+            // Can't compute delta for this spool — push 0 so it can still share via fallback
+            deltas.push({ spoolId, delta: 0 });
+          }
+        } else {
+          deltas.push({ spoolId, delta: 0 });
+        }
+      }
+
+      const totalDelta = deltas.reduce((s, d) => s + d.delta, 0);
+      if (totalDelta > 0) {
+        proportionalWeights = {};
+        for (const d of deltas) {
+          proportionalWeights[d.spoolId] = totalWeight * (d.delta / totalDelta);
+        }
+        console.log(`[printer-sync] PROPORTIONAL: totalDelta=${totalDelta.toFixed(1)}% → ${deltas.map(d => `${d.spoolId.slice(0,8)}=${((d.delta/totalDelta)*100).toFixed(0)}%`).join(", ")}`);
+      } else {
+        console.log(`[printer-sync] PROPORTIONAL: all deltas zero, falling back to equal split`);
+      }
+    }
+
+    const getWeightForSpool = (spoolId: string): number => {
+      if (proportionalWeights && proportionalWeights[spoolId] !== undefined) {
+        return proportionalWeights[spoolId];
+      }
+      return totalWeight / spoolIds.length;
+    };
+
     let totalCost = 0;
 
     for (const spoolId of spoolIds) {
@@ -242,29 +292,31 @@ async function createPrintUsage(
       });
       if (!spool) continue;
 
-      // Calculate cost: (weight_per_spool / initial_weight) * purchase_price
+      const weightForSpool = getWeightForSpool(spoolId);
+
+      // Calculate cost: (weight_for_spool / initial_weight) * purchase_price
       let cost: string | null = null;
       if (spool.purchasePrice && spool.initialWeight > 0) {
         const pricePerGram = Number(spool.purchasePrice) / spool.initialWeight;
-        cost = (pricePerGram * weightPerSpool).toFixed(2);
+        cost = (pricePerGram * weightForSpool).toFixed(2);
         totalCost += parseFloat(cost);
       }
 
       await db.insert(printUsage).values({
         printId,
         spoolId,
-        weightUsed: weightPerSpool,
+        weightUsed: weightForSpool,
         cost,
       });
 
-      const newWeight = Math.max(0, spool.remainingWeight - weightPerSpool);
+      const newWeight = Math.max(0, spool.remainingWeight - weightForSpool);
       await db.update(spools).set({
         remainingWeight: newWeight,
         status: newWeight <= 0 ? "empty" : "active",
         updatedAt: new Date(),
       }).where(eq(spools.id, spoolId));
 
-      console.log(`[printer-sync] USAGE: spool=${spool.filament.name} weight=${weightPerSpool.toFixed(1)}g cost=${cost}€ remaining=${newWeight}g`);
+      console.log(`[printer-sync] USAGE: spool=${spool.filament.name} weight=${weightForSpool.toFixed(1)}g cost=${cost}€ remaining=${newWeight}g`);
     }
 
     // Update total cost on print
@@ -356,6 +408,16 @@ export async function POST(request: NextRequest) {
       }
 
       const startIds = startActiveSpoolId ? [startActiveSpoolId] : [];
+
+      // Snapshot remain values for all slots at print start (for proportional weight distribution)
+      const remainSnapshot: Record<string, number> = {};
+      for (const def of SLOT_DEFS) {
+        const remain = num(body[`${def.key}_remain`], -1);
+        if (remain >= 0) {
+          remainSnapshot[def.key] = remain;
+        }
+      }
+
       const [newPrint] = await db
         .insert(prints)
         .values({
@@ -367,6 +429,7 @@ export async function POST(request: NextRequest) {
           printWeight: printWeight || null,
           activeSpoolId: startActiveSpoolId,
           activeSpoolIds: JSON.stringify(startIds),
+          remainSnapshot: Object.keys(remainSnapshot).length > 0 ? JSON.stringify(remainSnapshot) : null,
           haEventId,
         })
         .returning();
@@ -387,8 +450,16 @@ export async function POST(request: NextRequest) {
       }).where(eq(prints.id, runningPrint.id));
       printTransition = "finished";
 
+      // Build endRemains from current sync payload for proportional weight distribution
+      // (slots haven't been updated in DB yet, but we read from the body directly)
+      const endRemainsFinish: Record<string, number> = {};
+      for (const def of SLOT_DEFS) {
+        const remain = num(body[`${def.key}_remain`], -1);
+        if (remain >= 0) endRemainsFinish[def.key] = remain;
+      }
+
       // Create print_usage record and deduct weight from active spool
-      await createPrintUsage(runningPrint.id, printer_id, finalWeight || 0);
+      await createPrintUsage(runningPrint.id, printer_id, finalWeight || 0, endRemainsFinish);
 
       console.log(`[printer-sync] FINISHED: "${runningPrint.name}" weight=${finalWeight}g`);
     } else if (runningPrint && isFailed) {
@@ -406,7 +477,12 @@ export async function POST(request: NextRequest) {
       printTransition = "failed";
 
       if (finalWeight && finalWeight > 0) {
-        await createPrintUsage(runningPrint.id, printer_id, finalWeight);
+        const endRemainsFailed: Record<string, number> = {};
+        for (const def of SLOT_DEFS) {
+          const remain = num(body[`${def.key}_remain`], -1);
+          if (remain >= 0) endRemainsFailed[def.key] = remain;
+        }
+        await createPrintUsage(runningPrint.id, printer_id, finalWeight, endRemainsFailed);
       }
 
       console.log(`[printer-sync] FAILED: "${runningPrint.name}"`);
