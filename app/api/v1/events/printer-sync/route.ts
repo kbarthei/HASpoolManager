@@ -7,7 +7,7 @@ import { requireAuth } from "@/lib/auth";
 import { matchSpool } from "@/lib/matching";
 import {
   num, bool, str,
-  ACTIVE_STATES, FINISH_STATES, FAILED_STATES, IDLE_STATES,
+  classifyGcodeState, isCalibrationJob,
   buildEventId, bambuColorName, bambuFilamentName, calculateWeightSync,
 } from "@/lib/printer-sync-helpers";
 
@@ -292,20 +292,27 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "printer_id required" }, { status: 400 });
     }
 
-    const rawState = str(body.print_state).toUpperCase();
+    // gcode_state: coarse lifecycle state (10 values, stable)
+    // print_state: fine-grained stage (68+ values, for display/spool tracking)
+    const gcodeState = str(body.gcode_state).toUpperCase();
+    const rawState = str(body.print_state).toUpperCase(); // stg_cur — kept for display
     const printName = str(body.print_name);
     const printWeight = num(body.print_weight);
     const printLayersTotal = num(body.print_layers_total);
     const printError = bool(body.print_error);
 
-    // Log what we received for debugging
-    console.log(`[printer-sync] state=${rawState} name="${printName}" weight=${printWeight} error=${printError}`);
+    // Use gcode_state for lifecycle decisions (reliable, 10 values)
+    // Fall back to stg_cur classification if gcode_state is not provided (backward compat)
+    const lifecycle = gcodeState ? classifyGcodeState(gcodeState) : classifyGcodeState(rawState);
 
-    // Classify the state
-    const isActive = ACTIVE_STATES.has(rawState);
-    const isFinished = FINISH_STATES.has(rawState);
-    const isFailed = FAILED_STATES.has(rawState);
-    const isIdle = IDLE_STATES.has(rawState) || (!isActive && !isFinished && !isFailed);
+    const isActive = lifecycle === "active";
+    const isFinished = lifecycle === "finished";
+    const isFailed = lifecycle === "failed";
+    const isIdle = lifecycle === "idle";
+    // "ambiguous" (OFFLINE, UNKNOWN) → don't change running state
+
+    // Log what we received for debugging
+    console.log(`[printer-sync] gcode=${gcodeState} stg=${rawState} lifecycle=${lifecycle} name="${printName}" weight=${printWeight}`);
 
     // ── 1. Print state transitions ────────────────────────────────────────
 
@@ -316,12 +323,7 @@ export async function POST(request: NextRequest) {
     let printTransition: PrintTransition = "none";
     let affectedPrintId: string | null = runningPrint?.id ?? null;
 
-    // Skip creating new prints for auto-calibration routines
-    // (homing, bed leveling, motor calibration are NOT print jobs)
-    const CALIBRATION_NAMES = ["auto_cali", "auto_calibration", "user_param", "default_param"];
-    const isCalibration = printName && CALIBRATION_NAMES.some(c => printName.toLowerCase().includes(c));
-
-    if (!runningPrint && isActive && !isCalibration) {
+    if (!runningPrint && isActive && !isCalibrationJob(printName)) {
       // New print started — no running print exists, so create one.
       // Use a unique event ID: if a finished print with the same name+date exists,
       // append a counter to make the ID unique.
@@ -574,7 +576,9 @@ export async function POST(request: NextRequest) {
 
     const responseData = {
       synced: true,
+      gcode_state: gcodeState,
       print_state: rawState,
+      lifecycle,
       print_state_raw: str(body.print_state),
       print_error: printError,
       print_transition: printTransition,

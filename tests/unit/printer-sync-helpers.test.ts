@@ -4,6 +4,8 @@ import {
   bool,
   str,
   classifyState,
+  classifyGcodeState,
+  isCalibrationJob,
   buildEventId,
   bambuColorName,
   bambuFilamentName,
@@ -243,6 +245,64 @@ describe("classifyState()", () => {
 
   it("classifies ERROR as failed", () => {
     expect(classifyState("ERROR")).toBe("failed");
+  });
+});
+
+// ── classifyGcodeState() — coarse lifecycle classifier ────────────────────────
+
+describe("classifyGcodeState()", () => {
+  it.each(["RUNNING", "PREPARE", "SLICING", "INIT", "PAUSE"])
+    ("classifies '%s' as active", (state) => {
+      expect(classifyGcodeState(state)).toBe("active");
+    });
+
+  it("classifies 'FINISH' as finished", () => {
+    expect(classifyGcodeState("FINISH")).toBe("finished");
+  });
+
+  it("classifies 'FAILED' as failed", () => {
+    expect(classifyGcodeState("FAILED")).toBe("failed");
+  });
+
+  it("classifies 'IDLE' as idle", () => {
+    expect(classifyGcodeState("IDLE")).toBe("idle");
+  });
+
+  it.each(["OFFLINE", "UNKNOWN", ""])
+    ("classifies '%s' as ambiguous", (state) => {
+      expect(classifyGcodeState(state)).toBe("ambiguous");
+    });
+
+  it("is case insensitive", () => {
+    expect(classifyGcodeState("running")).toBe("active");
+    expect(classifyGcodeState("finish")).toBe("finished");
+    expect(classifyGcodeState("idle")).toBe("idle");
+  });
+
+  it("classifies unknown string as ambiguous", () => {
+    expect(classifyGcodeState("FOOBAR")).toBe("ambiguous");
+  });
+});
+
+// ── isCalibrationJob() ────────────────────────────────────────────────────────
+
+describe("isCalibrationJob()", () => {
+  it("detects auto_cali_for_user_param.gcode", () => {
+    expect(isCalibrationJob("auto_cali_for_user_param.gcode")).toBe(true);
+  });
+
+  it("detects auto_calibration names", () => {
+    expect(isCalibrationJob("auto_calibration_test.gcode")).toBe(true);
+  });
+
+  it("returns false for real print names", () => {
+    expect(isCalibrationJob("1:12 Scale")).toBe(false);
+    expect(isCalibrationJob("Benchy")).toBe(false);
+    expect(isCalibrationJob("0.2mm layer, 2 walls")).toBe(false);
+  });
+
+  it("returns false for empty name", () => {
+    expect(isCalibrationJob("")).toBe(false);
   });
 });
 

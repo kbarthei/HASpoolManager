@@ -1,42 +1,72 @@
 /**
- * Pure helpers extracted from app/api/v1/events/printer-sync/route.ts
- * All functions are side-effect-free and fully unit-testable.
+ * Pure helper functions for the printer-sync endpoint.
+ * Extracted for testability — no DB, no side effects.
  */
 
-// ── State classification ──────────────────────────────────────────────────────
-// Accept both MQTT protocol values AND HA Bambu Lab integration values
-// (any case — we normalize to uppercase)
+// ── gcode_state classification (10 coarse states — stable, never changes) ────
+// Used for PRINT LIFECYCLE decisions (start/finish/fail)
+// Source: Bambu Lab MQTT protocol, sensor.h2s_druckstatus in HA
+
+export const GCODE_ACTIVE = new Set(["RUNNING", "PREPARE", "SLICING", "INIT", "PAUSE"]);
+export const GCODE_FINISH = new Set(["FINISH"]);
+export const GCODE_FAILED = new Set(["FAILED"]);
+export const GCODE_IDLE = new Set(["IDLE"]);
+// OFFLINE and UNKNOWN are ambiguous — handled specially (don't change running state)
+
+/** Classify gcode_state into a lifecycle category */
+export function classifyGcodeState(raw: string): "active" | "finished" | "failed" | "idle" | "ambiguous" {
+  const upper = raw.toUpperCase().trim();
+  if (GCODE_ACTIVE.has(upper)) return "active";
+  if (GCODE_FINISH.has(upper)) return "finished";
+  if (GCODE_FAILED.has(upper)) return "failed";
+  if (GCODE_IDLE.has(upper)) return "idle";
+  // OFFLINE, UNKNOWN, empty → ambiguous (don't change running state)
+  return "ambiguous";
+}
+
+// ── stg_cur classification (68+ fine-grained states — grows with firmware) ───
+// Used for DISPLAY and ACTIVE SPOOL TRACKING only, NOT for lifecycle decisions
+// Source: Bambu Lab MQTT stg_cur, sensor.h2s_aktueller_arbeitsschritt in HA
+
+// Keep the old sets for backward compatibility (used in tests and display logic)
 export const ACTIVE_STATES = new Set([
   "RUNNING", "PRINTING", "PREPARE", "SLICING", "PAUSE",
-  "DRUCKEN", "VORBEREITEN",  // German variants
-  // Bambu Lab calibration/preparation sub-states
+  "DRUCKEN", "VORBEREITEN",
   "CALIBRATING_EXTRUSION", "CLEANING_NOZZLE_TIP", "SWEEPING_XY_MECH_MODE",
   "HEATBED_PREHEATING", "NOZZLE_PREHEATING",
   "CHANGE_FILAMENT", "CHANGING_FILAMENT",
   "M400_PAUSE", "FILAMENT_RUNOUT_PAUSE", "FRONT_COVER_PAUSE",
-  // Pre-print preparation states (part of the print job)
   "AUTO_BED_LEVELING", "HOMING_TOOLHEAD", "HOMING",
   "CHECKING_EXTRUDER_TEMP", "HEATING", "BED_LEVELING",
   "CALIBRATING_MOTOR_NOISE",
-  // Temporary connectivity loss — printer is still printing
   "OFFLINE", "UNKNOWN",
 ]);
 export const FINISH_STATES = new Set(["FINISH", "FINISHED", "COMPLETE", "COMPLETED"]);
 export const FAILED_STATES = new Set(["FAILED", "CANCELED", "CANCELLED", "ERROR"]);
 export const IDLE_STATES = new Set(["IDLE", ""]);
 
-// ── State classifier ──────────────────────────────────────────────────────────
-
-/** Classify a raw state string into one of four categories */
+/** Legacy classifier — kept for backward compatibility with existing tests/code.
+ *  New code should use classifyGcodeState() instead. */
 export function classifyState(rawState: string): "active" | "finished" | "failed" | "idle" {
-  const upper = rawState.toUpperCase();
+  const upper = rawState.toUpperCase().trim();
   if (ACTIVE_STATES.has(upper)) return "active";
   if (FINISH_STATES.has(upper)) return "finished";
   if (FAILED_STATES.has(upper)) return "failed";
   return "idle";
 }
 
-// ── Value parsers ─────────────────────────────────────────────────────────────
+// ── Calibration name filter ──────────────────────────────────────────────────
+// Auto-calibration routines are NOT print jobs — don't create records for them
+
+const CALIBRATION_NAMES = ["auto_cali", "auto_calibration", "user_param", "default_param"];
+
+export function isCalibrationJob(printName: string): boolean {
+  if (!printName) return false;
+  const lower = printName.toLowerCase();
+  return CALIBRATION_NAMES.some(c => lower.includes(c));
+}
+
+// ── Value parsers ────────────────────────────────────────────────────────────
 
 /** Parse a string to number, returning the default for any non-numeric value */
 export function num(val: unknown, def = 0): number {
@@ -63,7 +93,7 @@ export function str(val: unknown, def = ""): string {
   return s;
 }
 
-// ── Event ID builder ──────────────────────────────────────────────────────────
+// ── Event ID builder ─────────────────────────────────────────────────────────
 
 /** Build a stable ha_event_id from the print name + UTC date */
 export function buildEventId(printName: string, printerId: string): string {
@@ -72,7 +102,7 @@ export function buildEventId(printName: string, printerId: string): string {
   return `sync_${printerId.slice(0, 8)}_${date}_${safeName}`.slice(0, 200);
 }
 
-// ── Bambu color hex → human-readable name map (common colors) ────────────────
+// ── Bambu filament naming ────────────────────────────────────────────────────
 
 export const BAMBU_COLOR_NAMES: Record<string, string> = {
   "FFFFFF": "White",
@@ -81,9 +111,7 @@ export const BAMBU_COLOR_NAMES: Record<string, string> = {
   "00FF00": "Green",
   "0000FF": "Blue",
   "FFFF00": "Yellow",
-  "FF6600": "Orange",
-  "FF00FF": "Magenta",
-  "00FFFF": "Cyan",
+  "FF8000": "Orange",
   "808080": "Grey",
   "C0C0C0": "Silver",
   "A0522D": "Brown",
@@ -99,14 +127,26 @@ export const BAMBU_COLOR_NAMES: Record<string, string> = {
 export function bambuColorName(hex: string): string {
   const upper = hex.toUpperCase().slice(0, 6);
   if (BAMBU_COLOR_NAMES[upper]) return BAMBU_COLOR_NAMES[upper];
-  // Fallback: "#{hex}" shorthand
   return `#${upper}`;
 }
 
-// ── Bambu filament name ───────────────────────────────────────────────────────
-
 /** Derive a human-friendly filament name from tray_type + bambu_idx */
-// ── Weight sync from AMS remain ───────────────────────────────────────────────
+export function bambuFilamentName(trayType: string, bambuIdx: string): string {
+  const prefix = bambuIdx.slice(0, 3).toUpperCase();
+  const lineMap: Record<string, string> = {
+    GFA: `${trayType} Basic`,
+    GFB: trayType,
+    GFC: `${trayType} Silk+`,
+    GFG: `${trayType} HF`,
+    GFL: `${trayType}`,
+    GFN: `${trayType} Tough`,
+    GFT: `${trayType} Translucent`,
+    GFX: `${trayType} Support`,
+  };
+  return lineMap[prefix] ?? (trayType || "Filament");
+}
+
+// ── Weight sync from AMS remain ──────────────────────────────────────────────
 
 export interface WeightSyncResult {
   shouldUpdate: boolean;
@@ -116,44 +156,37 @@ export interface WeightSyncResult {
 
 /**
  * Determine if a spool's weight should be updated from AMS remain percentage.
- * Returns shouldUpdate=true with newWeight if an update is warranted.
  */
 export function calculateWeightSync(params: {
-  remain: number;        // AMS remain percentage (0-100, -1 = unknown)
-  initialWeight: number; // spool initial weight in grams
-  currentWeight: number; // spool current remaining weight in grams
-  tagUid: string;        // RFID tag UID (zeros = no RFID)
-  isIdle: boolean;       // printer is idle (not printing)
-  threshold?: number;    // minimum delta as fraction of initialWeight (default 0.05 = 5%)
+  remain: number;
+  initialWeight: number;
+  currentWeight: number;
+  tagUid: string;
+  isIdle: boolean;
+  threshold?: number;
 }): WeightSyncResult {
   const { remain, initialWeight, currentWeight, tagUid, isIdle, threshold = 0.05 } = params;
 
-  // Rule 1: Only when idle
   if (!isIdle) return { shouldUpdate: false, newWeight: null, reason: "printer_active" };
 
-  // Rule 2: Only Bambu spools (non-zero RFID tag)
   if (!tagUid || tagUid === "0000000000000000" || tagUid.length < 8) {
     return { shouldUpdate: false, newWeight: null, reason: "no_rfid" };
   }
 
-  // Rule 3: Only valid remain
   if (remain < 0 || remain > 100) {
     return { shouldUpdate: false, newWeight: null, reason: "invalid_remain" };
   }
 
-  // Calculate weight from percentage
   if (initialWeight <= 0) {
     return { shouldUpdate: false, newWeight: null, reason: "no_initial_weight" };
   }
 
   const calculatedWeight = Math.round(initialWeight * (remain / 100));
 
-  // Rule 5: Never increase weight
   if (calculatedWeight >= currentWeight) {
     return { shouldUpdate: false, newWeight: null, reason: "would_increase" };
   }
 
-  // Rule 4: 5% threshold
   const delta = currentWeight - calculatedWeight;
   const minDelta = initialWeight * threshold;
   if (delta < minDelta) {
@@ -161,23 +194,4 @@ export function calculateWeightSync(params: {
   }
 
   return { shouldUpdate: true, newWeight: calculatedWeight, reason: "synced" };
-}
-
-// ── Bambu filament name ───────────────────────────────────────────────────────
-
-/** Derive a human-friendly filament name from tray_type + bambu_idx */
-export function bambuFilamentName(trayType: string, bambuIdx: string): string {
-  // Known Bambu product line prefixes
-  const prefix = bambuIdx.slice(0, 3).toUpperCase();
-  const lineMap: Record<string, string> = {
-    GFA: `${trayType} Basic`,      // PLA Basic, PETG Basic
-    GFB: trayType,                  // ABS-GF (material IS the line)
-    GFC: `${trayType} Silk+`,
-    GFG: `${trayType} HF`,         // High Flow (PETG HF, etc.)
-    GFL: `${trayType}`,            // Third-party compat codes
-    GFN: `${trayType} Tough`,
-    GFT: `${trayType} Translucent`,
-    GFX: `${trayType} Support`,
-  };
-  return lineMap[prefix] ?? (trayType || "Filament");
 }
