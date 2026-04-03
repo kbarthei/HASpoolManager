@@ -129,6 +129,17 @@ async function autoCreateDraftSpool(
   slotDef: (typeof SLOT_DEFS)[number],
 ): Promise<string | null> {
   try {
+    // Guard: check if a spool (draft or active) is already assigned to this slot
+    // This prevents creating 100+ duplicate drafts on every 60s sync
+    const existingSlot = await db.query.amsSlots.findFirst({
+      where: and(
+        eq(amsSlots.slotType, slotDef.slotType),
+        eq(amsSlots.amsIndex, slotDef.amsIndex),
+        eq(amsSlots.trayIndex, slotDef.trayIndex),
+      ),
+    });
+    if (existingSlot?.spoolId) return existingSlot.spoolId;
+
     // 1. Find or create "Unknown" vendor
     let unknownVendor = await db.query.vendors.findFirst({
       where: eq(vendors.name, "Unknown"),
