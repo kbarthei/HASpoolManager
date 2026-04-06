@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { syncLog } from "@/lib/db/schema";
-import { desc, ne, inArray, sql } from "drizzle-orm";
+import { desc, ne, inArray } from "drizzle-orm";
 import { optionalAuth } from "@/lib/auth";
+import { sqlCount } from "@/lib/db/sql-helpers";
 
 // Active states as defined in the normalizer
 const ACTIVE_STATES = [
@@ -37,7 +38,7 @@ export async function GET(request: NextRequest) {
 
     // Count total matching rows
     const [{ total }] = await db
-      .select({ total: sql<number>`count(*)::int` })
+      .select({ total: sqlCount() })
       .from(syncLog)
       .where(whereClause);
 

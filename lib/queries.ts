@@ -1,6 +1,20 @@
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { eq, desc, sql, and, inArray } from "drizzle-orm";
+import {
+  sqlCount,
+  sqlCountDistinct,
+  sqlCoalesceSum,
+  sqlCoalesceSumProduct,
+  sqlSumProductDesc,
+  sqlRatioBelowHalf,
+  sqlExtractYear,
+  sqlExtractMonth,
+  sqlGroupByYear,
+  sqlGroupByMonth,
+  sqlSixMonthsAgo,
+  sqlNowMinusSixMonths,
+} from "@/lib/db/sql-helpers";
 
 export async function getRackConfig(): Promise<{ rows: number; columns: number }> {
   const [rowsSetting, colsSetting] = await Promise.all([
@@ -21,11 +35,11 @@ export async function getSyncLog(limit = 50) {
 }
 
 export async function getSystemStats() {
-  const [spoolCount] = await db.select({ count: sql<number>`count(*)::int` }).from(schema.spools);
-  const [filamentCount] = await db.select({ count: sql<number>`count(*)::int` }).from(schema.filaments);
-  const [printCount] = await db.select({ count: sql<number>`count(*)::int` }).from(schema.prints);
-  const [vendorCount] = await db.select({ count: sql<number>`count(*)::int` }).from(schema.vendors);
-  const [orderCount] = await db.select({ count: sql<number>`count(*)::int` }).from(schema.orders);
+  const [spoolCount] = await db.select({ count: sqlCount() }).from(schema.spools);
+  const [filamentCount] = await db.select({ count: sqlCount() }).from(schema.filaments);
+  const [printCount] = await db.select({ count: sqlCount() }).from(schema.prints);
+  const [vendorCount] = await db.select({ count: sqlCount() }).from(schema.vendors);
+  const [orderCount] = await db.select({ count: sqlCount() }).from(schema.orders);
 
   return {
     spools: spoolCount.count,
@@ -76,26 +90,26 @@ export async function getOrderWithSpools(orderId: string) {
 }
 
 export async function getDraftSpoolCount(): Promise<number> {
-  const [result] = await db.select({ count: sql<number>`count(*)::int` })
+  const [result] = await db.select({ count: sqlCount() })
     .from(schema.spools).where(eq(schema.spools.status, "draft"));
   return result.count;
 }
 
 export async function getDashboardStats() {
   // Count active spools (excludes drafts)
-  const [spoolCount] = await db.select({ count: sql<number>`count(*)::int` })
+  const [spoolCount] = await db.select({ count: sqlCount() })
     .from(schema.spools).where(eq(schema.spools.status, "active"));
 
   // Sum inventory value
-  const [valueSum] = await db.select({ total: sql<number>`coalesce(sum(purchase_price::numeric), 0)` })
+  const [valueSum] = await db.select({ total: sqlCoalesceSum(schema.spools.purchasePrice) })
     .from(schema.spools).where(eq(schema.spools.status, "active"));
 
   // Count low stock (below 50% remaining)
-  const lowStock = await db.select({ count: sql<number>`count(*)::int` })
+  const lowStock = await db.select({ count: sqlCount() })
     .from(schema.spools)
     .where(and(
       eq(schema.spools.status, "active"),
-      sql`${schema.spools.remainingWeight}::float / ${schema.spools.initialWeight}::float < 0.5`
+      sqlRatioBelowHalf(schema.spools.remainingWeight, schema.spools.initialWeight),
     ));
 
   // This month prints count and cost
@@ -104,12 +118,12 @@ export async function getDashboardStats() {
   startOfMonth.setHours(0, 0, 0, 0);
 
   const [monthStats] = await db.select({
-    count: sql<number>`count(*)::int`,
-    totalCost: sql<number>`coalesce(sum(total_cost::numeric), 0)`,
+    count: sqlCount(),
+    totalCost: sqlCoalesceSum(schema.prints.totalCost),
   }).from(schema.prints).where(sql`${schema.prints.startedAt} >= ${startOfMonth.toISOString()}`);
 
   // Count draft spools needing review
-  const [draftCount] = await db.select({ count: sql<number>`count(*)::int` })
+  const [draftCount] = await db.select({ count: sqlCount() })
     .from(schema.spools).where(eq(schema.spools.status, "draft"));
 
   return {
@@ -400,16 +414,16 @@ export async function getDashboardChartData(): Promise<{
 
   // 1. Monthly spend: sum unit_price * quantity from order_items joined to orders
   const spendRows = await db.select({
-    year: sql<number>`extract(year from ${schema.orders.orderDate})::int`,
-    month: sql<number>`extract(month from ${schema.orders.orderDate})::int`,
-    spend: sql<number>`coalesce(sum(${schema.orderItems.unitPrice}::numeric * ${schema.orderItems.quantity}), 0)::float`,
+    year: sqlExtractYear(schema.orders.orderDate),
+    month: sqlExtractMonth(schema.orders.orderDate),
+    spend: sqlCoalesceSumProduct(schema.orderItems.unitPrice, schema.orderItems.quantity),
   })
     .from(schema.orderItems)
     .innerJoin(schema.orders, eq(schema.orderItems.orderId, schema.orders.id))
-    .where(sql`${schema.orders.orderDate} >= (current_date - interval '6 months')`)
+    .where(sqlSixMonthsAgo(schema.orders.orderDate))
     .groupBy(
-      sql`extract(year from ${schema.orders.orderDate})`,
-      sql`extract(month from ${schema.orders.orderDate})`,
+      sqlGroupByYear(schema.orders.orderDate),
+      sqlGroupByMonth(schema.orders.orderDate),
     );
 
   const spendMap = new Map(spendRows.map(r => [`${r.year}-${r.month}`, r.spend]));
@@ -421,8 +435,8 @@ export async function getDashboardChartData(): Promise<{
   // 2. Inventory by material: active spools grouped by filament.material
   const invRows = await db.select({
     material: schema.filaments.material,
-    count: sql<number>`count(*)::int`,
-    weight: sql<number>`coalesce(sum(${schema.spools.remainingWeight}), 0)::int`,
+    count: sqlCount(),
+    weight: sqlCoalesceSum(schema.spools.remainingWeight),
   })
     .from(schema.spools)
     .innerJoin(schema.filaments, eq(schema.spools.filamentId, schema.filaments.id))
@@ -438,16 +452,16 @@ export async function getDashboardChartData(): Promise<{
 
   // 3. Prints per month: last 6 months, grouped by status bucket
   const printRows = await db.select({
-    year: sql<number>`extract(year from ${schema.prints.startedAt})::int`,
-    month: sql<number>`extract(month from ${schema.prints.startedAt})::int`,
+    year: sqlExtractYear(schema.prints.startedAt),
+    month: sqlExtractMonth(schema.prints.startedAt),
     status: schema.prints.status,
-    count: sql<number>`count(*)::int`,
+    count: sqlCount(),
   })
     .from(schema.prints)
-    .where(sql`${schema.prints.startedAt} >= (now() - interval '6 months')`)
+    .where(sqlNowMinusSixMonths(schema.prints.startedAt))
     .groupBy(
-      sql`extract(year from ${schema.prints.startedAt})`,
-      sql`extract(month from ${schema.prints.startedAt})`,
+      sqlGroupByYear(schema.prints.startedAt),
+      sqlGroupByMonth(schema.prints.startedAt),
       schema.prints.status,
     );
 
@@ -468,15 +482,15 @@ export async function getDashboardChartData(): Promise<{
   // 4. Spend by vendor: sum order_items.unit_price * quantity grouped by vendor, last 6 months
   const vendorSpendRows = await db.select({
     vendor: schema.vendors.name,
-    spend: sql<number>`coalesce(sum(${schema.orderItems.unitPrice}::numeric * ${schema.orderItems.quantity}), 0)::float`,
+    spend: sqlCoalesceSumProduct(schema.orderItems.unitPrice, schema.orderItems.quantity),
   })
     .from(schema.orderItems)
     .innerJoin(schema.filaments, eq(schema.orderItems.filamentId, schema.filaments.id))
     .innerJoin(schema.vendors, eq(schema.filaments.vendorId, schema.vendors.id))
     .innerJoin(schema.orders, eq(schema.orderItems.orderId, schema.orders.id))
-    .where(sql`${schema.orders.orderDate} >= (current_date - interval '6 months')`)
+    .where(sqlSixMonthsAgo(schema.orders.orderDate))
     .groupBy(schema.vendors.name)
-    .orderBy(sql`sum(${schema.orderItems.unitPrice}::numeric * ${schema.orderItems.quantity}) desc`);
+    .orderBy(sqlSumProductDesc(schema.orderItems.unitPrice, schema.orderItems.quantity));
 
   const spendByVendor: SpendByVendor[] = vendorSpendRows.map(r => ({
     vendor: r.vendor,
@@ -485,15 +499,15 @@ export async function getDashboardChartData(): Promise<{
 
   // 5. Filament consumed: monthly grams from print_usage, last 6 months
   const consumedRows = await db.select({
-    year: sql<number>`extract(year from ${schema.printUsage.createdAt})::int`,
-    month: sql<number>`extract(month from ${schema.printUsage.createdAt})::int`,
-    grams: sql<number>`coalesce(sum(${schema.printUsage.weightUsed}), 0)::float`,
+    year: sqlExtractYear(schema.printUsage.createdAt),
+    month: sqlExtractMonth(schema.printUsage.createdAt),
+    grams: sqlCoalesceSum(schema.printUsage.weightUsed),
   })
     .from(schema.printUsage)
-    .where(sql`${schema.printUsage.createdAt} >= (now() - interval '6 months')`)
+    .where(sqlNowMinusSixMonths(schema.printUsage.createdAt))
     .groupBy(
-      sql`extract(year from ${schema.printUsage.createdAt})`,
-      sql`extract(month from ${schema.printUsage.createdAt})`,
+      sqlGroupByYear(schema.printUsage.createdAt),
+      sqlGroupByMonth(schema.printUsage.createdAt),
     );
 
   const consumedMap = new Map(consumedRows.map(r => [`${r.year}-${r.month}`, r.grams]));
@@ -540,8 +554,8 @@ export async function getDashboardChartData(): Promise<{
     material: schema.filaments.material,
     colorHex: schema.filaments.colorHex,
     vendorName: schema.vendors.name,
-    totalUsed: sql<number>`coalesce(sum(${schema.printUsage.weightUsed}), 0)::float`,
-    printCount: sql<number>`count(distinct ${schema.printUsage.printId})::int`,
+    totalUsed: sqlCoalesceSum(schema.printUsage.weightUsed),
+    printCount: sqlCountDistinct(schema.printUsage.printId),
   })
     .from(schema.printUsage)
     .innerJoin(schema.spools, eq(schema.printUsage.spoolId, schema.spools.id))

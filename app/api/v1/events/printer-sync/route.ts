@@ -10,6 +10,7 @@ import {
   classifyGcodeState, isCalibrationJob,
   buildEventId, bambuColorName, bambuFilamentName, calculateWeightSync,
 } from "@/lib/printer-sync-helpers";
+import { sqlCount, sqlNowMinusHours } from "@/lib/db/sql-helpers";
 
 /**
  * POST /api/v1/events/printer-sync
@@ -391,7 +392,7 @@ export async function POST(request: NextRequest) {
       // Use a unique event ID: if a finished print with the same name+date exists,
       // append a counter to make the ID unique.
       let haEventId = buildEventId(printName || "unknown", printer_id);
-      const existingCount = await db.select({ count: sql<number>`count(*)::int` })
+      const existingCount = await db.select({ count: sqlCount() })
         .from(prints)
         .where(sql`${prints.haEventId} LIKE ${haEventId + '%'}`);
       if (existingCount[0].count > 0) {
@@ -702,7 +703,7 @@ export async function POST(request: NextRequest) {
     // Retention: delete sync logs older than 72 hours (run every ~60 syncs ≈ 1 hour)
     if (Math.random() < 0.017) {
       await db.delete(syncLog)
-        .where(lt(syncLog.createdAt, sql`NOW() - INTERVAL '72 hours'`))
+        .where(lt(syncLog.createdAt, sqlNowMinusHours(72)))
         .catch(() => {});
     }
 

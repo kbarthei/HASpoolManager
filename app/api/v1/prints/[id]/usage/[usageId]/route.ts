@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { printUsage, prints } from "@/lib/db/schema";
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { requireAuth } from "@/lib/auth";
+import { sqlCoalesceSumCostAsText } from "@/lib/db/sql-helpers";
 
 /**
  * PATCH /api/v1/prints/[id]/usage/[usageId]
@@ -52,7 +53,7 @@ export async function PATCH(
 
   // Recalculate total cost on the print
   const [{ total }] = await db
-    .select({ total: sql<string>`COALESCE(SUM(cost::numeric), 0)::text` })
+    .select({ total: sqlCoalesceSumCostAsText() })
     .from(printUsage)
     .where(eq(printUsage.printId, printId));
 
