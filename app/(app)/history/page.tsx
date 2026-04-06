@@ -45,13 +45,16 @@ export default async function SpoolHistoryPage() {
 
   for (const u of usageRows) {
     const filament = u.spool?.filament;
+    // Use the print's start date (not the usage record creation date)
+    // so the history shows when the print actually happened
+    const printDate = u.print?.startedAt ? new Date(u.print.startedAt) : new Date(u.createdAt);
     events.push({
       type: "print_usage",
       id: u.id,
-      date: new Date(u.createdAt),
+      date: printDate,
       weightUsed: u.weightUsed,
       filamentName: filament
-        ? `${filament.material} ${filament.colorName ?? ""}`.trim()
+        ? `${filament.name} ${filament.colorName ?? ""}`.trim()
         : "Unknown filament",
       colorHex: filament?.colorHex ?? "888888",
       printName: u.print?.name ?? u.print?.gcodeFile ?? "Unnamed Print",
@@ -65,7 +68,7 @@ export default async function SpoolHistoryPage() {
       id: s.id,
       date: new Date(s.createdAt),
       filamentName: filament
-        ? `${filament.material} ${filament.colorName ?? ""}`.trim()
+        ? `${filament.name} ${filament.colorName ?? ""}`.trim()
         : "Unknown filament",
       colorHex: filament?.colorHex ?? "888888",
     });
