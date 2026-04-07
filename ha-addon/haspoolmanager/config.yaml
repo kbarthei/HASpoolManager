@@ -1,5 +1,5 @@
 name: HASpoolManager
-version: "1.0.0"
+version: "1.0.14"
 slug: haspoolmanager
 description: "3D Printing Filament Lifecycle Manager"
 url: "https://github.com/kbarthei/HASpoolManager"
@@ -10,14 +10,15 @@ startup: application
 init: false
 ingress: true
 ingress_port: 3000
-ingress_entry: /
 panel_icon: "mdi:printer-3d"
 panel_title: "Spool Manager"
 map:
-  - addon_config:rw
+  - config:rw
 options:
   log_level: info
   anthropic_api_key: ""
+  api_key: ""
 schema:
   log_level: "list(debug|info|warning|error)"
   anthropic_api_key: "str?"
+  api_key: "str?"

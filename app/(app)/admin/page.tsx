@@ -87,7 +87,10 @@ export default async function AdminPage() {
   // ── Config details ────────────────────────────────────────────────────────
   const configDetails = {
     ha: {
-      syncUrl: "https://haspoolmanager.vercel.app/api/v1/events/printer-sync",
+      syncUrl:
+        process.env.HA_ADDON === "true"
+          ? "http://local-haspoolmanager:3000/api/v1/events/printer-sync"
+          : "https://haspoolmanager.vercel.app/api/v1/events/printer-sync",
       syncInterval: "60 seconds",
       authMethod: "Bearer token",
       apiSecretKey: maskSecret(process.env.API_SECRET_KEY),
