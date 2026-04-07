@@ -22,6 +22,47 @@ function createDb() {
     sqlite.pragma("foreign_keys = ON");
     sqlite.pragma("busy_timeout = 5000");
 
+    // Register gen_random_uuid() so Postgres-schema defaults work on SQLite.
+    sqlite.function("gen_random_uuid", () => crypto.randomUUID());
+    // Register now() as alias for datetime('now') (Postgres compat).
+    sqlite.function("now", () => new Date().toISOString());
+
+    // Boolean coercion: app code uses the Postgres schema (`schema.ts`) which
+    // declares boolean columns. Drizzle passes raw `true`/`false` to the SQLite
+    // driver, which rejects booleans. Wrap `prepare()` so every bound statement
+    // coerces bool → 0/1 (and Date → ISO) before passing to better-sqlite3.
+    const origPrepare = sqlite.prepare.bind(sqlite);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const coerce = (v: any): any => {
+      if (v === true) return 1;
+      if (v === false) return 0;
+      if (v instanceof Date) return v.toISOString();
+      return v;
+    };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    sqlite.prepare = (source: string): any => {
+      const stmt = origPrepare(source);
+      for (const method of ["run", "get", "all", "values", "iterate"] as const) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const orig = (stmt as any)[method]?.bind(stmt);
+        if (!orig) continue;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (stmt as any)[method] = (...args: any[]) => {
+          const mapped = args.map((a) => {
+            if (a && typeof a === "object" && !Array.isArray(a) && !(a instanceof Date)) {
+              // Named params object
+              const out: Record<string, unknown> = {};
+              for (const k of Object.keys(a)) out[k] = coerce((a as Record<string, unknown>)[k]);
+              return out;
+            }
+            return coerce(a);
+          });
+          return orig(...mapped);
+        };
+      }
+      return stmt;
+    };
+
     return drizzle(sqlite, { schema: schemaSqlite });
   }
 

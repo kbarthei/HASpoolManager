@@ -5,6 +5,7 @@ import { formatDateTime, formatDate } from "@/lib/date";
 import { db } from "@/lib/db";
 import { prints, spools, printers as printersTable, syncLog } from "@/lib/db/schema";
 import { eq, sql, ne, desc } from "drizzle-orm";
+import { sqlCount } from "@/lib/db/sql-helpers";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ClearStaleButton } from "./clear-stale-button";
@@ -114,7 +115,7 @@ export default async function AdminPage() {
   };
 
   const [runningCount] = await db
-    .select({ count: sql<number>`count(*)::int` })
+    .select({ count: sqlCount() })
     .from(prints)
     .where(eq(prints.status, "running"));
 
