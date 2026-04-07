@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { getAllPrints, getPrinterStatus } from "@/lib/queries";
 import { SpoolMaterialBadge } from "@/components/spool/spool-material-badge";
 import { Card } from "@/components/ui/card";

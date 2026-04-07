@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { or, like, eq } from "drizzle-orm";

@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { getDashboardStats, getAmsSlots, getLowStockSpools, getRecentPrints, getPrinterStatus, getFilamentSummary, getDashboardChartData } from "@/lib/queries";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { AmsMiniView } from "@/components/dashboard/ams-mini-view";

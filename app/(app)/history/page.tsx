@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { getAllPrintUsage, getAllSpools } from "@/lib/queries";
 import { SpoolColorDot } from "@/components/spool/spool-color-dot";
 import { Printer, Package } from "lucide-react";
