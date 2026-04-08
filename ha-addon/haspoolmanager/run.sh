@@ -19,7 +19,6 @@ fi
 mkdir -p /config /run/nginx
 
 export SQLITE_PATH=/config/haspoolmanager.db
-export DATABASE_PROVIDER=sqlite
 export HA_ADDON=true
 export HOSTNAME=127.0.0.1
 export PORT=3001

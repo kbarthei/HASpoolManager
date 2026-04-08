@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { printUsage, prints } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { requireAuth } from "@/lib/auth";
-import { sqlCoalesceSumCostAsText } from "@/lib/db/sql-helpers";
+import { sqlCoalesceSumCost } from "@/lib/db/sql-helpers";
 
 /**
  * PATCH /api/v1/prints/[id]/usage/[usageId]
@@ -43,8 +43,8 @@ export async function PATCH(
   });
 
   if (usage?.spool?.purchasePrice && usage.spool.initialWeight > 0) {
-    const pricePerGram = Number(usage.spool.purchasePrice) / usage.spool.initialWeight;
-    const cost = (pricePerGram * weightUsed).toFixed(2);
+    const pricePerGram = usage.spool.purchasePrice / usage.spool.initialWeight;
+    const cost = Math.round(pricePerGram * weightUsed * 100) / 100;
     await db.update(printUsage).set({ cost }).where(eq(printUsage.id, usageId));
   } else {
     // Clear cost if spool has no price info
@@ -53,7 +53,7 @@ export async function PATCH(
 
   // Recalculate total cost on the print
   const [{ total }] = await db
-    .select({ total: sqlCoalesceSumCostAsText() })
+    .select({ total: sqlCoalesceSumCost() })
     .from(printUsage)
     .where(eq(printUsage.printId, printId));
 

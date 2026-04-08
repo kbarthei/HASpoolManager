@@ -179,7 +179,7 @@ export async function createOrderFromParsed(data: {
       orderNumber: data.orderNumber,
       orderDate: data.orderDate ?? new Date().toISOString().slice(0, 10),
       status: "ordered",
-      totalCost: totalCost > 0 ? String(totalCost) : null,
+      totalCost: totalCost > 0 ? totalCost : null,
       currency: data.items[0]?.currency || "EUR",
     })
     .returning();
@@ -237,8 +237,8 @@ export async function createOrderFromParsed(data: {
       if (existingListing) {
         await db.update(shopListings).set({
           productUrl: item.url,
-          currentPrice: item.price ? String(item.price) : existingListing.currentPrice,
-          pricePerSpool: item.price ? String(item.price) : existingListing.pricePerSpool,
+          currentPrice: item.price ?? existingListing.currentPrice,
+          pricePerSpool: item.price ?? existingListing.pricePerSpool,
           lastCheckedAt: new Date(),
         }).where(eq(shopListings.id, existingListing.id));
       } else {
@@ -246,8 +246,8 @@ export async function createOrderFromParsed(data: {
           shopId,
           filamentId,
           productUrl: item.url,
-          currentPrice: item.price ? String(item.price) : null,
-          pricePerSpool: item.price ? String(item.price) : null,
+          currentPrice: item.price ?? null,
+          pricePerSpool: item.price ?? null,
           currency: item.currency || "EUR",
           lastCheckedAt: new Date(),
         });
@@ -260,7 +260,7 @@ export async function createOrderFromParsed(data: {
         filamentId,
         initialWeight: item.weight || 1000,
         remainingWeight: item.weight || 1000,
-        purchasePrice: item.price ? String(item.price) : null,
+        purchasePrice: item.price ?? null,
         currency: item.currency || "EUR",
         purchaseDate: data.orderDate ?? new Date().toISOString().slice(0, 10),
         location: "ordered",
@@ -271,7 +271,7 @@ export async function createOrderFromParsed(data: {
         orderId: order.id,
         filamentId,
         quantity: 1,
-        unitPrice: item.price ? String(item.price) : null,
+        unitPrice: item.price ?? null,
         spoolId: newSpool.id,
       });
     }
@@ -437,7 +437,7 @@ export async function confirmDraftSpool(
     material?: string;
     colorHex?: string;
     colorName?: string;
-    purchasePrice?: string;
+    purchasePrice?: number;
     initialWeight?: number;
   }
 ) {
@@ -633,7 +633,7 @@ export async function importHistoricalOrder(data: {
       orderDate: data.orderedAt,
       status: "delivered",
       actualDelivery: data.orderedAt,
-      totalCost: totalCost > 0 ? String(totalCost) : null,
+      totalCost: totalCost > 0 ? totalCost : null,
       currency: "EUR",
     })
     .returning();
@@ -646,14 +646,14 @@ export async function importHistoricalOrder(data: {
         orderId: order.id,
         filamentId: item.filamentId,
         quantity: item.quantity,
-        unitPrice: item.unitPrice > 0 ? String(item.unitPrice) : null,
+        unitPrice: item.unitPrice > 0 ? item.unitPrice : null,
         spoolId: item.spoolIds[0] ?? null,
       });
 
       if (item.spoolIds[0]) {
         await db.update(spools)
           .set({
-            purchasePrice: item.unitPrice > 0 ? String(item.unitPrice) : null,
+            purchasePrice: item.unitPrice > 0 ? item.unitPrice : null,
             purchaseDate: data.orderedAt,
             updatedAt: new Date(),
           })
@@ -666,13 +666,13 @@ export async function importHistoricalOrder(data: {
           orderId: order.id,
           filamentId: item.filamentId,
           quantity: 1,
-          unitPrice: item.unitPrice > 0 ? String(item.unitPrice) : null,
+          unitPrice: item.unitPrice > 0 ? item.unitPrice : null,
           spoolId,
         });
 
         await db.update(spools)
           .set({
-            purchasePrice: item.unitPrice > 0 ? String(item.unitPrice) : null,
+            purchasePrice: item.unitPrice > 0 ? item.unitPrice : null,
             purchaseDate: data.orderedAt,
             updatedAt: new Date(),
           })
@@ -732,7 +732,7 @@ export async function importBatchOrders(batchOrders: Array<{
         orderDate: order.orderedAt,
         status: "delivered",
         actualDelivery: order.orderedAt,
-        totalCost: totalCost > 0 ? String(totalCost) : null,
+        totalCost: totalCost > 0 ? totalCost : null,
         currency: "EUR",
       })
       .returning();
@@ -747,14 +747,14 @@ export async function importBatchOrders(batchOrders: Array<{
           orderId: createdOrder.id,
           filamentId: item.filamentId,
           quantity: item.quantity,
-          unitPrice: item.unitPrice > 0 ? String(item.unitPrice) : null,
+          unitPrice: item.unitPrice > 0 ? item.unitPrice : null,
           spoolId: item.spoolIds[0] ?? null,
         });
 
         if (item.spoolIds[0]) {
           await db.update(spools)
             .set({
-              purchasePrice: item.unitPrice > 0 ? String(item.unitPrice) : null,
+              purchasePrice: item.unitPrice > 0 ? item.unitPrice : null,
               purchaseDate: order.orderedAt,
               updatedAt: new Date(),
             })
@@ -768,13 +768,13 @@ export async function importBatchOrders(batchOrders: Array<{
             orderId: createdOrder.id,
             filamentId: item.filamentId,
             quantity: 1,
-            unitPrice: item.unitPrice > 0 ? String(item.unitPrice) : null,
+            unitPrice: item.unitPrice > 0 ? item.unitPrice : null,
             spoolId,
           });
 
           await db.update(spools)
             .set({
-              purchasePrice: item.unitPrice > 0 ? String(item.unitPrice) : null,
+              purchasePrice: item.unitPrice > 0 ? item.unitPrice : null,
               purchaseDate: order.orderedAt,
               updatedAt: new Date(),
             })

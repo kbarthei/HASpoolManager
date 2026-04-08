@@ -294,8 +294,8 @@ export async function getFilamentPriceHistory(filamentId: string) {
   });
 
   const prices = [
-    ...spoolPrices.map(s => ({ price: parseFloat(s.purchasePrice!), date: s.purchaseDate })),
-    ...orderItemPrices.map(oi => ({ price: parseFloat(oi.unitPrice!), date: oi.order.orderDate })),
+    ...spoolPrices.map(s => ({ price: s.purchasePrice ?? 0, date: s.purchaseDate })),
+    ...orderItemPrices.map(oi => ({ price: oi.unitPrice ?? 0, date: oi.order.orderDate })),
   ].filter(p => p.price > 0);
 
   if (prices.length === 0) return { lastPrice: null, avgPrice: null, minPrice: null, maxPrice: null, count: 0 };
@@ -326,7 +326,7 @@ export async function getShoppingListWithPrices() {
         priceHistory,
         shopUrl: listing?.productUrl || null,
         shopName: listing?.shop?.name || null,
-        currentShopPrice: listing?.currentPrice ? parseFloat(listing.currentPrice) : null,
+        currentShopPrice: listing?.currentPrice ?? null,
         shopCurrency: listing?.currency || "EUR",
       };
     })

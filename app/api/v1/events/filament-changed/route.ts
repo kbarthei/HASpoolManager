@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
 
       if (spool) {
         const pricePerGram = spool.purchasePrice
-          ? parseFloat(spool.purchasePrice) / spool.initialWeight
+          ? spool.purchasePrice / spool.initialWeight
           : 0;
         const cost = Math.round(body.old_spool.weight_used * pricePerGram * 100) / 100;
 
@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
           printId: print.id,
           spoolId: spool.id,
           weightUsed: body.old_spool.weight_used,
-          cost: String(cost),
+          cost,
         });
 
         // Deduct weight

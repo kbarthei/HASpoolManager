@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
         filamentId: body.filamentId,
         lotNumber: body.lotNumber,
         purchaseDate: body.purchaseDate,
-        purchasePrice: body.purchasePrice != null ? String(body.purchasePrice) : undefined,
+        purchasePrice: body.purchasePrice ?? undefined,
         currency: body.currency,
         initialWeight: body.initialWeight,
         remainingWeight: body.remainingWeight ?? body.initialWeight,

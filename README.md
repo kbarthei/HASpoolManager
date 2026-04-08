@@ -3,11 +3,9 @@
 > 3D Printing Filament Lifecycle Manager — from purchase to print, every gram tracked.
 
 [![Build](https://github.com/kbarthei/HASpoolManager/actions/workflows/ci.yml/badge.svg)](https://github.com/kbarthei/HASpoolManager/actions)
-[![Tests](https://img.shields.io/badge/tests-154%20passing-brightgreen)](#testing)
-[![Vercel](https://img.shields.io/badge/deployed-Vercel-black?logo=vercel)](https://haspoolmanager.vercel.app)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-**[Live Demo](https://haspoolmanager.vercel.app)** · Bambu Lab H2S · AMS + AMS HT · Home Assistant
+Home Assistant addon · Bambu Lab H2S · AMS + AMS HT · SQLite · Next.js 16
 
 ---
 

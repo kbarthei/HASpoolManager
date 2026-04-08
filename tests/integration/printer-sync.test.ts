@@ -240,7 +240,7 @@ describe.skipIf(!process.env.DATABASE_URL)("printer-sync integration", () => {
       toClean.vendors.push(vendorId);
       const filamentId = await makeFilament(vendorId, { name: `TestFil_B3_${Date.now()}`, material: "PLA", colorHex: "FF0000" });
       toClean.filaments.push(filamentId);
-      const spoolId = await makeSpool(filamentId, { remainingWeight: 800, initialWeight: 1000, purchasePrice: "20.00" });
+      const spoolId = await makeSpool(filamentId, { remainingWeight: 800, initialWeight: 1000, purchasePrice: 20 });
       toClean.spools.push(spoolId);
       const tagUid = `TESTB3${Date.now().toString(16).toUpperCase()}`.slice(0, 16);
       const tagMappingRecord = await makeTagMapping(spoolId, tagUid);
@@ -566,7 +566,7 @@ describe.skipIf(!process.env.DATABASE_URL)("printer-sync integration", () => {
       trackingSpoolId = await makeSpool(trackingFilamentId, {
         remainingWeight: 900,
         initialWeight: 1000,
-        purchasePrice: "25.00",
+        purchasePrice: 25,
       });
       toClean.spools.push(trackingSpoolId);
       trackingTagUid = `TRACKF${Date.now().toString(16).toUpperCase()}`.slice(0, 16);
@@ -714,7 +714,7 @@ describe.skipIf(!process.env.DATABASE_URL)("printer-sync integration", () => {
       weightSyncSpoolId = await makeSpool(weightSyncFilamentId, {
         remainingWeight: 1000,
         initialWeight: 1000,
-        purchasePrice: "20.00",
+        purchasePrice: 20,
       });
       const tagMappingId = await makeTagMapping(weightSyncSpoolId, weightSyncTagUid);
       toClean.tagMappings.push(tagMappingId);

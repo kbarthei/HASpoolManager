@@ -44,7 +44,6 @@ const config = process.env.NEXT_PUBLIC_SENTRY_DSN
       silent: true,
       widenClientFileUpload: true,
       disableLogger: true,
-      automaticVercelMonitors: true,
     })
   : nextConfig;
 

@@ -14,9 +14,9 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Vendor and generated files
     "node_modules/**",
-    ".vercel/**",
     "scripts/**",
     "tests/integration/**",
+    "ha-addon/haspoolmanager/app/**",
   ]),
 ]);
 

@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
         const previousWeight = spool.remainingWeight;
         const newWeight = Math.max(0, previousWeight - Math.round(entry.weight_used));
         const pricePerGram = spool.purchasePrice
-          ? parseFloat(spool.purchasePrice) / spool.initialWeight
+          ? spool.purchasePrice / spool.initialWeight
           : 0;
         const cost = Math.round(entry.weight_used * pricePerGram * 100) / 100;
         totalCost += cost;
@@ -120,7 +120,7 @@ export async function POST(request: NextRequest) {
           spoolId: spool.id,
           weightUsed: entry.weight_used,
           lengthUsed: entry.length_used || null,
-          cost: String(cost),
+          cost,
         });
 
         deductions.push({
@@ -140,7 +140,7 @@ export async function POST(request: NextRequest) {
         finishedAt,
         durationSeconds,
         printWeight: body.print_weight || null,
-        totalCost: String(totalCost),
+        totalCost,
         updatedAt: new Date(),
       })
       .where(eq(prints.id, print.id));

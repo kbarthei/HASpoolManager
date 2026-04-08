@@ -33,8 +33,8 @@ export async function POST(request: NextRequest) {
 
       if (result.price !== null) {
         await db.update(shopListings).set({
-          currentPrice: String(result.price),
-          pricePerSpool: String(result.price / listing.packSize),
+          currentPrice: result.price,
+          pricePerSpool: result.price / listing.packSize,
           currency: result.currency,
           inStock: result.inStock,
           lastCheckedAt: new Date(),

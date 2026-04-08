@@ -60,7 +60,7 @@ export async function makeSpool(
     remainingWeight?: number;
     initialWeight?: number;
     status?: string;
-    purchasePrice?: string;
+    purchasePrice?: number;
   } = {}
 ): Promise<string> {
   const [row] = await db

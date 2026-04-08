@@ -88,7 +88,7 @@ export function IdentifySpoolDialog({ spool, filaments }: IdentifySpoolDialogPro
           await confirmDraftSpool(spool.id, {
             filamentId: selectedFilamentId,
             initialWeight: weight,
-            purchasePrice: purchasePrice || undefined,
+            purchasePrice: purchasePrice ? Number(purchasePrice) : undefined,
           });
         } else {
           if (!filamentName.trim() || !material.trim()) {
@@ -102,7 +102,7 @@ export function IdentifySpoolDialog({ spool, filaments }: IdentifySpoolDialogPro
             colorHex: colorHex.replace("#", ""),
             colorName: colorName.trim() || undefined,
             initialWeight: weight,
-            purchasePrice: purchasePrice || undefined,
+            purchasePrice: purchasePrice ? Number(purchasePrice) : undefined,
           });
         }
         toast.success("Spool identified and activated");

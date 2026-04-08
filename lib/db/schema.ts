@@ -1,35 +1,42 @@
 import { relations } from "drizzle-orm";
 import {
-  pgTable,
-  uuid,
+  sqliteTable,
   text,
-  varchar,
   integer,
   real,
-  numeric,
-  boolean,
-  timestamp,
-  date,
-  jsonb,
-  bigint,
   uniqueIndex,
   index,
-  check,
-} from "drizzle-orm/pg-core";
+  customType,
+} from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
+
+// Timestamp column: stored as ISO-8601 text on disk (so the existing
+// production DB stays compatible), but typed as `Date` in JS land so
+// callers can pass `new Date()` directly without manual stringification.
+const tsCol = customType<{ data: Date; driverData: string }>({
+  dataType() {
+    return "text";
+  },
+  toDriver(value: Date): string {
+    return value instanceof Date ? value.toISOString() : value;
+  },
+  fromDriver(value: string): Date {
+    return new Date(value);
+  },
+});
 
 // ─── Vendors ────────────────────────────────────────────────────────────────
 
-export const vendors = pgTable("vendors", {
-  id: uuid("id").defaultRandom().primaryKey(),
+export const vendors = sqliteTable("vendors", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   name: text("name").notNull().unique(),
   website: text("website"),
   country: text("country"),
   logoUrl: text("logo_url"),
   bambuPrefix: text("bambu_prefix"),
   notes: text("notes"),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  createdAt: tsCol("created_at").notNull().default(sql`(datetime('now'))`),
+  updatedAt: tsCol("updated_at").notNull().default(sql`(datetime('now'))`),
 });
 
 export const vendorsRelations = relations(vendors, ({ many }) => ({
@@ -39,11 +46,11 @@ export const vendorsRelations = relations(vendors, ({ many }) => ({
 
 // ─── Filaments ──────────────────────────────────────────────────────────────
 
-export const filaments = pgTable(
+export const filaments = sqliteTable(
   "filaments",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    vendorId: uuid("vendor_id")
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    vendorId: text("vendor_id")
       .notNull()
       .references(() => vendors.id, { onDelete: "restrict" }),
     name: text("name").notNull(),
@@ -51,7 +58,7 @@ export const filaments = pgTable(
     diameter: real("diameter").notNull().default(1.75),
     density: real("density"),
     colorName: text("color_name"),
-    colorHex: varchar("color_hex", { length: 6 }),
+    colorHex: text("color_hex"),
     nozzleTempDefault: integer("nozzle_temp_default"),
     nozzleTempMin: integer("nozzle_temp_min"),
     nozzleTempMax: integer("nozzle_temp_max"),
@@ -62,8 +69,8 @@ export const filaments = pgTable(
     bambuIdx: text("bambu_idx"),
     externalId: text("external_id"),
     notes: text("notes"),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+    createdAt: tsCol("created_at").notNull().default(sql`(datetime('now'))`),
+    updatedAt: tsCol("updated_at").notNull().default(sql`(datetime('now'))`),
   },
   (table) => [
     uniqueIndex("uq_filaments_vendor_name_color").on(
@@ -90,8 +97,8 @@ export const filamentsRelations = relations(filaments, ({ one, many }) => ({
 
 // ─── Printers ───────────────────────────────────────────────────────────────
 
-export const printers = pgTable("printers", {
-  id: uuid("id").defaultRandom().primaryKey(),
+export const printers = sqliteTable("printers", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   name: text("name").notNull(),
   model: text("model").notNull(),
   serial: text("serial").unique(),
@@ -99,9 +106,9 @@ export const printers = pgTable("printers", {
   haDeviceId: text("ha_device_id"),
   ipAddress: text("ip_address"),
   amsCount: integer("ams_count").notNull().default(0),
-  isActive: boolean("is_active").notNull().default(true),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+  createdAt: tsCol("created_at").notNull().default(sql`(datetime('now'))`),
+  updatedAt: tsCol("updated_at").notNull().default(sql`(datetime('now'))`),
 });
 
 export const printersRelations = relations(printers, ({ many }) => ({
@@ -112,33 +119,33 @@ export const printersRelations = relations(printers, ({ many }) => ({
 
 // ─── Spools ─────────────────────────────────────────────────────────────────
 
-export const spools = pgTable(
+export const spools = sqliteTable(
   "spools",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    filamentId: uuid("filament_id")
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    filamentId: text("filament_id")
       .notNull()
       .references(() => filaments.id, { onDelete: "restrict" }),
     lotNumber: text("lot_number"),
-    purchaseDate: date("purchase_date"),
-    purchasePrice: numeric("purchase_price", { precision: 8, scale: 2 }),
+    purchaseDate: text("purchase_date"),
+    purchasePrice: real("purchase_price"),
     currency: text("currency").default("EUR"),
     initialWeight: integer("initial_weight").notNull().default(1000),
     remainingWeight: integer("remaining_weight").notNull().default(1000),
     location: text("location").default("storage"),
     status: text("status").notNull().default("active"),
-    firstUsedAt: timestamp("first_used_at", { withTimezone: true }),
-    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+    firstUsedAt: tsCol("first_used_at"),
+    lastUsedAt: tsCol("last_used_at"),
     notes: text("notes"),
     externalId: text("external_id"),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+    createdAt: tsCol("created_at").notNull().default(sql`(datetime('now'))`),
+    updatedAt: tsCol("updated_at").notNull().default(sql`(datetime('now'))`),
   },
   (table) => [
     index("idx_spools_filament").on(table.filamentId),
     index("idx_spools_status").on(table.status),
     index("idx_spools_location").on(table.location),
-    check("chk_spools_status", sql`${table.status} IN ('active','archived','empty','returned','draft')`),
+    // chk_spools_status: enforce in app code ('active','archived','empty','returned','draft')
   ]
 );
 
@@ -155,20 +162,20 @@ export const spoolsRelations = relations(spools, ({ one, many }) => ({
 
 // ─── Tag Mappings ───────────────────────────────────────────────────────────
 
-export const tagMappings = pgTable(
+export const tagMappings = sqliteTable(
   "tag_mappings",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
     tagUid: text("tag_uid").notNull().unique(),
-    spoolId: uuid("spool_id")
+    spoolId: text("spool_id")
       .notNull()
       .references(() => spools.id, { onDelete: "cascade" }),
     source: text("source").default("bambu"),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    createdAt: tsCol("created_at").notNull().default(sql`(datetime('now'))`),
   },
   (table) => [
     index("idx_tag_mappings_tag").on(table.tagUid),
-    check("chk_tag_source", sql`${table.source} IN ('bambu','nfc','manual')`),
+    // chk_tag_source: enforce in app code ('bambu','nfc','manual')
   ]
 );
 
@@ -181,17 +188,17 @@ export const tagMappingsRelations = relations(tagMappings, ({ one }) => ({
 
 // ─── AMS Slots ──────────────────────────────────────────────────────────────
 
-export const amsSlots = pgTable(
+export const amsSlots = sqliteTable(
   "ams_slots",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    printerId: uuid("printer_id")
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    printerId: text("printer_id")
       .notNull()
       .references(() => printers.id, { onDelete: "cascade" }),
     slotType: text("slot_type").notNull().default("ams"),
     amsIndex: integer("ams_index").notNull(),
     trayIndex: integer("tray_index").notNull(),
-    spoolId: uuid("spool_id").references(() => spools.id, {
+    spoolId: text("spool_id").references(() => spools.id, {
       onDelete: "set null",
     }),
     bambuTrayIdx: text("bambu_tray_idx"),
@@ -199,12 +206,12 @@ export const amsSlots = pgTable(
     bambuType: text("bambu_type"),
     bambuTagUid: text("bambu_tag_uid"),
     bambuRemain: integer("bambu_remain").default(-1),
-    isEmpty: boolean("is_empty").notNull().default(true),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+    isEmpty: integer("is_empty", { mode: "boolean" }).notNull().default(true),
+    updatedAt: tsCol("updated_at").notNull().default(sql`(datetime('now'))`),
   },
   (table) => [
     uniqueIndex("uq_ams_slot").on(table.printerId, table.slotType, table.amsIndex, table.trayIndex),
-    check("chk_slot_type", sql`${table.slotType} IN ('ams','ams_ht','external')`),
+    // chk_slot_type: enforce in app code ('ams','ams_ht','external')
   ]
 );
 
@@ -221,36 +228,36 @@ export const amsSlotsRelations = relations(amsSlots, ({ one }) => ({
 
 // ─── Prints ─────────────────────────────────────────────────────────────────
 
-export const prints = pgTable(
+export const prints = sqliteTable(
   "prints",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    printerId: uuid("printer_id")
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    printerId: text("printer_id")
       .notNull()
       .references(() => printers.id, { onDelete: "cascade" }),
     name: text("name"),
     gcodeFile: text("gcode_file"),
     status: text("status").notNull().default("running"),
-    startedAt: timestamp("started_at", { withTimezone: true }),
-    finishedAt: timestamp("finished_at", { withTimezone: true }),
+    startedAt: tsCol("started_at"),
+    finishedAt: tsCol("finished_at"),
     durationSeconds: integer("duration_seconds"),
     totalLayers: integer("total_layers"),
     printWeight: real("print_weight"),
     printLength: real("print_length"),
-    totalCost: numeric("total_cost", { precision: 8, scale: 2 }),
-    activeSpoolId: uuid("active_spool_id").references(() => spools.id),
+    totalCost: real("total_cost"),
+    activeSpoolId: text("active_spool_id").references(() => spools.id),
     activeSpoolIds: text("active_spool_ids"), // JSON array of all spool IDs seen during print
     remainSnapshot: text("remain_snapshot"), // JSON: {"slot_1": 80, "slot_2": 100, ...} — captured at print start
     haEventId: text("ha_event_id"),
     notes: text("notes"),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+    createdAt: tsCol("created_at").notNull().default(sql`(datetime('now'))`),
+    updatedAt: tsCol("updated_at").notNull().default(sql`(datetime('now'))`),
   },
   (table) => [
     index("idx_prints_printer").on(table.printerId),
     index("idx_prints_status").on(table.status),
     index("idx_prints_started").on(table.startedAt),
-    check("chk_prints_status", sql`${table.status} IN ('running','finished','failed','cancelled')`),
+    // chk_prints_status: enforce in app code ('running','finished','failed','cancelled')
   ]
 );
 
@@ -264,21 +271,21 @@ export const printsRelations = relations(prints, ({ one, many }) => ({
 
 // ─── Print Usage ────────────────────────────────────────────────────────────
 
-export const printUsage = pgTable(
+export const printUsage = sqliteTable(
   "print_usage",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    printId: uuid("print_id")
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    printId: text("print_id")
       .notNull()
       .references(() => prints.id, { onDelete: "cascade" }),
-    spoolId: uuid("spool_id")
+    spoolId: text("spool_id")
       .notNull()
       .references(() => spools.id, { onDelete: "restrict" }),
-    amsSlotId: uuid("ams_slot_id").references(() => amsSlots.id),
+    amsSlotId: text("ams_slot_id").references(() => amsSlots.id),
     weightUsed: real("weight_used").notNull(),
     lengthUsed: real("length_used"),
-    cost: numeric("cost", { precision: 8, scale: 2 }),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    cost: real("cost"),
+    createdAt: tsCol("created_at").notNull().default(sql`(datetime('now'))`),
   },
   (table) => [
     index("idx_print_usage_print").on(table.printId),
@@ -303,23 +310,23 @@ export const printUsageRelations = relations(printUsage, ({ one }) => ({
 
 // ─── Orders ─────────────────────────────────────────────────────────────────
 
-export const orders = pgTable("orders", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  vendorId: uuid("vendor_id").references(() => vendors.id),
-  shopId: uuid("shop_id").references(() => shops.id, { onDelete: "set null" }),
-  autoSupplyLogId: uuid("auto_supply_log_id"),
+export const orders = sqliteTable("orders", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  vendorId: text("vendor_id").references(() => vendors.id),
+  shopId: text("shop_id").references(() => shops.id, { onDelete: "set null" }),
+  autoSupplyLogId: text("auto_supply_log_id"),
   orderNumber: text("order_number"),
-  orderDate: date("order_date").notNull().defaultNow(),
-  expectedDelivery: date("expected_delivery"),
-  actualDelivery: date("actual_delivery"),
+  orderDate: text("order_date").notNull().default(sql`(date('now'))`),
+  expectedDelivery: text("expected_delivery"),
+  actualDelivery: text("actual_delivery"),
   status: text("status").notNull().default("ordered"),
-  shippingCost: numeric("shipping_cost", { precision: 8, scale: 2 }).default("0"),
-  totalCost: numeric("total_cost", { precision: 8, scale: 2 }),
+  shippingCost: real("shipping_cost").default(0),
+  totalCost: real("total_cost"),
   currency: text("currency").default("EUR"),
   sourceUrl: text("source_url"),
   notes: text("notes"),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  createdAt: tsCol("created_at").notNull().default(sql`(datetime('now'))`),
+  updatedAt: tsCol("updated_at").notNull().default(sql`(datetime('now'))`),
 });
 
 export const ordersRelations = relations(orders, ({ one, many }) => ({
@@ -336,18 +343,18 @@ export const ordersRelations = relations(orders, ({ one, many }) => ({
 
 // ─── Order Items ────────────────────────────────────────────────────────────
 
-export const orderItems = pgTable("order_items", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  orderId: uuid("order_id")
+export const orderItems = sqliteTable("order_items", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  orderId: text("order_id")
     .notNull()
     .references(() => orders.id, { onDelete: "cascade" }),
-  filamentId: uuid("filament_id")
+  filamentId: text("filament_id")
     .notNull()
     .references(() => filaments.id, { onDelete: "restrict" }),
-  spoolId: uuid("spool_id").references(() => spools.id),
+  spoolId: text("spool_id").references(() => spools.id),
   quantity: integer("quantity").notNull().default(1),
-  unitPrice: numeric("unit_price", { precision: 8, scale: 2 }),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  unitPrice: real("unit_price"),
+  createdAt: tsCol("created_at").notNull().default(sql`(datetime('now'))`),
 });
 
 export const orderItemsRelations = relations(orderItems, ({ one }) => ({
@@ -367,29 +374,29 @@ export const orderItemsRelations = relations(orderItems, ({ one }) => ({
 
 // ─── API Keys ───────────────────────────────────────────────────────────────
 
-export const apiKeys = pgTable("api_keys", {
-  id: uuid("id").defaultRandom().primaryKey(),
+export const apiKeys = sqliteTable("api_keys", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   name: text("name").notNull(),
   keyHash: text("key_hash").notNull(),
   keyPrefix: text("key_prefix").notNull(),
-  permissions: text("permissions").array().default([]),
-  isActive: boolean("is_active").notNull().default(true),
-  lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  permissions: text("permissions", { mode: "json" }).$type<string[]>().default([]),
+  isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+  lastUsedAt: tsCol("last_used_at"),
+  createdAt: tsCol("created_at").notNull().default(sql`(datetime('now'))`),
 });
 
 // ─── Reorder Rules ──────────────────────────────────────────────────────────
 
-export const reorderRules = pgTable("reorder_rules", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  filamentId: uuid("filament_id")
+export const reorderRules = sqliteTable("reorder_rules", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  filamentId: text("filament_id")
     .notNull()
     .references(() => filaments.id, { onDelete: "cascade" }),
   minSpools: integer("min_spools").notNull().default(1),
   minWeight: integer("min_weight").notNull().default(200),
-  autoNotify: boolean("auto_notify").default(true),
-  autoOrder: boolean("auto_order").default(false),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  autoNotify: integer("auto_notify", { mode: "boolean" }).default(true),
+  autoOrder: integer("auto_order", { mode: "boolean" }).default(false),
+  createdAt: tsCol("created_at").notNull().default(sql`(datetime('now'))`),
 });
 
 export const reorderRulesRelations = relations(reorderRules, ({ one, many }) => ({
@@ -402,16 +409,16 @@ export const reorderRulesRelations = relations(reorderRules, ({ one, many }) => 
 
 // ─── Shops ──────────────────────────────────────────────────────────────────
 
-export const shops = pgTable("shops", {
-  id: uuid("id").defaultRandom().primaryKey(),
+export const shops = sqliteTable("shops", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   name: text("name").notNull().unique(),
   website: text("website"),
   country: text("country"),
   currency: text("currency").default("EUR"),
   notes: text("notes"),
-  isActive: boolean("is_active").notNull().default(true),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+  createdAt: tsCol("created_at").notNull().default(sql`(datetime('now'))`),
+  updatedAt: tsCol("updated_at").notNull().default(sql`(datetime('now'))`),
 });
 
 export const shopsRelations = relations(shops, ({ many }) => ({
@@ -422,28 +429,28 @@ export const shopsRelations = relations(shops, ({ many }) => ({
 
 // ─── Shop Listings ──────────────────────────────────────────────────────────
 
-export const shopListings = pgTable(
+export const shopListings = sqliteTable(
   "shop_listings",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    shopId: uuid("shop_id")
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    shopId: text("shop_id")
       .notNull()
       .references(() => shops.id, { onDelete: "cascade" }),
-    filamentId: uuid("filament_id")
+    filamentId: text("filament_id")
       .notNull()
       .references(() => filaments.id, { onDelete: "cascade" }),
     productUrl: text("product_url").notNull(),
     sku: text("sku"),
     packSize: integer("pack_size").notNull().default(1),
-    currentPrice: numeric("current_price", { precision: 8, scale: 2 }),
-    pricePerSpool: numeric("price_per_spool", { precision: 8, scale: 2 }),
+    currentPrice: real("current_price"),
+    pricePerSpool: real("price_per_spool"),
     currency: text("currency").default("EUR"),
-    inStock: boolean("in_stock").default(true),
-    lastCheckedAt: timestamp("last_checked_at", { withTimezone: true }),
-    isActive: boolean("is_active").notNull().default(true),
+    inStock: integer("in_stock", { mode: "boolean" }).default(true),
+    lastCheckedAt: tsCol("last_checked_at"),
+    isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
     notes: text("notes"),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+    createdAt: tsCol("created_at").notNull().default(sql`(datetime('now'))`),
+    updatedAt: tsCol("updated_at").notNull().default(sql`(datetime('now'))`),
   },
   (table) => [
     uniqueIndex("uq_shop_listing").on(table.shopId, table.filamentId, table.packSize),
@@ -467,18 +474,18 @@ export const shopListingsRelations = relations(shopListings, ({ one, many }) => 
 
 // ─── Shop Listing Price History ─────────────────────────────────────────────
 
-export const shopListingPriceHistory = pgTable(
+export const shopListingPriceHistory = sqliteTable(
   "shop_listing_price_history",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    listingId: uuid("listing_id")
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    listingId: text("listing_id")
       .notNull()
       .references(() => shopListings.id, { onDelete: "cascade" }),
-    price: numeric("price", { precision: 8, scale: 2 }).notNull(),
-    pricePerSpool: numeric("price_per_spool", { precision: 8, scale: 2 }).notNull(),
+    price: real("price").notNull(),
+    pricePerSpool: real("price_per_spool").notNull(),
     currency: text("currency").default("EUR"),
-    inStock: boolean("in_stock").default(true),
-    recordedAt: timestamp("recorded_at", { withTimezone: true }).defaultNow().notNull(),
+    inStock: integer("in_stock", { mode: "boolean" }).default(true),
+    recordedAt: tsCol("recorded_at").notNull().default(sql`(datetime('now'))`),
   },
   (table) => [
     index("idx_slph_listing").on(table.listingId),
@@ -495,33 +502,30 @@ export const shopListingPriceHistoryRelations = relations(shopListingPriceHistor
 
 // ─── Auto Supply Rules ──────────────────────────────────────────────────────
 
-export const autoSupplyRules = pgTable(
+export const autoSupplyRules = sqliteTable(
   "auto_supply_rules",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
     name: text("name").notNull(),
-    isEnabled: boolean("is_enabled").notNull().default(true),
-    shopId: uuid("shop_id").references(() => shops.id, { onDelete: "cascade" }),
-    filamentId: uuid("filament_id").references(() => filaments.id, { onDelete: "cascade" }),
+    isEnabled: integer("is_enabled", { mode: "boolean" }).notNull().default(true),
+    shopId: text("shop_id").references(() => shops.id, { onDelete: "cascade" }),
+    filamentId: text("filament_id").references(() => filaments.id, { onDelete: "cascade" }),
     material: text("material"),
-    maxPricePerSpool: numeric("max_price_per_spool", { precision: 8, scale: 2 }),
+    maxPricePerSpool: real("max_price_per_spool"),
     currency: text("currency").default("EUR"),
-    maxMonthlySpend: numeric("max_monthly_spend", { precision: 8, scale: 2 }),
+    maxMonthlySpend: real("max_monthly_spend"),
     budgetPeriodStart: integer("budget_period_start").default(1),
     preferStrategy: text("prefer_strategy").notNull().default("cheapest"),
-    autoExecute: boolean("auto_execute").notNull().default(false),
+    autoExecute: integer("auto_execute", { mode: "boolean" }).notNull().default(false),
     priority: integer("priority").notNull().default(100),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+    createdAt: tsCol("created_at").notNull().default(sql`(datetime('now'))`),
+    updatedAt: tsCol("updated_at").notNull().default(sql`(datetime('now'))`),
   },
   (table) => [
     index("idx_asr_shop").on(table.shopId),
     index("idx_asr_filament").on(table.filamentId),
     index("idx_asr_enabled").on(table.isEnabled),
-    check(
-      "chk_prefer_strategy",
-      sql`${table.preferStrategy} IN ('cheapest','fastest','preferred_shop','manual')`
-    ),
+    // chk_prefer_strategy: enforce in app code ('cheapest','fastest','preferred_shop','manual')
   ]
 );
 
@@ -539,35 +543,32 @@ export const autoSupplyRulesRelations = relations(autoSupplyRules, ({ one, many 
 
 // ─── Auto Supply Log ────────────────────────────────────────────────────────
 
-export const autoSupplyLog = pgTable(
+export const autoSupplyLog = sqliteTable(
   "auto_supply_log",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    reorderRuleId: uuid("reorder_rule_id")
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    reorderRuleId: text("reorder_rule_id")
       .notNull()
       .references(() => reorderRules.id, { onDelete: "cascade" }),
-    supplyRuleId: uuid("supply_rule_id").references(() => autoSupplyRules.id, {
+    supplyRuleId: text("supply_rule_id").references(() => autoSupplyRules.id, {
       onDelete: "set null",
     }),
-    listingId: uuid("listing_id").references(() => shopListings.id, { onDelete: "set null" }),
-    orderId: uuid("order_id").references(() => orders.id, { onDelete: "set null" }),
+    listingId: text("listing_id").references(() => shopListings.id, { onDelete: "set null" }),
+    orderId: text("order_id").references(() => orders.id, { onDelete: "set null" }),
     triggerReason: text("trigger_reason").notNull(),
     actionTaken: text("action_taken").notNull(),
-    evaluatedPrice: numeric("evaluated_price", { precision: 8, scale: 2 }),
+    evaluatedPrice: real("evaluated_price"),
     currency: text("currency").default("EUR"),
-    monthlySpendAtTime: numeric("monthly_spend_at_time", { precision: 8, scale: 2 }),
+    monthlySpendAtTime: real("monthly_spend_at_time"),
     agentSessionId: text("agent_session_id"),
-    details: jsonb("details"),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    details: text("details", { mode: "json" }),
+    createdAt: tsCol("created_at").notNull().default(sql`(datetime('now'))`),
   },
   (table) => [
     index("idx_asl_created").on(table.createdAt),
     index("idx_asl_action").on(table.actionTaken),
     index("idx_asl_reorder_rule").on(table.reorderRuleId),
-    check(
-      "chk_action_taken",
-      sql`${table.actionTaken} IN ('auto_ordered','pending_approval','blocked_budget','blocked_price','no_listing','notify_only','agent_executing','agent_completed','agent_failed','error')`
-    ),
+    // chk_action_taken: enforce in app code
   ]
 );
 
@@ -592,15 +593,15 @@ export const autoSupplyLogRelations = relations(autoSupplyLog, ({ one }) => ({
 
 // ─── Shopping List ────────────────────────────────────────────────────────────
 
-export const shoppingListItems = pgTable("shopping_list_items", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  filamentId: uuid("filament_id")
+export const shoppingListItems = sqliteTable("shopping_list_items", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  filamentId: text("filament_id")
     .notNull()
     .references(() => filaments.id, { onDelete: "cascade" }),
   quantity: integer("quantity").notNull().default(1),
   notes: text("notes"),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  createdAt: tsCol("created_at").notNull().default(sql`(datetime('now'))`),
+  updatedAt: tsCol("updated_at").notNull().default(sql`(datetime('now'))`),
 });
 
 export const shoppingListItemsRelations = relations(shoppingListItems, ({ one }) => ({
@@ -612,19 +613,19 @@ export const shoppingListItemsRelations = relations(shoppingListItems, ({ one })
 
 // ─── Sync Log ───────────────────────────────────────────────────────────────
 
-export const syncLog = pgTable(
+export const syncLog = sqliteTable(
   "sync_log",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
-    printerId: uuid("printer_id").references(() => printers.id),
-    rawState: varchar("raw_state", { length: 50 }),
-    normalizedState: varchar("normalized_state", { length: 50 }),
-    printTransition: varchar("print_transition", { length: 20 }),
-    printName: varchar("print_name", { length: 500 }),
-    printError: boolean("print_error").default(false),
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    printerId: text("printer_id").references(() => printers.id),
+    rawState: text("raw_state"),
+    normalizedState: text("normalized_state"),
+    printTransition: text("print_transition"),
+    printName: text("print_name"),
+    printError: integer("print_error", { mode: "boolean" }).default(false),
     slotsUpdated: integer("slots_updated").default(0),
     responseJson: text("response_json"),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    createdAt: tsCol("created_at").default(sql`(datetime('now'))`),
   },
   (table) => [
     index("idx_sync_log_created").on(table.createdAt),
@@ -641,9 +642,8 @@ export const syncLogRelations = relations(syncLog, ({ one }) => ({
 
 // ─── Settings ───────────────────────────────────────────────────────────────
 
-export const settings = pgTable("settings", {
-  key: varchar("key", { length: 100 }).primaryKey(),
+export const settings = sqliteTable("settings", {
+  key: text("key").primaryKey(),
   value: text("value").notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: tsCol("updated_at").notNull().default(sql`(datetime('now'))`),
 });
-

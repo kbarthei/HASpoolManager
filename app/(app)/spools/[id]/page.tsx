@@ -46,7 +46,7 @@ export default async function SpoolDetailPage({
 
   const usedWeight = spool.initialWeight - spool.remainingWeight;
   const costPerGram = spool.purchasePrice
-    ? parseFloat(spool.purchasePrice) / spool.initialWeight
+    ? spool.purchasePrice / spool.initialWeight
     : 0;
 
   return (
@@ -173,7 +173,7 @@ export default async function SpoolDetailPage({
                 </div>
                 <div className="font-mono">
                   {usage.weightUsed}g ·{" "}
-                  {usage.cost ? `${parseFloat(usage.cost).toFixed(2)}€` : "-"}
+                  {usage.cost != null ? `${usage.cost.toFixed(2)}€` : "-"}
                 </div>
               </div>
             ))}

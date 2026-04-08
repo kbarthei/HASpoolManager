@@ -20,7 +20,6 @@ RUN mkdir -p /tmp/bs && cd /tmp/bs \
     && cd / && rm -rf /tmp/bs
 
 ENV NODE_ENV=production
-ENV DATABASE_PROVIDER=sqlite
 ENV SQLITE_PATH=/config/haspoolmanager.db
 ENV HA_ADDON=true
 ENV NEXT_TELEMETRY_DISABLED=1

@@ -307,11 +307,11 @@ async function createPrintUsage(
       const weightForSpool = getWeightForSpool(spoolId);
 
       // Calculate cost: (weight_for_spool / initial_weight) * purchase_price
-      let cost: string | null = null;
+      let cost: number | null = null;
       if (spool.purchasePrice && spool.initialWeight > 0) {
-        const pricePerGram = Number(spool.purchasePrice) / spool.initialWeight;
-        cost = (pricePerGram * weightForSpool).toFixed(2);
-        totalCost += parseFloat(cost);
+        const pricePerGram = spool.purchasePrice / spool.initialWeight;
+        cost = Math.round(pricePerGram * weightForSpool * 100) / 100;
+        totalCost += cost;
       }
 
       await db.insert(printUsage).values({
@@ -334,7 +334,7 @@ async function createPrintUsage(
     // Update total cost on print
     if (totalCost > 0) {
       await db.update(prints).set({
-        totalCost: totalCost.toFixed(2),
+        totalCost: Math.round(totalCost * 100) / 100,
         updatedAt: new Date(),
       }).where(eq(prints.id, printId));
     }
