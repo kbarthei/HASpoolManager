@@ -7,8 +7,9 @@ git clone https://github.com/kbarthei/HASpoolManager.git
 cd HASpoolManager
 npm install
 cp .env.example .env.local
-# Edit .env.local with your DATABASE_URL
-npm run db:migrate
+# Edit .env.local — set API_SECRET_KEY and ANTHROPIC_API_KEY
+#   SQLITE_PATH defaults to ./data/haspoolmanager.db
+npm run db:push      # apply schema to local SQLite file
 npm run dev
 ```
 
@@ -20,7 +21,7 @@ npm run dev
 - **Components** — shadcn/ui (uses @base-ui/react, NOT Radix)
   - Use `onClick` for DropdownMenuItem (not `onSelect`)
 - **Styling** — Tailwind CSS v4, Apple Health-inspired design
-- **Database** — Drizzle ORM, Neon Postgres
+- **Database** — Drizzle ORM, SQLite (better-sqlite3) — runs inside the HA addon container
 
 ## Important Conventions
 
@@ -36,11 +37,13 @@ Use Server Actions for mutations from the web UI. API routes are for HA webhooks
 ## Testing
 
 ```bash
-npm run test:unit     # 154 unit tests (Vitest)
-npm run test:e2e      # Playwright browser tests
-npm run test:smoke    # 11 endpoint smoke tests
-npm run lint          # ESLint
+npm run test:unit          # Vitest unit tests (no DB)
+npm run test:integration   # Vitest integration tests (per-worker SQLite harness)
+npm run test:e2e           # Playwright browser tests
+npm run lint               # ESLint
 ```
+
+See `docs/test-strategy.md` for the full test pyramid and harness details.
 
 ### Adding Tests
 
@@ -51,12 +54,13 @@ npm run lint          # ESLint
 ## Database Changes
 
 1. Edit `lib/db/schema.ts`
-2. Run `npm run db:generate` — creates migration SQL
-3. Review the generated SQL in `lib/db/migrations/`
-4. Run `npm run db:migrate` — applies to database
-5. Commit the migration file
+2. Run `npx drizzle-kit generate` — creates a SQLite migration in `lib/db/migrations/`
+3. Review the generated SQL
+4. For local dev, `npm run db:push` applies the schema directly
+5. The HA addon picks up the new schema on next `./ha-addon/deploy.sh`
+6. Commit the migration file
 
-**Never use `drizzle-kit push --force` in production.**
+**Never edit a migration file after it's been committed — generate a follow-up migration instead.**
 
 ## Pull Request Process
 

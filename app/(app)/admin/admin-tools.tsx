@@ -9,7 +9,7 @@ interface AdminToolsProps {
   buildInfo: {
     commitSha: string | null;
     deployedAt: string | null;
-    region: string | null;
+    runtime: string;
     nodeEnv: string;
   };
 }
@@ -42,8 +42,8 @@ export function AdminTools({ buildInfo }: AdminToolsProps) {
           <span className="font-mono">{buildInfo.deployedAt || "local"}</span>
         </div>
         <div className="flex items-center justify-between bg-muted/30 rounded-lg px-3 py-2">
-          <span className="text-muted-foreground">Region</span>
-          <span className="font-mono">{buildInfo.region || "local"}</span>
+          <span className="text-muted-foreground">Runtime</span>
+          <span className="font-mono">{buildInfo.runtime}</span>
         </div>
         <div className="flex items-center justify-between bg-muted/30 rounded-lg px-3 py-2">
           <span className="text-muted-foreground">Environment</span>

@@ -63,7 +63,7 @@ graph TB
     end
 
     subgraph "Data"
-        DB[(Neon Postgres · 20 Tables)]
+        DB[(SQLite · /config/haspoolmanager.db · 20 Tables)]
     end
 
     subgraph "External"
@@ -104,13 +104,13 @@ graph TB
 | Frontend | Next.js 16 (App Router, Server Components, Turbopack) |
 | UI | shadcn/ui, Tailwind CSS v4, Geist fonts, Recharts |
 | Backend | Next.js API Routes, Server Actions, Zod validation |
-| Database | Neon Postgres, Drizzle ORM |
+| Database | SQLite (better-sqlite3), Drizzle ORM |
 | AI | Anthropic Claude (order parsing, price extraction) |
-| Hosting | Vercel (Frankfurt · fra1 region) |
-| Auth | API key (HA integration), optional password (web UI) |
+| Hosting | Home Assistant Add-on (local, self-hosted) |
+| Auth | Bearer API key (HA integration + web UI via HA ingress) |
 | Monitoring | Sentry (error tracking) |
-| Testing | Vitest (unit), Playwright (e2e), smoke tests |
-| CI/CD | GitHub Actions, Vercel auto-deploy |
+| Testing | Vitest (unit + integration w/ SQLite harness), Playwright (e2e) |
+| CI/CD | GitHub Actions, `./ha-addon/deploy.sh` for addon deploys |
 
 ---
 
@@ -119,8 +119,8 @@ graph TB
 ### Prerequisites
 
 - Node.js 22+
-- [Neon Postgres](https://neon.tech) database (free tier works)
-- Vercel account (for deployment)
+- A Home Assistant instance with SSH access (for deploying the addon)
+- Anthropic API key (for AI order parsing)
 
 ### Local Setup
 
@@ -129,32 +129,36 @@ git clone https://github.com/kbarthei/HASpoolManager.git
 cd HASpoolManager
 npm install
 cp .env.example .env.local
-# Edit .env.local — set DATABASE_URL, API_SECRET_KEY, and ANTHROPIC_API_KEY
-npm run db:migrate
+# Edit .env.local — set API_SECRET_KEY and ANTHROPIC_API_KEY
+#   SQLITE_PATH defaults to ./data/haspoolmanager.db
+npm run db:push          # Apply schema to local SQLite file
 npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
 
-### Deploy to Vercel
+### Deploy to Home Assistant
+
+The production target is the HA addon container (SQLite + nginx + Next.js).
+Deploy via:
 
 ```bash
-npm i -g vercel
-vercel link
-vercel env pull
-vercel --prod
+./ha-addon/deploy.sh     # bumps version, builds tar, scp + install on HA
 ```
+
+This requires SSH key auth to `root@homeassistant` and assumes `/addons/`
+is writable on the HA host.
 
 ### Development Commands
 
 ```bash
-npm run dev          # Start dev server (Turbopack)
-npm run build        # Production build
-npm run test         # Run Vitest unit tests (154 tests)
-npm run test:e2e     # Run Playwright e2e tests
-npm run db:push      # Push schema changes (dev)
-npm run db:migrate   # Run migrations
-npm run db:studio    # Open Drizzle Studio
+npm run dev                # Start dev server (Turbopack)
+npm run build              # Production build
+npm run test:unit          # Vitest unit tests (no DB needed)
+npm run test:integration   # Vitest integration tests (per-worker SQLite harness)
+npm run test:e2e           # Playwright e2e tests
+npm run db:push            # Push schema changes to local SQLite
+npm run db:studio          # Open Drizzle Studio
 ```
 
 ---

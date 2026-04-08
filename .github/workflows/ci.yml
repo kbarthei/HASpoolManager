@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 jobs:
-  # ── Stage 1: Fast gate — always runs (<60s) ─────────────────────────────
+  # ── Lint + typecheck + unit tests ────────────────────────────────────────
   lint-and-unit:
     runs-on: ubuntu-latest
     steps:
@@ -29,24 +29,15 @@ jobs:
         run: npm run lint
 
       - name: Type check
-        env:
-          DATABASE_URL: postgresql://dummy:dummy@localhost:5432/dummy
         run: npx tsc --noEmit
 
       - name: Unit tests
         run: npm run test:unit
 
-  # ── Stage 2: Integration tests — runs when backend changes ──────────────
+  # ── Integration tests: per-worker SQLite harness, no external services ──
   integration-tests:
     runs-on: ubuntu-latest
     needs: lint-and-unit
-    # Run when backend code, DB schema, or integration tests change
-    if: |
-      github.event_name == 'push' ||
-      contains(github.event.pull_request.labels.*.name, 'run-all-tests')
-    env:
-      DATABASE_URL: ${{ secrets.DATABASE_URL }}
-      API_SECRET_KEY: ${{ secrets.API_SECRET_KEY }}
     steps:
       - uses: actions/checkout@v4
 
@@ -57,111 +48,24 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-
-      - name: Start dev server
-        run: npm run dev &
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          API_SECRET_KEY: ${{ secrets.API_SECRET_KEY }}
-
-      - name: Wait for dev server
-        run: |
-          for i in $(seq 1 30); do
-            if curl -s http://localhost:3000/api/v1/health > /dev/null 2>&1; then
-              echo "Server ready after ${i}s"
-              break
-            fi
-            if [ "$i" = "30" ]; then
-              echo "Server not ready after 30s"
-              exit 1
-            fi
-            sleep 1
-          done
 
       - name: Run integration tests
-        run: npx vitest run tests/integration --reporter=verbose
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          API_SECRET_KEY: ${{ secrets.API_SECRET_KEY }}
+        run: npm run test:integration
 
-      - name: Cleanup test data from DB
-        if: always()
-        run: |
-          npx tsx -e "
-            import { config } from 'dotenv';
-            config({ path: '.env.local' });
-            import { neon } from '@neondatabase/serverless';
-            const sql = neon(process.env.DATABASE_URL);
-            async function cleanup() {
-              const d = await sql\`DELETE FROM prints WHERE name LIKE 'test-%' OR name = 'Integration Test Print' OR ha_event_id LIKE 'test_%' RETURNING id\`;
-              if (d.length > 0) {
-                await sql\`DELETE FROM print_usage WHERE print_id = ANY(\${d.map(r => r.id)})\`.catch(() => {});
-                console.log('Cleaned ' + d.length + ' test prints');
-              }
-              const v = await sql\`DELETE FROM vendors WHERE name LIKE 'TestVendor_%' RETURNING id\`;
-              if (v.length > 0) console.log('Cleaned ' + v.length + ' test vendors');
-            }
-            cleanup().catch(e => console.error('Cleanup error:', e));
-          "
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-
-  # ── Stage 3: E2e tests — runs on main push only ─────────────────────────
-  e2e-tests:
-    runs-on: ubuntu-latest
-    needs: lint-and-unit
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    env:
-      DATABASE_URL: ${{ secrets.DATABASE_URL }}
-      API_SECRET_KEY: ${{ secrets.API_SECRET_KEY }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Install Playwright
-        run: npx playwright install --with-deps chromium
-
-      - name: Run e2e tests
-        run: npx playwright test
-        env:
-          CI: true
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          API_SECRET_KEY: ${{ secrets.API_SECRET_KEY }}
-
-      - name: Upload test report
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-report
-          path: playwright-report/
-          retention-days: 7
-
-  # ── Stage 4: Smoke tests — runs after deploy on main ─────────────────────
-  smoke-test:
-    runs-on: ubuntu-latest
-    needs: lint-and-unit
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Wait for Vercel deployment
-        run: |
-          echo "Waiting for deployment..."
-          for i in $(seq 1 60); do
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://haspoolmanager.vercel.app/api/v1/health)
-            if [ "$STATUS" = "200" ]; then
-              echo "Production responding after ${i}s"
-              break
-            fi
-            sleep 3
-          done
-
-      - name: Run smoke tests
-        run: bash scripts/smoke-test.sh https://haspoolmanager.vercel.app
+  # ── E2e tests: rewritten in Chunk 3 of docs/test-strategy.md ────────────
+  # Will build the HA addon container and run Playwright against the ingress
+  # simulator. Currently disabled until the harness is in place.
+  #
+  # e2e-tests:
+  #   runs-on: ubuntu-latest
+  #   needs: lint-and-unit
+  #   if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: actions/setup-node@v4
+  #       with:
+  #         node-version: 22
+  #         cache: npm
+  #     - run: npm ci
+  #     - run: npx playwright install --with-deps chromium
+  #     - run: npm run test:e2e

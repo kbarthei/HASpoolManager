@@ -24,32 +24,6 @@ function maskSecret(value: string | undefined): string {
   return value.slice(0, 6) + "..." + value.slice(-4);
 }
 
-/** Parse the Neon region from a DATABASE_URL hostname like `ep-xxx.eu-central-1.aws.neon.tech`. */
-function parseNeonRegion(databaseUrl: string | undefined): string {
-  if (!databaseUrl) return "unknown";
-  try {
-    const hostname = new URL(databaseUrl).hostname;
-    // hostname pattern: ep-<name>.<region>.aws.neon.tech or <region>.pooler.neon.tech
-    const parts = hostname.split(".");
-    // Find the region segment — usually the second segment for standard, third for pooler
-    // e.g. ep-cool-fog-123456.eu-central-1.aws.neon.tech → parts[1] = "eu-central-1"
-    if (parts.length >= 4 && parts[parts.length - 2] === "neon") {
-      return parts[parts.length - 3] === "aws" ? parts[parts.length - 4] : parts[parts.length - 3];
-    }
-    return parts[1] ?? "unknown";
-  } catch {
-    return "unknown";
-  }
-}
-
-/** Determine if the DATABASE_URL uses pooler (pgbouncer) or direct connection. */
-function parseNeonConnectionType(databaseUrl: string | undefined): string {
-  if (!databaseUrl) return "unknown";
-  return databaseUrl.includes("-pooler.") || databaseUrl.includes("pooler.neon.tech")
-    ? "pooled (pgbouncer)"
-    : "direct";
-}
-
 function relativeTime(date: Date | string | null | undefined): string {
   if (!date) return "—";
   const d = date instanceof Date ? date : new Date(date);
@@ -66,13 +40,13 @@ function relativeTime(date: Date | string | null | undefined): string {
 // ── Page ──────────────────────────────────────────────────────────────────
 
 export default async function AdminPage() {
-  // Build/deploy info from env vars (BUILD_TIMESTAMP set at build time in next.config.ts)
+  // Build/deploy info (BUILD_TIMESTAMP is set at build time in next.config.ts)
   const buildInfo = {
-    commitSha: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? null,
+    commitSha: process.env.GIT_COMMIT_SHA?.slice(0, 7) ?? null,
     deployedAt: process.env.BUILD_TIMESTAMP
       ? formatDateTime(process.env.BUILD_TIMESTAMP)
       : null,
-    region: process.env.VERCEL_REGION ?? null,
+    runtime: process.env.HA_ADDON === "true" ? "HA Addon" : "Local Dev",
     nodeEnv: process.env.NODE_ENV,
   };
 
@@ -85,12 +59,14 @@ export default async function AdminPage() {
   ]);
 
   // ── Config details ────────────────────────────────────────────────────────
+  const isAddon = process.env.HA_ADDON === "true";
+  const sqlitePath = process.env.SQLITE_PATH ?? "./data/haspoolmanager.db";
+
   const configDetails = {
     ha: {
-      syncUrl:
-        process.env.HA_ADDON === "true"
-          ? "http://local-haspoolmanager:3000/api/v1/events/printer-sync"
-          : "https://haspoolmanager.vercel.app/api/v1/events/printer-sync",
+      syncUrl: isAddon
+        ? "http://local-haspoolmanager:3000/api/v1/events/printer-sync"
+        : "http://localhost:3000/api/v1/events/printer-sync",
       syncInterval: "60 seconds",
       authMethod: "Bearer token",
       apiSecretKey: maskSecret(process.env.API_SECRET_KEY),
@@ -104,10 +80,9 @@ export default async function AdminPage() {
       ipAddress: activePrinter?.ipAddress ?? "—",
     },
     db: {
-      provider: "Neon Postgres",
-      region: parseNeonRegion(process.env.DATABASE_URL),
-      connection: parseNeonConnectionType(process.env.DATABASE_URL),
-      tableCount: stats.spools + stats.filaments + stats.prints + stats.vendors + stats.orders, // rough proxy; actual count below
+      provider: "SQLite (better-sqlite3)",
+      path: sqlitePath,
+      mode: isAddon ? "HA /config persistent volume" : "local file",
     },
     ai: {
       provider: "Anthropic Claude",
@@ -294,8 +269,8 @@ export default async function AdminPage() {
           <div className="space-y-1">
             {[
               { label: "Provider", value: configDetails.db.provider },
-              { label: "Region", value: configDetails.db.region, mono: true },
-              { label: "Connection", value: configDetails.db.connection, mono: true },
+              { label: "Path", value: configDetails.db.path, mono: true },
+              { label: "Mode", value: configDetails.db.mode },
               {
                 label: "Records",
                 value: `${stats.spools} spools · ${stats.filaments} filaments · ${stats.prints} prints · ${stats.vendors} vendors · ${stats.orders} orders`,
