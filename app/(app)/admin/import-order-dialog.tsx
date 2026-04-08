@@ -753,7 +753,7 @@ export function ImportOrderDialog({ open, onClose, allSpools }: ImportOrderDialo
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[95vw] sm:w-[90vw] max-w-5xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <div className="flex items-center justify-between pr-6">
             <DialogTitle className="text-base font-semibold">
@@ -907,7 +907,7 @@ export function ImportOrderDialog({ open, onClose, allSpools }: ImportOrderDialo
                         </button>
                       </div>
 
-                      <div className="rounded-xl border border-border divide-y divide-border overflow-hidden max-h-96 overflow-y-auto">
+                      <div className="rounded-xl border border-border divide-y divide-border overflow-hidden max-h-[60vh] overflow-y-auto">
                         {csvOrders.map((order, idx) => {
                           const matchedCount = order.matchedItems.filter((i) => i.filamentId).length;
                           const total = order.matchedItems.length;
