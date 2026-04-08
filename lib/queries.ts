@@ -391,6 +391,12 @@ export type MaterialUsage = {
   totalUsed: number;
   printCount: number;
 };
+export type AvgDurationPerMonth = { month: string; minutes: number };
+export type WastePerMonth = { month: string; grams: number };
+export type ColorDistribution = { colorHex: string; label: string; weight: number };
+export type VendorQuality = { vendor: string; success: number; failed: number; total: number; rate: number };
+export type StockValuePoint = { month: string; value: number };
+export type SuccessRatePerMonth = { month: string; rate: number; total: number };
 
 export async function getDashboardChartData(): Promise<{
   monthlySpend: MonthlySpend[];
@@ -400,6 +406,12 @@ export async function getDashboardChartData(): Promise<{
   filamentConsumed: FilamentConsumed[];
   spoolLifecycle: SpoolLifecycle[];
   materialUsage: MaterialUsage[];
+  avgDuration: AvgDurationPerMonth[];
+  wastePerMonth: WastePerMonth[];
+  colorDistribution: ColorDistribution[];
+  vendorQuality: VendorQuality[];
+  stockValueHistory: StockValuePoint[];
+  successRate: SuccessRatePerMonth[];
 }> {
   // German abbreviated month names
   const DE_MONTHS = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"];
@@ -582,5 +594,156 @@ export async function getDashboardChartData(): Promise<{
     printCount: r.printCount,
   }));
 
-  return { monthlySpend, inventory, printsPerMonth, spendByVendor, filamentConsumed, spoolLifecycle, materialUsage };
+  // 8. Avg print duration per month (finished only, minutes)
+  const durRows = await db.select({
+    year: sqlExtractYear(schema.prints.startedAt),
+    month: sqlExtractMonth(schema.prints.startedAt),
+    avgSec: sql<number>`coalesce(avg(${schema.prints.durationSeconds}), 0)`,
+  })
+    .from(schema.prints)
+    .where(and(
+      sqlNowMinusSixMonths(schema.prints.startedAt),
+      eq(schema.prints.status, "finished"),
+    ))
+    .groupBy(
+      sqlGroupByYear(schema.prints.startedAt),
+      sqlGroupByMonth(schema.prints.startedAt),
+    );
+  const durMap = new Map(durRows.map(r => [`${r.year}-${r.month}`, r.avgSec]));
+  const avgDuration: AvgDurationPerMonth[] = months.map(m => ({
+    month: m.label,
+    minutes: Math.round((durMap.get(`${m.year}-${m.month}`) ?? 0) / 60),
+  }));
+
+  // 9. Waste / Purge per month: sum(weightUsed) - sum(printWeight), clamped >= 0
+  const theoreticalRows = await db.select({
+    year: sqlExtractYear(schema.prints.startedAt),
+    month: sqlExtractMonth(schema.prints.startedAt),
+    theoretical: sqlCoalesceSum(schema.prints.printWeight),
+  })
+    .from(schema.prints)
+    .where(sqlNowMinusSixMonths(schema.prints.startedAt))
+    .groupBy(
+      sqlGroupByYear(schema.prints.startedAt),
+      sqlGroupByMonth(schema.prints.startedAt),
+    );
+  const usedRows = await db.select({
+    year: sqlExtractYear(schema.prints.startedAt),
+    month: sqlExtractMonth(schema.prints.startedAt),
+    used: sqlCoalesceSum(schema.printUsage.weightUsed),
+  })
+    .from(schema.prints)
+    .innerJoin(schema.printUsage, eq(schema.printUsage.printId, schema.prints.id))
+    .where(sqlNowMinusSixMonths(schema.prints.startedAt))
+    .groupBy(
+      sqlGroupByYear(schema.prints.startedAt),
+      sqlGroupByMonth(schema.prints.startedAt),
+    );
+  const theoreticalMap = new Map(theoreticalRows.map(r => [`${r.year}-${r.month}`, r.theoretical]));
+  const usedMap = new Map(usedRows.map(r => [`${r.year}-${r.month}`, r.used]));
+  const wastePerMonth: WastePerMonth[] = months.map(m => {
+    const key = `${m.year}-${m.month}`;
+    const delta = (usedMap.get(key) ?? 0) - (theoreticalMap.get(key) ?? 0);
+    return { month: m.label, grams: Math.max(0, Math.round(delta)) };
+  });
+
+  // 10. Color distribution: top 12 colors of active spools by remaining weight
+  const colorRows = await db.select({
+    colorHex: schema.filaments.colorHex,
+    colorName: schema.filaments.colorName,
+    material: schema.filaments.material,
+    weight: sqlCoalesceSum(schema.spools.remainingWeight),
+  })
+    .from(schema.spools)
+    .innerJoin(schema.filaments, eq(schema.spools.filamentId, schema.filaments.id))
+    .where(eq(schema.spools.status, "active"))
+    .groupBy(schema.filaments.colorHex, schema.filaments.colorName, schema.filaments.material)
+    .orderBy(sql`sum(${schema.spools.remainingWeight}) desc`)
+    .limit(12);
+  const colorDistribution: ColorDistribution[] = colorRows.map(r => ({
+    colorHex: r.colorHex ?? "888888",
+    label: `${r.colorName ?? "?"} ${r.material}`,
+    weight: Math.round(r.weight),
+  }));
+
+  // 11. Vendor quality: success/failed distinct print counts per vendor
+  const vqRaw = await db.selectDistinct({
+    printId: schema.prints.id,
+    status: schema.prints.status,
+    vendor: schema.vendors.name,
+  })
+    .from(schema.prints)
+    .innerJoin(schema.printUsage, eq(schema.printUsage.printId, schema.prints.id))
+    .innerJoin(schema.spools, eq(schema.printUsage.spoolId, schema.spools.id))
+    .innerJoin(schema.filaments, eq(schema.spools.filamentId, schema.filaments.id))
+    .innerJoin(schema.vendors, eq(schema.filaments.vendorId, schema.vendors.id));
+  const vqMap = new Map<string, { success: number; failed: number }>();
+  for (const row of vqRaw) {
+    if (!vqMap.has(row.vendor)) vqMap.set(row.vendor, { success: 0, failed: 0 });
+    const v = vqMap.get(row.vendor)!;
+    if (row.status === "finished") v.success++;
+    else if (row.status === "failed" || row.status === "cancelled") v.failed++;
+  }
+  const vendorQuality: VendorQuality[] = Array.from(vqMap.entries())
+    .map(([vendor, v]) => {
+      const total = v.success + v.failed;
+      return {
+        vendor,
+        success: v.success,
+        failed: v.failed,
+        total,
+        rate: total > 0 ? Math.round((v.success / total) * 100) : 0,
+      };
+    })
+    .filter(v => v.total > 0)
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 10);
+
+  // 12. Stock value history: running (purchases - consumed cost) over last 6 months
+  const firstMonthStart = new Date(months[0].year, months[0].month - 1, 1).toISOString();
+  const [basePurchase] = await db.select({
+    val: sqlCoalesceSumProduct(schema.orderItems.unitPrice, schema.orderItems.quantity),
+  })
+    .from(schema.orderItems)
+    .innerJoin(schema.orders, eq(schema.orderItems.orderId, schema.orders.id))
+    .where(sql`${schema.orders.orderDate} < ${firstMonthStart}`);
+  const [baseConsumed] = await db.select({
+    val: sqlCoalesceSum(schema.printUsage.cost),
+  })
+    .from(schema.printUsage)
+    .where(sql`${schema.printUsage.createdAt} < ${firstMonthStart}`);
+  const consumedRowsByMonth = await db.select({
+    year: sqlExtractYear(schema.printUsage.createdAt),
+    month: sqlExtractMonth(schema.printUsage.createdAt),
+    cost: sqlCoalesceSum(schema.printUsage.cost),
+  })
+    .from(schema.printUsage)
+    .where(sqlNowMinusSixMonths(schema.printUsage.createdAt))
+    .groupBy(
+      sqlGroupByYear(schema.printUsage.createdAt),
+      sqlGroupByMonth(schema.printUsage.createdAt),
+    );
+  const consumedCostMap = new Map(consumedRowsByMonth.map(r => [`${r.year}-${r.month}`, r.cost]));
+  let runningValue = (basePurchase?.val ?? 0) - (baseConsumed?.val ?? 0);
+  const stockValueHistory: StockValuePoint[] = months.map(m => {
+    const key = `${m.year}-${m.month}`;
+    runningValue += (spendMap.get(key) ?? 0) - (consumedCostMap.get(key) ?? 0);
+    return { month: m.label, value: Math.round(runningValue * 100) / 100 };
+  });
+
+  // 13. Print success rate per month (derived from printsPerMonth)
+  const successRate: SuccessRatePerMonth[] = printsPerMonth.map(p => {
+    const total = p.finished + p.failed;
+    return {
+      month: p.month,
+      rate: total > 0 ? Math.round((p.finished / total) * 100) : 0,
+      total,
+    };
+  });
+
+  return {
+    monthlySpend, inventory, printsPerMonth, spendByVendor, filamentConsumed,
+    spoolLifecycle, materialUsage,
+    avgDuration, wastePerMonth, colorDistribution, vendorQuality, stockValueHistory, successRate,
+  };
 }

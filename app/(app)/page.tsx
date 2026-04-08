@@ -13,6 +13,12 @@ import { SpendByVendorChart } from "@/components/dashboard/spend-by-vendor-chart
 import { FilamentConsumedChart } from "@/components/dashboard/filament-consumed-chart";
 import { SpoolLifecycleChart } from "@/components/dashboard/spool-lifecycle-chart";
 import { MaterialUsageChart } from "@/components/dashboard/material-usage-chart";
+import { AvgDurationChart } from "@/components/dashboard/avg-duration-chart";
+import { WasteChart } from "@/components/dashboard/waste-chart";
+import { ColorDistributionChart } from "@/components/dashboard/color-distribution-chart";
+import { VendorQualityChart } from "@/components/dashboard/vendor-quality-chart";
+import { StockValueChart } from "@/components/dashboard/stock-value-chart";
+import { SuccessRateChart } from "@/components/dashboard/success-rate-chart";
 import { AddOrderButton } from "@/components/orders/add-order-button";
 import Link from "next/link";
 
@@ -110,6 +116,20 @@ export default async function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
         <SpoolLifecycleChart data={chartData.spoolLifecycle} />
         <MaterialUsageChart data={chartData.materialUsage} />
+      </div>
+
+      {/* Charts row 3 — new */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+        <AvgDurationChart data={chartData.avgDuration} />
+        <SuccessRateChart data={chartData.successRate} />
+        <WasteChart data={chartData.wastePerMonth} />
+      </div>
+
+      {/* Charts row 4 — new */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+        <ColorDistributionChart data={chartData.colorDistribution} />
+        <VendorQualityChart data={chartData.vendorQuality} />
+        <StockValueChart data={chartData.stockValueHistory} />
       </div>
     </div>
   );
