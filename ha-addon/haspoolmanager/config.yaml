@@ -1,5 +1,5 @@
 name: HASpoolManager
-version: "1.0.19"
+version: "1.0.20"
 slug: haspoolmanager
 description: "3D Printing Filament Lifecycle Manager"
 url: "https://github.com/kbarthei/HASpoolManager"
