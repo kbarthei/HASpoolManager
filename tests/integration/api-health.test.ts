@@ -1,23 +1,55 @@
-import { describe, it, expect } from "vitest";
+/**
+ * Integration test POC for Chunk 1 of the test strategy.
+ *
+ * Exercises:
+ *   1. Route handler called directly (no HTTP / dev server).
+ *   2. Per-worker SQLite harness (`setupTestDb`) + a DB round-trip through
+ *      the real `@/lib/db` singleton, proving the lazy SQLITE_PATH override
+ *      works.
+ */
 
-// Integration tests call the API routes directly
-// They require DATABASE_URL to be set (use .env.local)
-// Skip if no database connection available
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { setupTestDb, teardownTestDb } from "../harness/sqlite-db";
 
-const BASE = "http://localhost:3000/api/v1";
+describe("API health + harness smoke", () => {
+  beforeAll(async () => {
+    await setupTestDb();
+  });
 
-describe.skipIf(!process.env.DATABASE_URL)("API Integration Tests", () => {
-  // Note: These tests require `npm run dev` to be running
-  // In CI, use a test database and start the server before tests
+  afterAll(() => {
+    teardownTestDb();
+  });
 
-  describe("Health endpoint", () => {
-    it("GET /api/v1/health returns ok", async () => {
-      const res = await fetch(`${BASE}/health`);
-      expect(res.status).toBe(200);
-      const data = await res.json();
-      expect(data.status).toBe("ok");
-      expect(data.version).toBe("0.1.0");
-      expect(data.timestamp).toBeDefined();
+  it("GET /api/v1/health returns ok via direct handler call", async () => {
+    const { GET } = await import("@/app/api/v1/health/route");
+    const res = await GET();
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.status).toBe("ok");
+    expect(data.version).toBe("0.1.0");
+    expect(typeof data.timestamp).toBe("string");
+  });
+
+  it("harness DB accepts insert + select via @/lib/db", async () => {
+    const { db } = await import("@/lib/db");
+    const { vendors } = await import("@/lib/db/schema");
+    const { eq } = await import("drizzle-orm");
+
+    const name = `HarnessVendor_${Date.now()}`;
+    const [inserted] = await db.insert(vendors).values({ name }).returning({
+      id: vendors.id,
+      name: vendors.name,
     });
+
+    expect(inserted.id).toBeTruthy();
+    expect(inserted.name).toBe(name);
+
+    const rows = await db
+      .select({ id: vendors.id, name: vendors.name })
+      .from(vendors)
+      .where(eq(vendors.id, inserted.id));
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0].name).toBe(name);
   });
 });

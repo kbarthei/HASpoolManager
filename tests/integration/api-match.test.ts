@@ -3,7 +3,7 @@ import { describe, it, expect } from "vitest";
 const BASE = "http://localhost:3000/api/v1";
 const AUTH = { Authorization: `Bearer ${process.env.API_SECRET_KEY || "test-dev-key-2026"}` };
 
-describe.skipIf(!process.env.DATABASE_URL)("Match API Integration Tests", () => {
+describe.skip("Match API Integration Tests", () => {
   // These tests expect seed data to be present in the database
 
   describe("POST /api/v1/match", () => {

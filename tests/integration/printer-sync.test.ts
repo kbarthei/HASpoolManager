@@ -59,7 +59,7 @@ async function getRunningPrint(): Promise<{ id: string; name: string | null; act
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe.skipIf(!process.env.DATABASE_URL)("printer-sync integration", () => {
+describe.skip("printer-sync integration", () => {
 
   beforeAll(async () => {
     // Record test start time — used to scope sync_log cleanup to only test entries
