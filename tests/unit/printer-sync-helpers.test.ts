@@ -260,9 +260,12 @@ describe("classifyGcodeState()", () => {
     expect(classifyGcodeState("FINISH")).toBe("finished");
   });
 
-  it("classifies 'FAILED' as failed", () => {
-    expect(classifyGcodeState("FAILED")).toBe("failed");
-  });
+  it.each(["FAILED", "CANCELED", "CANCELLED"])(
+    "classifies '%s' as failed",
+    (state) => {
+      expect(classifyGcodeState(state)).toBe("failed");
+    },
+  );
 
   it("classifies 'IDLE' as idle", () => {
     expect(classifyGcodeState("IDLE")).toBe("idle");

@@ -175,7 +175,7 @@ describe("printer-sync integration", () => {
 
       const r1 = await sync({ print_state: "RUNNING", print_name: `test-print-B2-${Date.now()}` });
       expect(r1.body.print_transition).toBe("started");
-      const r2 = await sync({ print_state: "FAILED", print_weight: 5 });
+      const r2 = await sync({ print_state: "CANCELED", print_weight: 5 });
       expect(r2.body.print_transition).toBe("failed");
       const print = await db.query.prints.findFirst({ where: eq(prints.id, r1.body.print_id as string) });
       expect(print!.status).toBe("failed");

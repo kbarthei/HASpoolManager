@@ -9,7 +9,7 @@
 
 export const GCODE_ACTIVE = new Set(["RUNNING", "PREPARE", "SLICING", "INIT", "PAUSE"]);
 export const GCODE_FINISH = new Set(["FINISH"]);
-export const GCODE_FAILED = new Set(["FAILED"]);
+export const GCODE_FAILED = new Set(["FAILED", "CANCELED", "CANCELLED"]);
 export const GCODE_IDLE = new Set(["IDLE"]);
 // OFFLINE and UNKNOWN are ambiguous — handled specially (don't change running state)
 
