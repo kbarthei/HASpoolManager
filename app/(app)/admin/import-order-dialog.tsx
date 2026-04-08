@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { SpoolColorDot } from "@/components/spool/spool-color-dot";
 import { importHistoricalOrder, importBatchOrders } from "@/lib/actions";
 import { toast } from "sonner";
-import { Loader2, Check, AlertCircle, X, Upload } from "lucide-react";
+import { Loader2, Check, AlertCircle, X, Upload, ChevronDown, ChevronRight } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -408,6 +408,34 @@ export function ImportOrderDialog({ open, onClose, allSpools }: ImportOrderDialo
   const [batchProgress, setBatchProgress] = useState("");
   const [batchResult, setBatchResult] = useState<{ ordersCreated: number; spoolsUpdated: number } | null>(null);
 
+  // CSV review mode: track expanded item rows (`${orderIdx}:${itemIdx}`)
+  const [expandedCSVItems, setExpandedCSVItems] = useState<Set<string>>(new Set());
+
+  // Unique filaments derived from allSpools (for dropdown override)
+  const allFilaments = useMemo(() => {
+    const map = new Map<string, FilamentData>();
+    for (const s of allSpools) {
+      if (s.filament && !map.has(s.filament.id)) map.set(s.filament.id, s.filament);
+    }
+    return Array.from(map.values()).sort((a, b) => {
+      const v = a.vendor.name.localeCompare(b.vendor.name);
+      if (v !== 0) return v;
+      return a.name.localeCompare(b.name);
+    });
+  }, [allSpools]);
+
+  // Spools keyed by filament id (for spool chip picker)
+  const spoolsByFilament = useMemo(() => {
+    const map = new Map<string, SpoolData[]>();
+    for (const s of allSpools) {
+      if (!s.filament) continue;
+      const list = map.get(s.filament.id) ?? [];
+      list.push(s);
+      map.set(s.filament.id, list);
+    }
+    return map;
+  }, [allSpools]);
+
   // Step 2 state (review parsed data — email mode)
   const [shop, setShop] = useState("");
   const [orderNumber, setOrderNumber] = useState("");
@@ -441,6 +469,7 @@ export function ImportOrderDialog({ open, onClose, allSpools }: ImportOrderDialo
         setCSVParseError(null);
         setBatchResult(null);
         setBatchProgress("");
+        setExpandedCSVItems(new Set());
       }, 300);
       return () => clearTimeout(t);
     }
@@ -502,6 +531,60 @@ export function ImportOrderDialog({ open, onClose, allSpools }: ImportOrderDialo
     setIsDragging(false);
     const file = e.dataTransfer.files[0];
     if (file) handleFileChange(file);
+  }
+
+  function toggleExpandedItem(orderIdx: number, itemIdx: number) {
+    const key = `${orderIdx}:${itemIdx}`;
+    setExpandedCSVItems((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
+  function setCSVItemFilament(orderIdx: number, itemIdx: number, filamentId: string | null) {
+    setCSVOrders((prev) =>
+      prev.map((order, oi) => {
+        if (oi !== orderIdx) return order;
+        const matchedItems = order.matchedItems.map((it, ii) => {
+          if (ii !== itemIdx) return it;
+          // Reset spool selection when filament changes
+          const newSpools = (filamentId && spoolsByFilament.get(filamentId)) || [];
+          const autoSpoolIds = newSpools.slice(0, it.quantity).map((s) => s.id);
+          return { ...it, filamentId, spoolIds: autoSpoolIds };
+        });
+        return { ...order, matchedItems };
+      })
+    );
+  }
+
+  function toggleCSVItemSpool(orderIdx: number, itemIdx: number, spoolId: string) {
+    setCSVOrders((prev) =>
+      prev.map((order, oi) => {
+        if (oi !== orderIdx) return order;
+        const matchedItems = order.matchedItems.map((it, ii) => {
+          if (ii !== itemIdx) return it;
+          const set = new Set(it.spoolIds);
+          if (set.has(spoolId)) set.delete(spoolId);
+          else set.add(spoolId);
+          return { ...it, spoolIds: Array.from(set) };
+        });
+        return { ...order, matchedItems };
+      })
+    );
+  }
+
+  function updateCSVItemPrice(orderIdx: number, itemIdx: number, price: number) {
+    setCSVOrders((prev) =>
+      prev.map((order, oi) => {
+        if (oi !== orderIdx) return order;
+        const matchedItems = order.matchedItems.map((it, ii) =>
+          ii === itemIdx ? { ...it, unitPrice: price } : it,
+        );
+        return { ...order, matchedItems };
+      })
+    );
   }
 
   function toggleOrderSelected(idx: number) {
@@ -824,66 +907,203 @@ export function ImportOrderDialog({ open, onClose, allSpools }: ImportOrderDialo
                         </button>
                       </div>
 
-                      <div className="rounded-xl border border-border divide-y divide-border overflow-hidden max-h-72 overflow-y-auto">
+                      <div className="rounded-xl border border-border divide-y divide-border overflow-hidden max-h-96 overflow-y-auto">
                         {csvOrders.map((order, idx) => {
                           const matchedCount = order.matchedItems.filter((i) => i.filamentId).length;
                           const total = order.matchedItems.length;
                           return (
-                            <label
+                            <div
                               key={idx}
-                              className={`flex items-start gap-2.5 px-3 py-2 cursor-pointer transition-colors ${
-                                order.selected ? "bg-primary/5" : "hover:bg-muted/40"
+                              className={`transition-colors ${
+                                order.selected ? "bg-primary/5" : ""
                               }`}
                             >
-                              <input
-                                type="checkbox"
-                                checked={order.selected}
-                                onChange={() => toggleOrderSelected(idx)}
-                                className="h-3.5 w-3.5 accent-primary mt-0.5 shrink-0"
-                              />
-                              <div className="flex-1 min-w-0">
-                                <p className="text-xs font-medium truncate">
-                                  {order.shop}
-                                  {order.orderNumber ? (
-                                    <span className="text-muted-foreground font-normal ml-1.5 font-mono">
-                                      #{order.orderNumber}
-                                    </span>
-                                  ) : null}
-                                </p>
-                                <p className="text-[11px] text-muted-foreground">
-                                  {order.orderedAt}
-                                  {" · "}
-                                  {total} item{total !== 1 ? "s" : ""}
-                                  {" · "}
-                                  {order.items.reduce((s, i) => s + i.quantity, 0)} spools
-                                </p>
-                                {/* Items sub-list */}
-                                <div className="mt-1 space-y-0.5">
-                                  {order.matchedItems.map((item, ii) => (
-                                    <p key={ii} className="text-[10px] text-muted-foreground flex items-center gap-1">
-                                      {item.filamentId ? (
-                                        <Check className="h-2.5 w-2.5 text-emerald-500 shrink-0" />
-                                      ) : (
-                                        <X className="h-2.5 w-2.5 text-muted-foreground/40 shrink-0" />
-                                      )}
-                                      ×{item.quantity} {item.name}
-                                      {item.unitPrice > 0 ? ` · €${item.unitPrice.toFixed(2)}` : ""}
-                                    </p>
-                                  ))}
+                              {/* Order header */}
+                              <div className="flex items-start gap-2.5 px-3 py-2">
+                                <input
+                                  type="checkbox"
+                                  checked={order.selected}
+                                  onChange={() => toggleOrderSelected(idx)}
+                                  className="h-3.5 w-3.5 accent-primary mt-0.5 shrink-0"
+                                />
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-xs font-medium truncate">
+                                    {order.shop}
+                                    {order.orderNumber ? (
+                                      <span className="text-muted-foreground font-normal ml-1.5 font-mono">
+                                        #{order.orderNumber}
+                                      </span>
+                                    ) : null}
+                                  </p>
+                                  <p className="text-[11px] text-muted-foreground">
+                                    {order.orderedAt}
+                                    {" · "}
+                                    {total} item{total !== 1 ? "s" : ""}
+                                    {" · "}
+                                    {order.items.reduce((s, i) => s + i.quantity, 0)} spools
+                                  </p>
                                 </div>
+                                <span
+                                  className={`text-[10px] font-medium shrink-0 mt-0.5 ${
+                                    matchedCount === total
+                                      ? "text-emerald-500"
+                                      : matchedCount > 0
+                                      ? "text-amber-500"
+                                      : "text-muted-foreground"
+                                  }`}
+                                >
+                                  {matchedCount}/{total}
+                                </span>
                               </div>
-                              <span
-                                className={`text-[10px] font-medium shrink-0 mt-0.5 ${
-                                  matchedCount === total
-                                    ? "text-emerald-500"
-                                    : matchedCount > 0
-                                    ? "text-amber-500"
-                                    : "text-muted-foreground"
-                                }`}
-                              >
-                                {matchedCount}/{total}
-                              </span>
-                            </label>
+
+                              {/* Items sub-list (expandable per item) */}
+                              <div className="pl-8 pr-3 pb-2 space-y-1">
+                                {order.matchedItems.map((item, ii) => {
+                                  const key = `${idx}:${ii}`;
+                                  const expanded = expandedCSVItems.has(key);
+                                  const matchedFilament = item.filamentId
+                                    ? allFilaments.find((f) => f.id === item.filamentId) ?? null
+                                    : null;
+                                  const availableSpools = item.filamentId
+                                    ? spoolsByFilament.get(item.filamentId) ?? []
+                                    : [];
+                                  return (
+                                    <div
+                                      key={ii}
+                                      className="rounded-md border border-border/50 bg-background"
+                                    >
+                                      <button
+                                        type="button"
+                                        onClick={() => toggleExpandedItem(idx, ii)}
+                                        className="w-full flex items-center gap-1.5 px-2 py-1 text-left hover:bg-muted/30 transition-colors"
+                                      >
+                                        {expanded ? (
+                                          <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
+                                        ) : (
+                                          <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
+                                        )}
+                                        {item.filamentId ? (
+                                          <Check className="h-2.5 w-2.5 text-emerald-500 shrink-0" />
+                                        ) : (
+                                          <X className="h-2.5 w-2.5 text-destructive shrink-0" />
+                                        )}
+                                        <span className="text-[10px] flex-1 min-w-0 truncate">
+                                          ×{item.quantity} {item.name}
+                                          {matchedFilament && (
+                                            <span className="text-muted-foreground ml-1.5">
+                                              → {matchedFilament.vendor.name} {matchedFilament.name}
+                                            </span>
+                                          )}
+                                        </span>
+                                        <span className="text-[10px] text-muted-foreground shrink-0">
+                                          {item.spoolIds.length}/{item.quantity} sp
+                                          {item.unitPrice > 0 ? ` · €${item.unitPrice.toFixed(2)}` : ""}
+                                        </span>
+                                      </button>
+
+                                      {expanded && (
+                                        <div className="border-t border-border/50 px-2 py-2 space-y-2">
+                                          {/* Filament override */}
+                                          <div>
+                                            <Label className="text-[10px] text-muted-foreground uppercase tracking-wide">
+                                              Filament
+                                            </Label>
+                                            <select
+                                              value={item.filamentId ?? ""}
+                                              onChange={(e) =>
+                                                setCSVItemFilament(idx, ii, e.target.value || null)
+                                              }
+                                              className="mt-0.5 w-full h-7 text-[11px] rounded-md border border-input bg-background px-2"
+                                            >
+                                              <option value="">— none —</option>
+                                              {allFilaments.map((f) => (
+                                                <option key={f.id} value={f.id}>
+                                                  {f.vendor.name} · {f.material} · {f.name}
+                                                  {f.colorName ? ` (${f.colorName})` : ""}
+                                                </option>
+                                              ))}
+                                            </select>
+                                          </div>
+
+                                          {/* Spool chips */}
+                                          {item.filamentId && (
+                                            <div>
+                                              <Label className="text-[10px] text-muted-foreground uppercase tracking-wide">
+                                                Linked spools ({item.spoolIds.length} selected)
+                                              </Label>
+                                              {availableSpools.length === 0 ? (
+                                                <p className="mt-0.5 text-[10px] text-muted-foreground italic">
+                                                  No spools for this filament
+                                                </p>
+                                              ) : (
+                                                <div className="mt-0.5 flex flex-wrap gap-1">
+                                                  {availableSpools.map((sp) => {
+                                                    const selected = item.spoolIds.includes(sp.id);
+                                                    const pct = Math.round(
+                                                      (sp.remainingWeight / sp.initialWeight) * 100,
+                                                    );
+                                                    return (
+                                                      <button
+                                                        key={sp.id}
+                                                        type="button"
+                                                        onClick={() => toggleCSVItemSpool(idx, ii, sp.id)}
+                                                        className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] border transition-colors ${
+                                                          selected
+                                                            ? "bg-primary/10 border-primary/40 text-primary"
+                                                            : "bg-background border-border hover:bg-muted/40"
+                                                        }`}
+                                                      >
+                                                        <SpoolColorDot
+                                                          hex={sp.filament.colorHex ?? "888888"}
+                                                          size="sm"
+                                                          className="!h-2.5 !w-2.5"
+                                                        />
+                                                        <span className="font-mono">
+                                                          {sp.id.slice(0, 6)}
+                                                        </span>
+                                                        <span className="text-muted-foreground">
+                                                          {pct}%
+                                                        </span>
+                                                        {sp.location && (
+                                                          <span className="text-muted-foreground/70">
+                                                            · {sp.location}
+                                                          </span>
+                                                        )}
+                                                      </button>
+                                                    );
+                                                  })}
+                                                </div>
+                                              )}
+                                            </div>
+                                          )}
+
+                                          {/* Price */}
+                                          <div>
+                                            <Label className="text-[10px] text-muted-foreground uppercase tracking-wide">
+                                              Unit price (€)
+                                            </Label>
+                                            <Input
+                                              type="number"
+                                              step="0.01"
+                                              min="0"
+                                              value={item.unitPrice || ""}
+                                              onChange={(e) =>
+                                                updateCSVItemPrice(
+                                                  idx,
+                                                  ii,
+                                                  parseFloat(e.target.value) || 0,
+                                                )
+                                              }
+                                              className="mt-0.5 h-7 text-[11px]"
+                                            />
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
                           );
                         })}
                       </div>
