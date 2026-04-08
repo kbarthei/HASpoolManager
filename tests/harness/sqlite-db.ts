@@ -41,6 +41,27 @@ export async function setupTestDb(): Promise<void> {
   if (!fs.existsSync(TMP_DIR)) fs.mkdirSync(TMP_DIR, { recursive: true });
 
   const dbPath = testDbPath();
+
+  // ── Safety guard ────────────────────────────────────────────────────────
+  // Refuse to run if anything looks like it's pointing at production data.
+  // The harness only ever touches tests/tmp/. If SQLITE_PATH was already set
+  // by the environment to something outside that folder, abort loudly so we
+  // never accidentally wipe the user's HA addon DB.
+  const resolved = path.resolve(dbPath);
+  if (!resolved.startsWith(TMP_DIR + path.sep)) {
+    throw new Error(
+      `[harness] Refusing to set up test DB at ${resolved} — must live under ${TMP_DIR}`,
+    );
+  }
+  const FORBIDDEN = ["/Volumes/", "/config/", "haspoolmanager.db"];
+  for (const needle of FORBIDDEN) {
+    if (resolved.includes(needle) && !resolved.startsWith(TMP_DIR)) {
+      throw new Error(
+        `[harness] Refusing to set up test DB at ${resolved} — looks like a production path`,
+      );
+    }
+  }
+
   // Fresh DB for this worker
   if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
   for (const suffix of ["-wal", "-shm"]) {
