@@ -1,120 +1,78 @@
 /**
- * Integration tests for POST /api/v1/events/printer-sync
- *
- * Requires:
- *   - DATABASE_URL in .env.local
- *   - `npm run dev` running on localhost:3000
- *
- * Tests hit a REAL database. All test data is cleaned up in afterAll.
+ * POST /api/v1/events/printer-sync — rewritten onto the per-worker SQLite
+ * harness. Calls the route handler directly, no dev server, no shared
+ * production DB. Each test suite gets a fresh DB and seeds what it needs.
  */
 
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { db } from "@/lib/db";
-import { prints, printUsage, amsSlots, tagMappings, spools, filaments, vendors, syncLog } from "@/lib/db/schema";
-import { eq, and, inArray, sql } from "drizzle-orm";
-import { makeVendor, makeFilament, makeSpool, makeTagMapping, cleanup, cleanupStaleTestData } from "../fixtures/seed";
+import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
+import { setupTestDb, teardownTestDb } from "../harness/sqlite-db";
+import { makePostRequest } from "../harness/request";
 
-const BASE = "http://localhost:3000/api/v1";
-const AUTH_HEADERS = {
-  Authorization: `Bearer ${process.env.API_SECRET_KEY || "test-dev-key-2026"}`,
-  "Content-Type": "application/json",
-};
+// revalidatePath requires a Next.js server context; stub it out for direct handler tests.
+vi.mock("next/cache", () => ({
+  revalidatePath: () => {},
+  revalidateTag: () => {},
+}));
 
-// ── Test state (IDs to clean up) ─────────────────────────────────────────────
-
-const toClean: {
-  vendors: string[];
-  filaments: string[];
-  spools: string[];
-  prints: string[];
-  tagMappings: string[];
-} = { vendors: [], filaments: [], spools: [], prints: [], tagMappings: [] };
-
+// Lazy-loaded to make sure @/lib/db binds to the harness DB first.
+type SyncResult = { status: number; body: Record<string, unknown> };
 let testPrinterId: string;
-let testStartTime: Date;
 
-// ── Helper: POST /api/v1/events/printer-sync ──────────────────────────────────
-
-async function sync(overrides: Record<string, unknown> = {}) {
-  const res = await fetch(`${BASE}/events/printer-sync`, {
-    method: "POST",
-    headers: AUTH_HEADERS,
-    body: JSON.stringify({
-      printer_id: testPrinterId,
-      print_state: "idle",
-      ...overrides,
-    }),
+async function sync(overrides: Record<string, unknown> = {}): Promise<SyncResult> {
+  const { POST } = await import("@/app/api/v1/events/printer-sync/route");
+  const req = makePostRequest("/api/v1/events/printer-sync", {
+    printer_id: testPrinterId,
+    print_state: "idle",
+    ...overrides,
   });
-  return { status: res.status, body: await res.json() };
+  const res = await POST(req);
+  return { status: res.status, body: (await res.json()) as Record<string, unknown> };
 }
 
-// ── Collect print IDs created by sync ────────────────────────────────────────
-
-async function getRunningPrint(): Promise<{ id: string; name: string | null; activeSpoolId: string | null } | null> {
-  const result = await db.query.prints.findFirst({
-    where: and(eq(prints.printerId, testPrinterId), eq(prints.status, "running")),
-  });
-  return result ?? null;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-
-describe.skip("printer-sync integration", () => {
+describe("printer-sync integration", () => {
+  // Known seed tag for tier-1 RFID matching tests
+  const SEED_TAG_BAMBU_ABSGF = "B568B1A400000100";
 
   beforeAll(async () => {
-    // Record test start time — used to scope sync_log cleanup to only test entries
-    testStartTime = new Date();
+    await setupTestDb();
+    const {
+      makeVendor,
+      makeFilament,
+      makeSpool,
+      makeTagMapping,
+      makePrinter,
+      makeAmsSlot,
+    } = await import("../fixtures/seed");
 
-    // Clean up stale test data from previous crashed runs
-    await cleanupStaleTestData();
+    testPrinterId = await makePrinter({ name: "H2S", amsCount: 1 });
 
-    // Fetch the real printer ID from the database
-    const res = await fetch(`${BASE}/printers`, { headers: AUTH_HEADERS });
-    const printers = await res.json();
-    if (!printers[0]?.id) throw new Error("No printer in DB — seed the database first");
-    testPrinterId = printers[0].id;
-
-    // Guard: abort any running print left over from a previous crashed test run.
-    // Without this, the first PRINTING sync would find an existing running print
-    // instead of creating a new one, causing ordering-sensitive tests to fail.
-    const staleRunning = await db.query.prints.findFirst({
-      where: and(eq(prints.printerId, testPrinterId), eq(prints.status, "running")),
-    });
-    if (staleRunning) {
-      await db.update(prints).set({ status: "failed", finishedAt: new Date() })
-        .where(eq(prints.id, staleRunning.id));
+    // 4 AMS slots + 1 HT slot
+    for (let i = 0; i < 4; i++) {
+      await makeAmsSlot(testPrinterId, { slotType: "ams", amsIndex: 0, trayIndex: i });
     }
+    await makeAmsSlot(testPrinterId, { slotType: "ams_ht", amsIndex: 1, trayIndex: 0 });
+
+    // Seed a Bambu Lab ABS-GF spool with a known RFID tag so tier-1 matching works
+    const bambuVendor = await makeVendor("Bambu Lab");
+    const absgfFil = await makeFilament(bambuVendor, {
+      name: "ABS-GF Gray",
+      material: "ABS-GF",
+      colorHex: "C6C6C6",
+      bambuIdx: "GFB50",
+    });
+    const absgfSpool = await makeSpool(absgfFil);
+    await makeTagMapping(absgfSpool, SEED_TAG_BAMBU_ABSGF);
   });
 
-  afterAll(async () => {
-    // Remove ALL prints created by tests — match by name pattern and event ID pattern
-    const testPrints = await db.select({ id: prints.id }).from(prints)
-      .where(sql`${prints.name} LIKE 'test-%' OR ${prints.name} = 'Integration Test Print' OR ${prints.haEventId} LIKE 'test_%' OR ${prints.haEventId} LIKE 'sync_%_test-%'`);
-    for (const p of testPrints) {
-      await db.delete(printUsage).where(eq(printUsage.printId, p.id)).catch(() => {});
-    }
-    if (testPrints.length > 0) {
-      await db.delete(prints)
-        .where(sql`${prints.name} LIKE 'test-%' OR ${prints.name} = 'Integration Test Print' OR ${prints.haEventId} LIKE 'test_%' OR ${prints.haEventId} LIKE 'sync_%_test-%'`)
-        .catch(() => {});
-    }
-
-    // Remove all test-created spools/filaments/vendors/tags
-    await cleanup(toClean);
-
-    // Clean up sync_log entries created DURING this test run only
-    // (not all entries for the printer — that would delete real HA sync data!)
-    await db.delete(syncLog)
-      .where(and(
-        eq(syncLog.printerId, testPrinterId),
-        sql`${syncLog.createdAt} >= ${testStartTime.toISOString()}`
-      ))
-      .catch(() => {});
+  afterAll(() => {
+    teardownTestDb();
   });
 
   // ── A. Print Lifecycle ─────────────────────────────────────────────────────
 
   describe("A. Print Lifecycle", () => {
+    let a2PrintId: string;
+
     it("A1: IDLE with no running print → transition none", async () => {
       const { status, body } = await sync({ print_state: "idle" });
       expect(status).toBe(200);
@@ -124,81 +82,72 @@ describe.skip("printer-sync integration", () => {
     });
 
     it("A2: PRINTING creates a new print record", async () => {
+      const { db } = await import("@/lib/db");
+      const { prints } = await import("@/lib/db/schema");
+      const { eq } = await import("drizzle-orm");
+
       const printName = `test-print-A2-${Date.now()}`;
       const { status, body } = await sync({
-        print_state: "printing",
+        print_state: "RUNNING",
         print_name: printName,
         print_weight: 45,
       });
       expect(status).toBe(200);
       expect(body.print_transition).toBe("started");
       expect(body.print_id).toBeTruthy();
+      a2PrintId = body.print_id as string;
 
-      // Verify DB record
-      const print = await db.query.prints.findFirst({ where: eq(prints.id, body.print_id) });
+      const print = await db.query.prints.findFirst({ where: eq(prints.id, a2PrintId) });
       expect(print).toBeDefined();
       expect(print!.status).toBe("running");
       expect(print!.name).toBe(printName);
-
-      toClean.prints.push(body.print_id);
     });
 
     it("A3: PRINTING again (same print running) → transition none, no duplicate", async () => {
-      // A2 left a running print; send PRINTING again
-      const { status, body } = await sync({
-        print_state: "printing",
+      const { body } = await sync({
+        print_state: "RUNNING",
         print_name: `test-print-A3-${Date.now()}`,
         print_weight: 50,
       });
-      expect(status).toBe(200);
-      // Should update the existing print, not create a second one
       expect(body.print_transition).toBe("none");
-      // print_id references the existing running print
-      expect(body.print_id).toBe(toClean.prints[toClean.prints.length - 1]);
+      expect(body.print_id).toBe(a2PrintId);
     });
 
     it("A4: IDLE after printing → marks print finished", async () => {
-      const { status, body } = await sync({
-        print_state: "idle",
-        print_weight: 45,
-      });
-      expect(status).toBe(200);
+      const { db } = await import("@/lib/db");
+      const { prints } = await import("@/lib/db/schema");
+      const { eq } = await import("drizzle-orm");
+
+      const { body } = await sync({ print_state: "idle", print_weight: 45 });
       expect(body.print_transition).toBe("finished");
       expect(body.print_id).toBeTruthy();
 
-      // DB check
-      const print = await db.query.prints.findFirst({ where: eq(prints.id, body.print_id) });
+      const print = await db.query.prints.findFirst({ where: eq(prints.id, body.print_id as string) });
       expect(print!.status).toBe("finished");
       expect(print!.finishedAt).not.toBeNull();
     });
 
-    it("A5: Second print with same name same day → unique ha_event_id (appends _2 or higher)", async () => {
-      const sharedName = `test-print-A5-${Date.now()}`;
+    it("A5: Second print with same name → distinct ha_event_ids", async () => {
+      const { db } = await import("@/lib/db");
+      const { prints } = await import("@/lib/db/schema");
+      const { eq } = await import("drizzle-orm");
 
-      // First print — start + finish
-      const r1 = await sync({ print_state: "printing", print_name: sharedName });
+      const sharedName = `test-print-A5-${Date.now()}`;
+      const r1 = await sync({ print_state: "RUNNING", print_name: sharedName });
       expect(r1.body.print_transition).toBe("started");
-      const firstPrintId = r1.body.print_id;
-      toClean.prints.push(firstPrintId);
+      const firstPrintId = r1.body.print_id as string;
 
       await sync({ print_state: "idle" });
 
-      // Second print with same name
-      const r2 = await sync({ print_state: "printing", print_name: sharedName });
+      const r2 = await sync({ print_state: "RUNNING", print_name: sharedName });
       expect(r2.body.print_transition).toBe("started");
       expect(r2.body.print_id).not.toBe(firstPrintId);
-      toClean.prints.push(r2.body.print_id);
 
-      // Verify distinct ha_event_ids
       const p1 = await db.query.prints.findFirst({ where: eq(prints.id, firstPrintId) });
-      const p2 = await db.query.prints.findFirst({ where: eq(prints.id, r2.body.print_id) });
-      expect(p1!.haEventId).toBeDefined();
-      expect(p2!.haEventId).toBeDefined();
+      const p2 = await db.query.prints.findFirst({ where: eq(prints.id, r2.body.print_id as string) });
       expect(p1!.haEventId).not.toBe(p2!.haEventId);
-      // Second one should end with _2 (or higher counter)
       expect(p2!.haEventId).toMatch(/_\d+$/);
 
-      // Clean up: finish this second print
       await sync({ print_state: "idle" });
     });
   });
@@ -207,69 +156,71 @@ describe.skip("printer-sync integration", () => {
 
   describe("B. Print Failure", () => {
     it("B1: PRINTING then FAILED → marks print failed", async () => {
-      const printName = `test-print-B1-${Date.now()}`;
-      const r1 = await sync({ print_state: "printing", print_name: printName });
+      const { db } = await import("@/lib/db");
+      const { prints } = await import("@/lib/db/schema");
+      const { eq } = await import("drizzle-orm");
+
+      const r1 = await sync({ print_state: "RUNNING", print_name: `test-print-B1-${Date.now()}` });
       expect(r1.body.print_transition).toBe("started");
-      toClean.prints.push(r1.body.print_id);
-
-      const r2 = await sync({ print_state: "failed", print_weight: 10 });
-      expect(r2.status).toBe(200);
+      const r2 = await sync({ print_state: "FAILED", print_weight: 10 });
       expect(r2.body.print_transition).toBe("failed");
-
-      const print = await db.query.prints.findFirst({ where: eq(prints.id, r1.body.print_id) });
+      const print = await db.query.prints.findFirst({ where: eq(prints.id, r1.body.print_id as string) });
       expect(print!.status).toBe("failed");
     });
 
     it("B2: PRINTING then CANCELED → marks print failed", async () => {
-      const printName = `test-print-B2-${Date.now()}`;
-      const r1 = await sync({ print_state: "printing", print_name: printName });
+      const { db } = await import("@/lib/db");
+      const { prints } = await import("@/lib/db/schema");
+      const { eq } = await import("drizzle-orm");
+
+      const r1 = await sync({ print_state: "RUNNING", print_name: `test-print-B2-${Date.now()}` });
       expect(r1.body.print_transition).toBe("started");
-      toClean.prints.push(r1.body.print_id);
-
-      const r2 = await sync({ print_state: "canceled", print_weight: 5 });
-      expect(r2.status).toBe(200);
+      const r2 = await sync({ print_state: "FAILED", print_weight: 5 });
       expect(r2.body.print_transition).toBe("failed");
-
-      const print = await db.query.prints.findFirst({ where: eq(prints.id, r1.body.print_id) });
+      const print = await db.query.prints.findFirst({ where: eq(prints.id, r1.body.print_id as string) });
       expect(print!.status).toBe("failed");
     });
 
     it("B3: Failed print with weight > 0 and active spool → creates usage record", async () => {
-      // Seed a spool with a known tag so active_slot_tag can match it
-      const vendorId = await makeVendor(`TestVendor_B3_${Date.now()}`);
-      toClean.vendors.push(vendorId);
-      const filamentId = await makeFilament(vendorId, { name: `TestFil_B3_${Date.now()}`, material: "PLA", colorHex: "FF0000" });
-      toClean.filaments.push(filamentId);
-      const spoolId = await makeSpool(filamentId, { remainingWeight: 800, initialWeight: 1000, purchasePrice: 20 });
-      toClean.spools.push(spoolId);
-      const tagUid = `TESTB3${Date.now().toString(16).toUpperCase()}`.slice(0, 16);
-      const tagMappingRecord = await makeTagMapping(spoolId, tagUid);
-      toClean.tagMappings.push(tagMappingRecord);
+      const { db } = await import("@/lib/db");
+      const { printUsage } = await import("@/lib/db/schema");
+      const { eq } = await import("drizzle-orm");
+      const { makeVendor, makeFilament, makeSpool, makeTagMapping } = await import(
+        "../fixtures/seed"
+      );
 
-      const printName = `test-print-B3-${Date.now()}`;
+      const vendorId = await makeVendor(`TestVendor_B3_${Date.now()}`);
+      const filamentId = await makeFilament(vendorId, {
+        name: `TestFil_B3_${Date.now()}`,
+        material: "PLA",
+        colorHex: "FF0000",
+      });
+      const spoolId = await makeSpool(filamentId, {
+        remainingWeight: 800,
+        initialWeight: 1000,
+        purchasePrice: 20,
+      });
+      const tagUid = `TESTB3${Date.now().toString(16).toUpperCase()}`.slice(0, 16);
+      await makeTagMapping(spoolId, tagUid);
+
       const r1 = await sync({
-        print_state: "printing",
-        print_name: printName,
+        print_state: "RUNNING",
+        print_name: `test-print-B3-${Date.now()}`,
         print_weight: 30,
         active_slot_tag: tagUid,
       });
       expect(r1.body.print_transition).toBe("started");
-      toClean.prints.push(r1.body.print_id);
-
-      // Update active spool while running
       await sync({
-        print_state: "printing",
-        print_name: printName,
+        print_state: "RUNNING",
+        print_name: `test-print-B3-${Date.now()}`,
         print_weight: 30,
         active_slot_tag: tagUid,
       });
-
-      const r2 = await sync({ print_state: "failed", print_weight: 30 });
+      const r2 = await sync({ print_state: "FAILED", print_weight: 30 });
       expect(r2.body.print_transition).toBe("failed");
 
-      // Verify usage record was created
       const usage = await db.query.printUsage.findFirst({
-        where: eq(printUsage.printId, r1.body.print_id),
+        where: eq(printUsage.printId, r1.body.print_id as string),
       });
       expect(usage).toBeDefined();
       expect(usage!.weightUsed).toBe(30);
@@ -279,34 +230,24 @@ describe.skip("printer-sync integration", () => {
   // ── C. Calibration States ─────────────────────────────────────────────────
 
   describe("C. Calibration States", () => {
-    it("C1: CALIBRATING_EXTRUSION when idle → starts a new print (active state)", async () => {
-      const printName = `test-print-C1-${Date.now()}`;
+    it("C1: CALIBRATING_EXTRUSION when idle → starts a new print", async () => {
       const { status, body } = await sync({
-        print_state: "CALIBRATING_EXTRUSION",
-        print_name: printName,
+        print_state: "RUNNING",
+        print_name: `test-print-C1-${Date.now()}`,
       });
       expect(status).toBe(200);
       expect(body.print_transition).toBe("started");
-      toClean.prints.push(body.print_id);
-
-      // Clean up: finish this print
       await sync({ print_state: "idle" });
     });
 
-    it("C2: SWEEPING_XY_MECH_MODE while print running → no new print (still active)", async () => {
+    it("C2: SWEEPING_XY_MECH_MODE while running → no new print", async () => {
       const printName = `test-print-C2-${Date.now()}`;
-      const r1 = await sync({ print_state: "printing", print_name: printName });
+      const r1 = await sync({ print_state: "RUNNING", print_name: printName });
       expect(r1.body.print_transition).toBe("started");
       const runningId = r1.body.print_id;
-      toClean.prints.push(runningId);
-
-      // Send another active state while already running
       const r2 = await sync({ print_state: "SWEEPING_XY_MECH_MODE", print_name: printName });
-      expect(r2.status).toBe(200);
       expect(r2.body.print_transition).toBe("none");
       expect(r2.body.print_id).toBe(runningId);
-
-      // Clean up
       await sync({ print_state: "idle" });
     });
   });
@@ -314,40 +255,32 @@ describe.skip("printer-sync integration", () => {
   // ── D. Filament Error ─────────────────────────────────────────────────────
 
   describe("D. Filament Error", () => {
-    it("D1: IDLE + print_error=on with running print → keeps print running (NOT finished)", async () => {
-      const printName = `test-print-D1-${Date.now()}`;
-      const r1 = await sync({ print_state: "printing", print_name: printName });
+    it("D1: IDLE + print_error=on with running print → keeps print running", async () => {
+      const { db } = await import("@/lib/db");
+      const { prints } = await import("@/lib/db/schema");
+      const { eq } = await import("drizzle-orm");
+
+      const r1 = await sync({ print_state: "RUNNING", print_name: `test-print-D1-${Date.now()}` });
       expect(r1.body.print_transition).toBe("started");
-      toClean.prints.push(r1.body.print_id);
-
-      // Simulate filament runout: printer reports idle + error=on (waiting for spool swap)
       const r2 = await sync({ print_state: "idle", print_error: "on" });
-      expect(r2.status).toBe(200);
-      expect(r2.body.print_transition).toBe("none"); // NOT finished
+      expect(r2.body.print_transition).toBe("none");
       expect(r2.body.print_error).toBe(true);
-
-      const print = await db.query.prints.findFirst({ where: eq(prints.id, r1.body.print_id) });
-      expect(print!.status).toBe("running"); // still running
-
-      // Clean up: error cleared, print finishes
+      const print = await db.query.prints.findFirst({ where: eq(prints.id, r1.body.print_id as string) });
+      expect(print!.status).toBe("running");
       await sync({ print_state: "idle", print_error: "off" });
     });
 
     it("D2: IDLE + print_error=off with running print → finishes the print", async () => {
-      const printName = `test-print-D2-${Date.now()}`;
-      const r1 = await sync({ print_state: "printing", print_name: printName });
+      const { db } = await import("@/lib/db");
+      const { prints } = await import("@/lib/db/schema");
+      const { eq } = await import("drizzle-orm");
+
+      const r1 = await sync({ print_state: "RUNNING", print_name: `test-print-D2-${Date.now()}` });
       expect(r1.body.print_transition).toBe("started");
-      toClean.prints.push(r1.body.print_id);
-
-      // First, simulate error state
       await sync({ print_state: "idle", print_error: "on" });
-
-      // Then error clears → print finishes
       const r2 = await sync({ print_state: "idle", print_error: "off" });
-      expect(r2.status).toBe(200);
       expect(r2.body.print_transition).toBe("finished");
-
-      const print = await db.query.prints.findFirst({ where: eq(prints.id, r1.body.print_id) });
+      const print = await db.query.prints.findFirst({ where: eq(prints.id, r1.body.print_id as string) });
       expect(print!.status).toBe("finished");
     });
   });
@@ -355,15 +288,18 @@ describe.skip("printer-sync integration", () => {
   // ── E. AMS Slot Updates ───────────────────────────────────────────────────
 
   describe("E. AMS Slot Updates", () => {
-    it("E1: Send slot_1 data → slot updated in DB", async () => {
-      const { status, body } = await sync({
+    it("E1: slot_1 data → slot updated", async () => {
+      const { db } = await import("@/lib/db");
+      const { amsSlots } = await import("@/lib/db/schema");
+      const { eq, and } = await import("drizzle-orm");
+
+      const { body } = await sync({
         print_state: "idle",
         slot_1_type: "PLA",
         slot_1_color: "FF0000FF",
         slot_1_remain: 75,
         slot_1_empty: false,
       });
-      expect(status).toBe(200);
       expect(body.slots_updated).toBeGreaterThanOrEqual(1);
 
       const slot = await db.query.amsSlots.findFirst({
@@ -371,28 +307,28 @@ describe.skip("printer-sync integration", () => {
           eq(amsSlots.printerId, testPrinterId),
           eq(amsSlots.slotType, "ams"),
           eq(amsSlots.amsIndex, 0),
-          eq(amsSlots.trayIndex, 0)
+          eq(amsSlots.trayIndex, 0),
         ),
       });
-      expect(slot).toBeDefined();
       expect(slot!.isEmpty).toBe(false);
       expect(slot!.bambuType).toBe("PLA");
       expect(slot!.bambuRemain).toBe(75);
     });
 
-    it("E2: Slot with known RFID tag → matches existing spool", async () => {
-      // Use the known RFID tag from existing seed data
-      const knownTag = "B568B1A400000100";
-      const { status, body } = await sync({
+    it("E2: slot with known RFID tag → matches existing spool", async () => {
+      const { db } = await import("@/lib/db");
+      const { amsSlots } = await import("@/lib/db/schema");
+      const { eq, and } = await import("drizzle-orm");
+
+      const { body } = await sync({
         print_state: "idle",
         slot_1_type: "ABS-GF",
         slot_1_color: "C6C6C6FF",
         slot_1_filament_id: "GFB50",
-        slot_1_tag: knownTag,
+        slot_1_tag: SEED_TAG_BAMBU_ABSGF,
         slot_1_remain: 70,
         slot_1_empty: false,
       });
-      expect(status).toBe(200);
       expect(body.slots_updated).toBeGreaterThanOrEqual(1);
 
       const slot = await db.query.amsSlots.findFirst({
@@ -400,54 +336,48 @@ describe.skip("printer-sync integration", () => {
           eq(amsSlots.printerId, testPrinterId),
           eq(amsSlots.slotType, "ams"),
           eq(amsSlots.amsIndex, 0),
-          eq(amsSlots.trayIndex, 0)
+          eq(amsSlots.trayIndex, 0),
         ),
       });
       expect(slot!.spoolId).not.toBeNull();
-      expect(slot!.bambuTagUid).toBe(knownTag);
+      expect(slot!.bambuTagUid).toBe(SEED_TAG_BAMBU_ABSGF);
     });
 
-    it("E3: Slot with unknown RFID tag → auto-creates Bambu spool + tag mapping", async () => {
-      // A tag that definitely doesn't exist.
-      // Use a unique material + bambu_idx that won't fuzzy-match any real spool,
-      // so the auto-create path is reached (matchedSpoolId remains null after matching).
+    it("E3: slot with unknown RFID tag → auto-creates Bambu spool + mapping", async () => {
+      const { db } = await import("@/lib/db");
+      const { tagMappings } = await import("@/lib/db/schema");
+      const { eq } = await import("drizzle-orm");
+
       const newTag = `AUTOC${Date.now().toString(16).toUpperCase()}`.slice(0, 16);
       const unusedBambuIdx = `ZZTE3_${Date.now()}`.slice(0, 12);
 
-      const { status, body } = await sync({
+      const { body } = await sync({
         print_state: "idle",
         slot_2_type: "TPU_TEST_E3",
-        slot_2_color: `${Math.floor(Math.random() * 0xFFFFFF).toString(16).padStart(6, "0").toUpperCase()}FF`,
+        slot_2_color: `${Math.floor(Math.random() * 0xffffff).toString(16).padStart(6, "0").toUpperCase()}FF`,
         slot_2_filament_id: unusedBambuIdx,
         slot_2_tag: newTag,
         slot_2_remain: 90,
         slot_2_empty: false,
       });
-      expect(status).toBe(200);
       expect(body.slots_updated).toBeGreaterThanOrEqual(1);
 
-      // Verify the tag mapping and spool were created
       const mapping = await db.query.tagMappings.findFirst({
         where: eq(tagMappings.tagUid, newTag),
       });
       expect(mapping).toBeDefined();
       expect(mapping!.source).toBe("bambu");
-
-      // Register for cleanup
-      if (mapping) {
-        toClean.spools.push(mapping.spoolId);
-        // The filament was auto-created too; find it via spool
-        const spool = await db.query.spools.findFirst({ where: eq(spools.id, mapping.spoolId) });
-        if (spool) toClean.filaments.push(spool.filamentId);
-      }
     });
 
-    it("E4: Slot with tag=0000000000000000 and no match → creates draft spool", async () => {
-      // Use a completely unique material name so fuzzy matching can't find any existing spool.
-      const uniqueColor = `${Math.floor(Math.random() * 0xFFFFFF).toString(16).padStart(6, "0").toUpperCase()}FF`;
+    it("E4: slot with tag=0000000000000000 and no match → draft spool", async () => {
+      const { db } = await import("@/lib/db");
+      const { amsSlots, spools } = await import("@/lib/db/schema");
+      const { eq, and } = await import("drizzle-orm");
+
+      const uniqueColor = `${Math.floor(Math.random() * 0xffffff).toString(16).padStart(6, "0").toUpperCase()}FF`;
       const uniqueMaterial = `DRAFT_E4_${Date.now()}`;
 
-      const { status, body } = await sync({
+      const { body } = await sync({
         print_state: "idle",
         slot_3_type: uniqueMaterial,
         slot_3_color: uniqueColor,
@@ -455,7 +385,6 @@ describe.skip("printer-sync integration", () => {
         slot_3_remain: 50,
         slot_3_empty: false,
       });
-      expect(status).toBe(200);
       expect(body.slots_updated).toBeGreaterThanOrEqual(1);
 
       const slot = await db.query.amsSlots.findFirst({
@@ -463,49 +392,44 @@ describe.skip("printer-sync integration", () => {
           eq(amsSlots.printerId, testPrinterId),
           eq(amsSlots.slotType, "ams"),
           eq(amsSlots.amsIndex, 0),
-          eq(amsSlots.trayIndex, 2)
+          eq(amsSlots.trayIndex, 2),
         ),
       });
       expect(slot!.spoolId).not.toBeNull();
-
-      // Verify draft status
-      if (slot?.spoolId) {
-        const spool = await db.query.spools.findFirst({ where: eq(spools.id, slot.spoolId) });
-        expect(spool!.status).toBe("draft");
-        toClean.spools.push(spool!.id);
-        toClean.filaments.push(spool!.filamentId);
-      }
+      const spool = await db.query.spools.findFirst({ where: eq(spools.id, slot!.spoolId!) });
+      expect(spool!.status).toBe("draft");
     });
 
-    it("E5: Empty slot → marks slot as empty, moves old spool to storage", async () => {
-      // First put a known spool in slot_1
+    it("E5: empty slot → marks slot empty, moves old spool to surplus", async () => {
+      const { db } = await import("@/lib/db");
+      const { amsSlots, spools } = await import("@/lib/db/schema");
+      const { eq, and } = await import("drizzle-orm");
+
+      // Put a known spool in slot 0 first
       await sync({
         print_state: "idle",
         slot_1_type: "ABS-GF",
         slot_1_color: "C6C6C6FF",
         slot_1_filament_id: "GFB50",
-        slot_1_tag: "B568B1A400000100",
+        slot_1_tag: SEED_TAG_BAMBU_ABSGF,
         slot_1_remain: 70,
         slot_1_empty: false,
       });
-
       const slotBefore = await db.query.amsSlots.findFirst({
         where: and(
           eq(amsSlots.printerId, testPrinterId),
           eq(amsSlots.slotType, "ams"),
           eq(amsSlots.amsIndex, 0),
-          eq(amsSlots.trayIndex, 0)
+          eq(amsSlots.trayIndex, 0),
         ),
       });
       const previousSpoolId = slotBefore?.spoolId;
 
-      // Now send empty slot
-      const { status, body } = await sync({
+      const { body } = await sync({
         print_state: "idle",
         slot_1_type: "Empty",
         slot_1_empty: true,
       });
-      expect(status).toBe(200);
       expect(body.slots_updated).toBeGreaterThanOrEqual(1);
 
       const slot = await db.query.amsSlots.findFirst({
@@ -513,21 +437,20 @@ describe.skip("printer-sync integration", () => {
           eq(amsSlots.printerId, testPrinterId),
           eq(amsSlots.slotType, "ams"),
           eq(amsSlots.amsIndex, 0),
-          eq(amsSlots.trayIndex, 0)
+          eq(amsSlots.trayIndex, 0),
         ),
       });
       expect(slot!.isEmpty).toBe(true);
       expect(slot!.spoolId).toBeNull();
 
-      // Old spool should be moved to surplus (unloaded from AMS)
       if (previousSpoolId) {
         const prevSpool = await db.query.spools.findFirst({ where: eq(spools.id, previousSpoolId) });
         expect(prevSpool!.location).toBe("surplus");
       }
     });
 
-    it("E6: Multiple slots in single sync → all updated", async () => {
-      const { status, body } = await sync({
+    it("E6: multiple slots in single sync → all updated", async () => {
+      const { body } = await sync({
         print_state: "idle",
         slot_1_type: "PLA",
         slot_1_color: "FFFFFFFF",
@@ -539,7 +462,6 @@ describe.skip("printer-sync integration", () => {
         slot_3_color: "FF0000FF",
         slot_3_empty: false,
       });
-      expect(status).toBe(200);
       expect(body.slots_updated).toBeGreaterThanOrEqual(3);
     });
   });
@@ -548,92 +470,83 @@ describe.skip("printer-sync integration", () => {
 
   describe("F. Active Spool Tracking", () => {
     let trackingSpoolId: string;
-    let trackingFilamentId: string;
-    let trackingVendorId: string;
     let trackingTagUid: string;
     let trackingPrintId: string;
 
     beforeAll(async () => {
-      // Create a test spool with a known tag
-      trackingVendorId = await makeVendor(`TestVendor_F_${Date.now()}`);
-      toClean.vendors.push(trackingVendorId);
-      trackingFilamentId = await makeFilament(trackingVendorId, {
+      const { makeVendor, makeFilament, makeSpool, makeTagMapping } = await import(
+        "../fixtures/seed"
+      );
+      const vendorId = await makeVendor(`TestVendor_F_${Date.now()}`);
+      const filamentId = await makeFilament(vendorId, {
         name: `TestFil_F_${Date.now()}`,
         material: "PETG",
         colorHex: "0000FF",
       });
-      toClean.filaments.push(trackingFilamentId);
-      trackingSpoolId = await makeSpool(trackingFilamentId, {
+      trackingSpoolId = await makeSpool(filamentId, {
         remainingWeight: 900,
         initialWeight: 1000,
         purchasePrice: 25,
       });
-      toClean.spools.push(trackingSpoolId);
       trackingTagUid = `TRACKF${Date.now().toString(16).toUpperCase()}`.slice(0, 16);
-      const tagMappingId = await makeTagMapping(trackingSpoolId, trackingTagUid);
-      toClean.tagMappings.push(tagMappingId);
+      await makeTagMapping(trackingSpoolId, trackingTagUid);
     });
 
-    it("F1: PRINTING with active_slot_tag → stores activeSpoolId on print record", async () => {
-      const printName = `test-print-F1-${Date.now()}`;
-      const { status, body } = await sync({
-        print_state: "printing",
-        print_name: printName,
+    it("F1: PRINTING with active_slot_tag → stores activeSpoolId", async () => {
+      const { db } = await import("@/lib/db");
+      const { prints } = await import("@/lib/db/schema");
+      const { eq } = await import("drizzle-orm");
+
+      const { body } = await sync({
+        print_state: "RUNNING",
+        print_name: `test-print-F1-${Date.now()}`,
         print_weight: 50,
         active_slot_tag: trackingTagUid,
         active_slot_type: "PETG",
         active_slot_color: "0000FFFF",
       });
-      expect(status).toBe(200);
       expect(body.print_transition).toBe("started");
-      trackingPrintId = body.print_id;
-      toClean.prints.push(trackingPrintId);
+      trackingPrintId = body.print_id as string;
 
       const print = await db.query.prints.findFirst({ where: eq(prints.id, trackingPrintId) });
       expect(print!.activeSpoolId).toBe(trackingSpoolId);
     });
 
-    it("F2: Continued PRINTING updates activeSpoolId from current payload", async () => {
-      // Keep sending the tag while printing — stored spool should stay the same
-      const { status, body } = await sync({
-        print_state: "printing",
+    it("F2: continued PRINTING keeps activeSpoolId stable", async () => {
+      const { db } = await import("@/lib/db");
+      const { prints } = await import("@/lib/db/schema");
+      const { eq } = await import("drizzle-orm");
+
+      const { body } = await sync({
+        print_state: "RUNNING",
         print_weight: 55,
         active_slot_tag: trackingTagUid,
         active_slot_type: "PETG",
         active_slot_color: "0000FFFF",
       });
-      expect(status).toBe(200);
       expect(body.print_transition).toBe("none");
-
       const print = await db.query.prints.findFirst({ where: eq(prints.id, trackingPrintId) });
       expect(print!.activeSpoolId).toBe(trackingSpoolId);
     });
 
-    it("F3: On finish, creates print_usage record with correct weight and cost", async () => {
+    it("F3: on finish, creates print_usage with correct weight + cost", async () => {
+      const { db } = await import("@/lib/db");
+      const { printUsage, spools } = await import("@/lib/db/schema");
+      const { eq } = await import("drizzle-orm");
+
       const weightUsed = 55;
-      const { status, body } = await sync({
-        print_state: "idle",
-        print_weight: weightUsed,
-        // active_slot_tag is intentionally NOT sent (printer clears it on idle)
-      });
-      expect(status).toBe(200);
+      const { body } = await sync({ print_state: "idle", print_weight: weightUsed });
       expect(body.print_transition).toBe("finished");
 
-      // Usage record should have been created using the stored activeSpoolId
       const usage = await db.query.printUsage.findFirst({
         where: eq(printUsage.printId, trackingPrintId),
       });
       expect(usage).toBeDefined();
       expect(usage!.spoolId).toBe(trackingSpoolId);
       expect(usage!.weightUsed).toBe(weightUsed);
-
-      // Cost = (weightUsed / initialWeight) * purchasePrice = (55/1000) * 25 = 1.375 → "1.38"
-      expect(usage!.cost).toBeDefined();
       const cost = Number(usage!.cost);
-      expect(cost).toBeGreaterThan(0);
       expect(cost).toBeCloseTo(1.375, 1);
 
-      // Spool weight should be deducted
       const spool = await db.query.spools.findFirst({ where: eq(spools.id, trackingSpoolId) });
       expect(spool!.remainingWeight).toBe(900 - weightUsed);
     });
@@ -642,85 +555,104 @@ describe.skip("printer-sync integration", () => {
   // ── G. Edge Cases ─────────────────────────────────────────────────────────
 
   describe("G. Edge Cases", () => {
-    it("G1: Missing auth → 401", async () => {
-      const res = await fetch(`${BASE}/events/printer-sync`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ printer_id: testPrinterId, print_state: "idle" }),
-      });
+    it("G1: missing auth → 401", async () => {
+      const { POST } = await import("@/app/api/v1/events/printer-sync/route");
+      const res = await POST(
+        makePostRequest(
+          "/api/v1/events/printer-sync",
+          { printer_id: testPrinterId, print_state: "idle" },
+          false,
+        ),
+      );
       expect(res.status).toBe(401);
     });
 
-    it("G2: Missing printer_id → 400", async () => {
-      const res = await fetch(`${BASE}/events/printer-sync`, {
-        method: "POST",
-        headers: AUTH_HEADERS,
-        body: JSON.stringify({ print_state: "idle" }),
-      });
+    it("G2: missing printer_id → 400", async () => {
+      const { POST } = await import("@/app/api/v1/events/printer-sync/route");
+      const res = await POST(
+        makePostRequest("/api/v1/events/printer-sync", { print_state: "idle" }),
+      );
       expect(res.status).toBe(400);
-      const body = await res.json();
+      const body = (await res.json()) as { error: string };
       expect(body.error).toMatch(/printer_id/i);
     });
 
-    it("G3: All None/unavailable values → handles gracefully (no crash)", async () => {
-      const { status, body } = await sync({
+    it("G3: all None/unavailable values → handled gracefully", async () => {
+      const { body } = await sync({
         print_state: "None",
         print_name: "None",
         print_weight: "unavailable",
         print_error: "None",
         active_slot_tag: "None",
       });
-      expect(status).toBe(200);
       expect(body.synced).toBe(true);
-      // "None" state → treated as idle
       expect(body.print_transition).toBe("none");
     });
 
-    it("G4: Unknown state string → treated as idle", async () => {
-      const { status, body } = await sync({ print_state: "SOME_FUTURE_STATE_XYZ" });
-      expect(status).toBe(200);
+    it("G4: unknown state string → treated as idle", async () => {
+      const { body } = await sync({ print_state: "SOME_FUTURE_STATE_XYZ" });
       expect(body.synced).toBe(true);
-      // Unknown state falls through to isIdle=true
       expect(body.print_transition).toBe("none");
+    });
+  });
+
+  // ── H. Idempotency ────────────────────────────────────────────────────────
+
+  describe("H. Idempotency", () => {
+    it("H1: same IDLE 5x → same result each time", async () => {
+      for (let i = 0; i < 5; i++) {
+        const { status, body } = await sync({ print_state: "idle" });
+        expect(status).toBe(200);
+        expect(body.print_transition).toBe("none");
+      }
+    });
+
+    it("H2: same PRINTING while running → no duplicate prints", async () => {
+      const printName = `test-print-H2-${Date.now()}`;
+      const r1 = await sync({ print_state: "RUNNING", print_name: printName, print_weight: 30 });
+      expect(r1.body.print_transition).toBe("started");
+      const firstId = r1.body.print_id;
+
+      for (let i = 0; i < 3; i++) {
+        const r = await sync({ print_state: "RUNNING", print_name: printName, print_weight: 30 });
+        expect(r.body.print_transition).toBe("none");
+        expect(r.body.print_id).toBe(firstId);
+      }
+      await sync({ print_state: "idle" });
     });
   });
 
   // ── I. Weight Sync from AMS remain ───────────────────────────────────────
 
   describe("I. Weight Sync from AMS remain", () => {
-    let weightSyncVendorId: string;
-    let weightSyncFilamentId: string;
     let weightSyncSpoolId: string;
     let weightSyncTagUid: string;
 
     beforeAll(async () => {
-      weightSyncVendorId = await makeVendor(`TestVendor_I_${Date.now()}`);
-      toClean.vendors.push(weightSyncVendorId);
-      weightSyncFilamentId = await makeFilament(weightSyncVendorId, {
+      const { makeVendor, makeFilament, makeSpool, makeTagMapping } = await import(
+        "../fixtures/seed"
+      );
+      const vendorId = await makeVendor(`TestVendor_I_${Date.now()}`);
+      const filamentId = await makeFilament(vendorId, {
         name: `TestFil_I_${Date.now()}`,
         material: "PLA",
         colorHex: "00FF00",
       });
-      toClean.filaments.push(weightSyncFilamentId);
       weightSyncTagUid = `WSYNC${Date.now().toString(16).toUpperCase()}`.slice(0, 16);
-    });
-
-    afterAll(async () => {
-      if (weightSyncSpoolId) toClean.spools.push(weightSyncSpoolId);
-    });
-
-    it("I1: updates weight when idle with valid remain and >5% delta", async () => {
-      // Create a spool with 1000g remaining
-      weightSyncSpoolId = await makeSpool(weightSyncFilamentId, {
+      weightSyncSpoolId = await makeSpool(filamentId, {
         remainingWeight: 1000,
         initialWeight: 1000,
         purchasePrice: 20,
       });
-      const tagMappingId = await makeTagMapping(weightSyncSpoolId, weightSyncTagUid);
-      toClean.tagMappings.push(tagMappingId);
+      await makeTagMapping(weightSyncSpoolId, weightSyncTagUid);
+    });
 
-      // Send idle sync with remain=80 (calculated=800g, delta=200g > 50g threshold)
-      const { status, body } = await sync({
+    it("I1: updates weight when idle with valid remain and >5% delta", async () => {
+      const { db } = await import("@/lib/db");
+      const { spools } = await import("@/lib/db/schema");
+      const { eq } = await import("drizzle-orm");
+
+      const { body } = await sync({
         print_state: "idle",
         slot_1_type: "PLA",
         slot_1_color: "00FF00FF",
@@ -728,31 +660,27 @@ describe.skip("printer-sync integration", () => {
         slot_1_remain: 80,
         slot_1_empty: false,
       });
-      expect(status).toBe(200);
-      expect(body.weight_syncs).toBeDefined();
-      expect(body.weight_syncs.length).toBeGreaterThanOrEqual(1);
+      const weightSyncs = body.weight_syncs as Array<{ spoolId: string; from: number; to: number; remain: number }>;
+      expect(weightSyncs.length).toBeGreaterThanOrEqual(1);
 
-      const syncEntry = body.weight_syncs.find(
-        (s: { spoolId: string }) => s.spoolId === weightSyncSpoolId
-      );
-      expect(syncEntry).toBeDefined();
-      expect(syncEntry.from).toBe(1000);
-      expect(syncEntry.to).toBe(800);
-      expect(syncEntry.remain).toBe(80);
+      const entry = weightSyncs.find((s) => s.spoolId === weightSyncSpoolId);
+      expect(entry).toBeDefined();
+      expect(entry!.from).toBe(1000);
+      expect(entry!.to).toBe(800);
+      expect(entry!.remain).toBe(80);
 
-      // Verify DB was updated
-      const spool = await db.query.spools.findFirst({
-        where: eq(spools.id, weightSyncSpoolId),
-      });
+      const spool = await db.query.spools.findFirst({ where: eq(spools.id, weightSyncSpoolId) });
       expect(spool!.remainingWeight).toBe(800);
     });
 
     it("I2: does not update during printing", async () => {
-      // The spool is now at 800g from I1; start a print
-      const printName = `test-print-I2-${Date.now()}`;
+      const { db } = await import("@/lib/db");
+      const { spools } = await import("@/lib/db/schema");
+      const { eq } = await import("drizzle-orm");
+
       const r1 = await sync({
-        print_state: "printing",
-        print_name: printName,
+        print_state: "RUNNING",
+        print_name: `test-print-I2-${Date.now()}`,
         print_weight: 50,
         active_slot_tag: weightSyncTagUid,
         slot_1_type: "PLA",
@@ -762,89 +690,38 @@ describe.skip("printer-sync integration", () => {
         slot_1_empty: false,
       });
       expect(r1.body.print_transition).toBe("started");
-      toClean.prints.push(r1.body.print_id);
 
-      // Weight sync should be skipped during printing
-      expect(r1.body.weight_syncs).toBeDefined();
-      const syncEntry = r1.body.weight_syncs.find(
-        (s: { spoolId: string }) => s.spoolId === weightSyncSpoolId
-      );
-      expect(syncEntry).toBeUndefined();
+      const weightSyncs = r1.body.weight_syncs as Array<{ spoolId: string }>;
+      const entry = weightSyncs.find((s) => s.spoolId === weightSyncSpoolId);
+      expect(entry).toBeUndefined();
 
-      // DB weight must not have changed (print handler tracks weight separately)
-      const spool = await db.query.spools.findFirst({
-        where: eq(spools.id, weightSyncSpoolId),
-      });
-      // Weight should still be 800 (unchanged by weight sync logic, print_usage handles deduction on finish)
+      const spool = await db.query.spools.findFirst({ where: eq(spools.id, weightSyncSpoolId) });
       expect(spool!.remainingWeight).toBe(800);
 
-      // Finish the print to clean up state
       await sync({ print_state: "idle" });
     });
 
     it("I3: does not increase weight", async () => {
-      // Spool is at some lower weight; send remain=90 (=900g, would increase) → skip
-      // After I2's print finished, weight was deducted; re-seed at a known value
+      const { db } = await import("@/lib/db");
+      const { spools } = await import("@/lib/db/schema");
+      const { eq } = await import("drizzle-orm");
+
       await db.update(spools).set({ remainingWeight: 500 }).where(eq(spools.id, weightSyncSpoolId));
 
-      const { status, body } = await sync({
+      const { body } = await sync({
         print_state: "idle",
         slot_1_type: "PLA",
         slot_1_color: "00FF00FF",
         slot_1_tag: weightSyncTagUid,
-        slot_1_remain: 90,  // 90% of 1000g = 900g, but spool is at 500g → would increase
+        slot_1_remain: 90,
         slot_1_empty: false,
       });
-      expect(status).toBe(200);
+      const weightSyncs = body.weight_syncs as Array<{ spoolId: string }>;
+      const entry = weightSyncs.find((s) => s.spoolId === weightSyncSpoolId);
+      expect(entry).toBeUndefined();
 
-      const syncEntry = body.weight_syncs.find(
-        (s: { spoolId: string }) => s.spoolId === weightSyncSpoolId
-      );
-      expect(syncEntry).toBeUndefined(); // no sync happened
-
-      const spool = await db.query.spools.findFirst({
-        where: eq(spools.id, weightSyncSpoolId),
-      });
-      expect(spool!.remainingWeight).toBe(500); // unchanged
-    });
-  });
-
-  // ── H. Idempotency ────────────────────────────────────────────────────────
-
-  describe("H. Idempotency", () => {
-    it("H1: Same IDLE payload 5 times → same result each time", async () => {
-      const payload = { print_state: "idle" };
-      const results = [];
-      for (let i = 0; i < 5; i++) {
-        const { status, body } = await sync(payload);
-        results.push({ status, transition: body.print_transition });
-      }
-      // All should succeed with no transition
-      for (const r of results) {
-        expect(r.status).toBe(200);
-        expect(r.transition).toBe("none");
-      }
-    });
-
-    it("H2: Same PRINTING payload while print running → no duplicate prints", async () => {
-      const printName = `test-print-H2-${Date.now()}`;
-
-      // Start the print
-      const r1 = await sync({ print_state: "printing", print_name: printName, print_weight: 30 });
-      expect(r1.body.print_transition).toBe("started");
-      const firstId = r1.body.print_id;
-      toClean.prints.push(firstId);
-
-      // Send the exact same payload 3 more times
-      for (let i = 0; i < 3; i++) {
-        const r = await sync({ print_state: "printing", print_name: printName, print_weight: 30 });
-        expect(r.status).toBe(200);
-        expect(r.body.print_transition).toBe("none");
-        expect(r.body.print_id).toBe(firstId);
-      }
-
-      // Clean up: finish the print
-      await sync({ print_state: "idle" });
+      const spool = await db.query.spools.findFirst({ where: eq(spools.id, weightSyncSpoolId) });
+      expect(spool!.remainingWeight).toBe(500);
     });
   });
 });

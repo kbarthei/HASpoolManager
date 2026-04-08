@@ -60,6 +60,11 @@ export async function setupTestDb(): Promise<void> {
   // Must happen before any code in the test file accesses `db`.
   process.env.SQLITE_PATH = dbPath;
 
+  // Default API key so requireAuth() succeeds with the bearer we send.
+  if (!process.env.API_SECRET_KEY) {
+    process.env.API_SECRET_KEY = "test-api-key";
+  }
+
   initialized = true;
 }
 

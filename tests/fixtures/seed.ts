@@ -12,6 +12,8 @@ import {
   tagMappings,
   prints,
   printUsage,
+  printers,
+  amsSlots,
 } from "@/lib/db/schema";
 import { eq, inArray, sql, like } from "drizzle-orm";
 
@@ -74,6 +76,53 @@ export async function makeSpool(
       purchasePrice: overrides.purchasePrice ?? null,
     })
     .returning({ id: spools.id });
+  return row.id;
+}
+
+// ── Printers ─────────────────────────────────────────────────────────────────
+
+export async function makePrinter(
+  overrides: {
+    name?: string;
+    model?: string;
+    serial?: string;
+    amsCount?: number;
+  } = {},
+): Promise<string> {
+  const ts = Date.now();
+  const [row] = await db
+    .insert(printers)
+    .values({
+      name: overrides.name ?? `TestPrinter_${ts}`,
+      model: overrides.model ?? "H2S",
+      serial: overrides.serial ?? `SERIAL_${ts}_${Math.random().toString(36).slice(2, 8)}`,
+      amsCount: overrides.amsCount ?? 1,
+      isActive: true,
+    })
+    .returning({ id: printers.id });
+  return row.id;
+}
+
+export async function makeAmsSlot(
+  printerId: string,
+  overrides: {
+    slotType?: string;
+    amsIndex?: number;
+    trayIndex?: number;
+    spoolId?: string | null;
+  } = {},
+): Promise<string> {
+  const [row] = await db
+    .insert(amsSlots)
+    .values({
+      printerId,
+      slotType: overrides.slotType ?? "ams",
+      amsIndex: overrides.amsIndex ?? 0,
+      trayIndex: overrides.trayIndex ?? 0,
+      spoolId: overrides.spoolId ?? null,
+      isEmpty: !overrides.spoolId,
+    })
+    .returning({ id: amsSlots.id });
   return row.id;
 }
 
