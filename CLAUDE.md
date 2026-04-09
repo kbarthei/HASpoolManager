@@ -64,6 +64,7 @@ npm run db:studio          # Open Drizzle Studio
 - **Run `npm run test:unit` before committing** — must pass
 - **Run `npm run test:integration` if backend changed** — must pass
 - **New pages need `data-testid="page-<name>"`** on the root element
+- **Keep `docs/test-strategy.md` in sync** — when adding/removing/renaming specs or changing test counts, update the spec catalogue in §4 and the pyramid counts in §1. The strategy doc is the single source of truth for what is tested and what is planned.
 
 ### Test architecture
 
