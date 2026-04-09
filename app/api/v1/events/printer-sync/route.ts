@@ -363,6 +363,8 @@ export async function POST(request: NextRequest) {
     const printName = str(body.print_name);
     const printWeight = num(body.print_weight);
     const printLayersTotal = num(body.print_layers_total);
+    const printLayersCurrent = num(body.print_layers_current);
+    const printProgress = num(body.print_progress);
     const printError = bool(body.print_error);
 
     // Use gcode_state for lifecycle decisions (reliable, 10 values)
@@ -475,29 +477,40 @@ export async function POST(request: NextRequest) {
 
       console.log(`[printer-sync] FINISHED: "${runningPrint.name}" weight=${finalWeight}g`);
     } else if (runningPrint && isFailed) {
-      // Print failed/cancelled — still record partial usage
-      const finalWeight = printWeight || runningPrint.printWeight;
+      // Print failed/cancelled — record partial usage scaled by progress
+      const totalWeight = printWeight || runningPrint.printWeight;
       await db.update(prints).set({
         status: "failed",
         finishedAt: new Date(),
         durationSeconds: runningPrint.startedAt
           ? Math.floor((Date.now() - new Date(runningPrint.startedAt).getTime()) / 1000)
           : null,
-        printWeight: finalWeight,
+        printWeight: totalWeight,
         updatedAt: new Date(),
       }).where(eq(prints.id, runningPrint.id));
       printTransition = "failed";
 
-      if (finalWeight && finalWeight > 0) {
+      if (totalWeight && totalWeight > 0) {
         const endRemainsFailed: Record<string, number> = {};
         for (const def of SLOT_DEFS) {
           const remain = num(body[`${def.key}_remain`], -1);
           if (remain >= 0) endRemainsFailed[def.key] = remain;
         }
-        await createPrintUsage(runningPrint.id, printer_id, finalWeight, endRemainsFailed);
-      }
 
-      console.log(`[printer-sync] FAILED: "${runningPrint.name}"`);
+        // Scale weight by progress — don't charge full slicer weight for a partial print
+        const progress = printProgress > 0 ? printProgress
+          : (printLayersCurrent > 0 && printLayersTotal > 0)
+            ? (printLayersCurrent / printLayersTotal) * 100
+            : null;
+        const partialWeight = progress !== null && progress < 100
+          ? Math.round(totalWeight * (progress / 100) * 100) / 100
+          : totalWeight;
+
+        await createPrintUsage(runningPrint.id, printer_id, partialWeight, endRemainsFailed);
+        console.log(`[printer-sync] FAILED: "${runningPrint.name}" progress=${progress ?? "unknown"}% partialWeight=${partialWeight}g (total=${totalWeight}g)`);
+      } else {
+        console.log(`[printer-sync] FAILED: "${runningPrint.name}" (no weight)`);
+      }
     } else if (runningPrint && isActive) {
       // Still running — update weight and track active spool
       const updates: Record<string, unknown> = { updatedAt: new Date() };

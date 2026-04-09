@@ -45,7 +45,7 @@ const E2E_DB_PATH = path.join(TMP_DIR, "e2e.db");
 const NGINX_CONTAINER_NAME = "haspoolmanager-e2e-nginx";
 const API_KEY = "e2e-test-api-key";
 
-const NEXT_PORT = 3001;
+const NEXT_PORT = 3002;
 const NGINX_PORT = 3000;
 
 export type AddonStack = {

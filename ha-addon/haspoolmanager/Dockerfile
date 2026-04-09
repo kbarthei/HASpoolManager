@@ -1,8 +1,8 @@
 ARG BUILD_FROM=ghcr.io/home-assistant/aarch64-base:latest
 FROM ${BUILD_FROM}
 
-# HA base is Alpine — install Node.js 22 + npm + jq + nginx + wget
-RUN apk add --no-cache nodejs npm jq nginx wget
+# HA base is Alpine — install Node.js 22 + npm + jq + nginx + wget + full ICU (de-DE locale)
+RUN apk add --no-cache nodejs npm jq nginx wget icu-data-full
 
 WORKDIR /app
 

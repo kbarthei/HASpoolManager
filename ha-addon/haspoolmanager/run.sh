@@ -21,12 +21,12 @@ mkdir -p /config /run/nginx
 export SQLITE_PATH=/config/haspoolmanager.db
 export HA_ADDON=true
 export HOSTNAME=127.0.0.1
-export PORT=3001
+export PORT=3002
 
 echo "==> HASpoolManager starting"
 echo "    DB: $SQLITE_PATH"
-echo "    Next.js will listen on 127.0.0.1:3001"
-echo "    nginx will listen on :3000 (proxies to Next.js)"
+echo "    Next.js will listen on 127.0.0.1:3002"
+echo "    nginx will listen on :3000 (HA ingress) + :3001 (direct PWA access)"
 
 # Start Next.js in background
 cd /app && node server.js &

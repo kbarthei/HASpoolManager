@@ -1,5 +1,5 @@
 name: HASpoolManager
-version: "1.0.22"
+version: "1.0.26"
 slug: haspoolmanager
 description: "3D Printing Filament Lifecycle Manager"
 url: "https://github.com/kbarthei/HASpoolManager"
@@ -10,6 +10,11 @@ startup: application
 init: false
 ingress: true
 ingress_port: 3000
+host_network: false
+ports:
+  3001/tcp: 3001
+ports_description:
+  3001/tcp: "Web UI (direct access, no HA login needed)"
 panel_icon: "mdi:printer-3d"
 panel_title: "Spool Manager"
 map:

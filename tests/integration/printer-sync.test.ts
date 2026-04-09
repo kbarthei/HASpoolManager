@@ -225,6 +225,58 @@ describe("printer-sync integration", () => {
       expect(usage).toBeDefined();
       expect(usage!.weightUsed).toBe(30);
     });
+
+    it("B4: Failed print at 10% progress → usage scaled to 10% of total weight", async () => {
+      const { db } = await import("@/lib/db");
+      const { printUsage, spools: spoolsTable } = await import("@/lib/db/schema");
+      const { eq } = await import("drizzle-orm");
+      const { makeVendor, makeFilament, makeSpool, makeTagMapping } = await import(
+        "../fixtures/seed"
+      );
+
+      const vendorId = await makeVendor(`TestVendor_B4_${Date.now()}`);
+      const filamentId = await makeFilament(vendorId, {
+        name: `TestFil_B4_${Date.now()}`,
+        material: "ASA",
+        colorHex: "FFFFFF",
+      });
+      const spoolId = await makeSpool(filamentId, {
+        remainingWeight: 1000,
+        initialWeight: 1000,
+        purchasePrice: 30,
+      });
+      const tagUid = `TESTB4${Date.now().toString(16).toUpperCase()}`.slice(0, 16);
+      await makeTagMapping(spoolId, tagUid);
+
+      // Start print
+      const r1 = await sync({
+        print_state: "RUNNING",
+        print_name: `test-print-B4-${Date.now()}`,
+        print_weight: 750,
+        active_slot_tag: tagUid,
+      });
+      expect(r1.body.print_transition).toBe("started");
+
+      // Fail at 10% progress
+      const r2 = await sync({
+        print_state: "FAILED",
+        print_weight: 750,
+        print_progress: 10,
+      });
+      expect(r2.body.print_transition).toBe("failed");
+
+      const usage = await db.query.printUsage.findFirst({
+        where: eq(printUsage.printId, r1.body.print_id as string),
+      });
+      expect(usage).toBeDefined();
+      expect(usage!.weightUsed).toBe(75); // 750 * 10% = 75g
+
+      // Spool should have 925g remaining (1000 - 75)
+      const spool = await db.query.spools.findFirst({
+        where: eq(spoolsTable.id, spoolId),
+      });
+      expect(spool!.remainingWeight).toBe(925);
+    });
   });
 
   // ── C. Calibration States ─────────────────────────────────────────────────
