@@ -17,10 +17,11 @@
 
 Read these before starting any implementation:
 
-- `docs/00-project-plan.md` — Master plan with 8 phases, file structure, timeline
-- `docs/01-architecture-backend.md` — SQLite schema (20 tables), API endpoints with TypeScript contracts, matching algorithm
-- `docs/02-frontend-ux.md` — Complete UX spec with wireframes, component hierarchy, design system
-- `docs/03-ha-integration.md` — HA automations, webhook contracts, data flows, offline fallback
+- `docs/architecture.md` — System architecture, container layout, request flow, matching engine
+- `docs/configuration.md` — All config options, HA integration, network ports
+- `docs/printer-sync.md` — Print lifecycle, weight deduction, spool matching, AMS tracking
+- `docs/architecture/api-reference.md` — All 22 API endpoints with request/response examples
+- `docs/architecture/data-model.md` — ER diagram and all 20 tables explained
 
 ## Context
 
@@ -36,7 +37,7 @@ Read these before starting any implementation:
 npm run dev                # Start dev server (Turbopack)
 npm run build              # Production build
 npm run test:unit          # Unit tests (419 tests, no DB needed)
-npm run test:integration   # Integration tests (59 tests, per-worker SQLite harness)
+npm run test:integration   # Integration tests (60 tests, per-worker SQLite harness)
 npm run test:e2e           # E2e tests (25 tests, Docker nginx + ingress simulator)
 npm run db:push            # Push schema to local SQLite
 npm run db:studio          # Open Drizzle Studio

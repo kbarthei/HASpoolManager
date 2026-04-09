@@ -12,7 +12,7 @@ sequenceDiagram
     participant SC as Server Component
     participant API as API Route
     participant SA as Server Action
-    participant DB as Neon Postgres
+    participant DB as SQLite
     participant HA as Home Assistant
 
     Note over User,DB: Page Load (SSR)
