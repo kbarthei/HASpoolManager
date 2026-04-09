@@ -17,14 +17,13 @@ This rewrite:
 
 ```
 ┌──────────────────────────────────────────────┐
-│ Smoke (bash, container URL)                  │  ~15 checks
+│ E2e (Playwright + Docker nginx + ingress)    │  25 tests (10 specs)
 ├──────────────────────────────────────────────┤
-│ E2e (Playwright via ingress simulator)       │  ~15 specs     ← rewritten
+│ Integration (Vitest + SQLite file DB)        │  59 tests (6 files)
 ├──────────────────────────────────────────────┤
-│ Integration (Vitest + SQLite file DB)        │  ~80 tests
-├──────────────────────────────────────────────┤
-│ Unit (Vitest, no DB)                         │  ~260 tests
+│ Unit (Vitest, no DB)                         │  419 tests (10 files)
 └──────────────────────────────────────────────┘
+Total: 503 tests — CI runs all three layers, ~2 min total.
 ```
 
 ### Layer responsibilities
@@ -65,39 +64,16 @@ Before rewriting tests, the codebase must lose its dual-driver baggage:
 - `scripts/migrate-pg-to-sqlite.ts` — **keep as one-shot historical tool**, move to `scripts/archive/`
 - `package.json` — remove `@neondatabase/serverless`, `@vercel/*`, `drizzle-kit` configs for pg
 
-## 3. Current state audit
+## 3. Current state (all done)
 
-| File | Current | Action |
-|------|---------|--------|
-| `tests/unit/color.test.ts` | ✅ imports real code | Keep |
-| `tests/unit/date.test.ts` | ✅ imports real code | Keep |
-| `tests/unit/matching-scoring.test.ts` | ✅ imports real code | Keep |
-| `tests/unit/order-parsing.test.ts` | ✅ imports real code | Keep |
-| `tests/unit/price-crawler.test.ts` | ? audit for external deps | Audit |
-| `tests/unit/printer-sync-helpers.test.ts` | ✅ 590 LOC, imports real code | Keep |
-| `tests/unit/storage-moves.test.ts` | ? | Audit |
-| `tests/unit/theme.test.ts` | ✅ | Keep |
-| `tests/unit/validations.test.ts` | ✅ 616 LOC | Keep |
-| `tests/unit/weight-adjustment.test.ts` | ✅ | Keep |
-| `tests/integration/printer-sync.test.ts` (850 LOC) | Postgres + running dev server | **Rewrite** onto SQLite harness |
-| `tests/integration/api-health.test.ts` | Postgres dev server | Rewrite |
-| `tests/integration/api-crud.test.ts` | Postgres dev server | Rewrite |
-| `tests/integration/api-events.test.ts` | Postgres dev server | Rewrite |
-| `tests/integration/api-match.test.ts` | Postgres dev server | Rewrite |
-| `tests/integration/api-admin-sync-log.test.ts` | Postgres dev server | Rewrite |
-| `tests/fixtures/seed.ts` | Postgres-coupled | Rewrite driver-agnostic |
-| `tests/e2e/dashboard.spec.ts` etc. (7 files) | dev server, no ingress | **Delete**, replace (§4) |
-| `scripts/smoke-test.sh` | Targets vercel.app | Rewrite for container URL |
-| `.github/workflows/ci.yml` | Vercel smoke + Neon secrets | **Rewrite** (§5 Chunk 4) |
-| `test-ingress.mjs` (repo root) | Draft harness from Phase 10 | Promote to `tests/harness/` |
-| `ingress-simulator.mjs` (repo root) | Draft sim from Phase 10 | Promote to `tests/harness/` |
-
-### New files to create
-- `tests/harness/sqlite-db.ts` — spin up per-worker SQLite DB + schema push
-- `tests/harness/next-app.ts` — start Next.js in-process bound to the test DB
-- `tests/harness/docker-addon.ts` — build + run + cleanup the HA addon container
-- `tests/harness/ingress-simulator.ts` — promoted from repo root, typed
-- `tests/e2e/*.spec.ts` — new specs per §4
+| Layer | Files | Status |
+|-------|-------|--------|
+| `tests/unit/` (10 files, 419 tests) | color, date, matching-scoring, order-parsing, price-crawler, printer-sync-helpers, storage-moves, theme, validations, weight-adjustment | ✅ All import real code, no DB |
+| `tests/integration/` (6 files, 59 tests) | api-health, api-crud, api-match, api-events, api-admin-sync-log, printer-sync | ✅ All use per-worker SQLite harness + direct route handler calls |
+| `tests/e2e/` (10 specs, 25 tests) | 01-smoke through 10-inventory-page | ✅ Run against addon stack (Docker nginx + ingress simulator) |
+| `tests/fixtures/seed.ts` | Factory functions (makeVendor, makeFilament, makeSpool, makePrinter, makeAmsSlot, makeTagMapping) | ✅ Uses `@/lib/db` singleton (lazy, binds to harness DB) |
+| `tests/harness/` | sqlite-db.ts, request.ts, addon-stack.ts, ingress-simulator.ts | ✅ Complete harness infrastructure |
+| `.github/workflows/ci.yml` | 3-stage pipeline: lint+unit → integration → e2e (main push) | ✅ No external secrets |
 
 ## 4. E2e test specification (expanded)
 
@@ -114,33 +90,35 @@ Before rewriting tests, the codebase must lose its dual-driver baggage:
 
 The following specs replace the old `tests/e2e/*.spec.ts` files. Each file is ~50-150 lines of Playwright, seeds minimal data, runs 3-8 assertions.
 
-#### Must-have (ships in Chunk 3)
+#### Implemented (25 tests across 10 spec files) ✅
 
-| Spec file | Journey | Key assertions |
-|-----------|---------|----------------|
-| `01-smoke.spec.ts` | Load home page → dashboard shows stat cards, health API reachable through full stack | Title, stat cards visible, no fatal console errors, `GET /api/v1/health` → 200 |
-| `02-navigation.spec.ts` | Navigate to all 7 real pages (Spools, Inventory, Orders, Prints, History, Admin, Scan) | Each page loads with `[data-testid=page-<name>]` visible, URL retains ingress prefix |
-| `03-spools-list.spec.ts` | Visit /spools, filter by vendor, open a detail page | List renders with seeded spools, filter reduces count, detail page shows remaining weight |
-| `04-spools-edit.spec.ts` | Open spool detail, edit remaining weight, save, verify update | Form submits, toast appears, value persists after reload |
-| `05-spool-create.spec.ts` | Click "new spool", fill form, save | New row appears in /spools list |
-| `06-orders-create.spec.ts` | New order form → add line items → save | Order appears in /orders with correct total |
-| `07-prints-history.spec.ts` | Open /history, verify prints from seed appear | Rows visible, usage events counted |
-| `08-admin-config.spec.ts` | Open /admin, verify DB + AI + HA sections render | Shows SQLite as DB driver, API key status visible |
-| `09-ingress-asset-loads.spec.ts` | Load home → verify CSS, fonts, static chunks all loaded | Zero 404s except known-harmless ABORTED RSC prefetches |
-| `10-hydration-clean.spec.ts` | Load every top-level page → assert no React #418 or other hydration errors | Console error count == 0 for each page |
+| Spec file | Journey | Tests |
+|-----------|---------|-------|
+| `01-smoke.spec.ts` | Home page renders stat cards + health API reachable through full stack | 2 |
+| `02-navigation.spec.ts` | Navigate to all 7 real pages, assert `page-<name>` testid visible, URL retains ingress prefix | 7 |
+| `03-spools-list.spec.ts` | Seed 2 spools, visit /spools, assert they render | 1 |
+| `04-admin-config.spec.ts` | Visit /admin, assert SQLite + HA Integration + AI Integration sections visible | 1 |
+| `05-ingress-asset-loads.spec.ts` | Load home, collect all network responses, assert zero 404s | 1 |
+| `06-prints-history.spec.ts` | Seed a finished print, verify /prints shows print name, /history renders | 2 |
+| `07-hydration-clean.spec.ts` | Load all 8 pages, assert zero console errors and no React #418 hydration messages | 8 |
+| `08-orders-page.spec.ts` | Seed shop + order + item, assert /orders renders | 1 |
+| `09-scan-page.spec.ts` | Visit /scan, assert "Scan a Spool" heading visible | 1 |
+| `10-inventory-page.spec.ts` | Seed printer + AMS slots + spool, assert /inventory renders | 1 |
 
 > **Pages note:** `/ams` and `/storage` redirect to `/inventory` — they are NOT standalone pages and have no `page-<name>` testid.
 > Real pages with anchors: dashboard, spools, inventory, orders, prints, history, admin, scan (8 total, 7 navigable + root).
 
-#### Nice-to-have (Chunk 3 extension)
+#### Not yet implemented (future work)
 
-| Spec | Journey |
-|------|---------|
-| `11-dark-mode.spec.ts` | Toggle theme, verify CSS variable changes, reload persists |
-| `12-scan-flow.spec.ts` | /scan page — paste synthetic tag, assert match result |
-| `13-order-parse.spec.ts` | Paste mock invoice text, verify AI parse returns items (AI mocked) |
-| `14-inventory-sections.spec.ts` | Verify AMS + Rack + Surplus + Workbench sections render on /inventory |
-| `15-mobile-viewport.spec.ts` | All key pages render correctly at 375x667 |
+| Spec | Journey | Notes |
+|------|---------|-------|
+| `11-spools-edit.spec.ts` | Open spool detail, edit remaining weight, save, verify update | Needs weight-adjuster testids |
+| `12-spool-create.spec.ts` | Click "new spool", fill form, save, verify new row | Needs add-spool dialog testids |
+| `13-orders-create.spec.ts` | New order form → add line items → save | Needs add-order dialog testids |
+| `14-inventory-sections.spec.ts` | Verify AMS + Rack + Surplus + Workbench sections render on /inventory | Testids exist (`printer-section`, `rack-section`, etc.) |
+| `15-dark-mode.spec.ts` | Toggle theme, verify CSS variable changes, reload persists | |
+| `16-scan-flow.spec.ts` | Paste synthetic tag on /scan, assert match result | |
+| `17-mobile-viewport.spec.ts` | All key pages render correctly at 375×667 | |
 
 ### Test data
 
