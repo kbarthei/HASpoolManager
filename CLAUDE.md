@@ -7,10 +7,10 @@
 ## Architecture
 
 - **Frontend:** Next.js 16 (App Router), shadcn/ui, Tailwind CSS, Recharts, dark mode primary
-- **Backend:** Next.js API Routes (serverless functions on Vercel)
-- **Database:** Neon Postgres via Vercel Marketplace, Drizzle ORM
-- **Hosting:** Vercel
-- **Auth:** API key for HA integration, simple password for web UI
+- **Backend:** Next.js API Routes + Server Actions
+- **Database:** SQLite (better-sqlite3), Drizzle ORM
+- **Hosting:** Home Assistant Add-on (Docker container with nginx + Next.js standalone)
+- **Auth:** Bearer API key for HA integration + web UI via HA ingress
 - **Integration:** Home Assistant (webhooks via rest_command), Bambu Lab H2S printer (via HA)
 
 ## Key Documents
@@ -18,7 +18,7 @@
 Read these before starting any implementation:
 
 - `docs/00-project-plan.md` — Master plan with 8 phases, file structure, timeline
-- `docs/01-architecture-backend.md` — Full Postgres schema (11 tables), API endpoints with TypeScript contracts, matching algorithm
+- `docs/01-architecture-backend.md` — SQLite schema (20 tables), API endpoints with TypeScript contracts, matching algorithm
 - `docs/02-frontend-ux.md` — Complete UX spec with wireframes, component hierarchy, design system
 - `docs/03-ha-integration.md` — HA automations, webhook contracts, data flows, offline fallback
 
@@ -26,20 +26,21 @@ Read these before starting any implementation:
 
 - The user has a Bambu Lab H2S printer with AMS (4 slots) + AMS HT (1 slot)
 - Home Assistant runs on a separate machine, accessible via SMB at /Volumes/config
-- Currently uses Spoolman (HA addon) for spool inventory — this app replaces it
-- 30 existing spools need to be migrated from Spoolman
+- This app replaced Spoolman (30 spools migrated successfully)
 - Bambu spools have RFID tags (exact match), third-party spools need fuzzy matching
 - The HA config repo is at github.com/kbarthei/kb_homeassistant
 
 ## Development Commands
 
 ```bash
-npm run dev          # Start dev server
-npm run build        # Production build
-npm run test:unit    # Run unit tests (246 tests, no DB needed)
-npm run test:integration  # Run integration tests (50 tests, needs DB + dev server)
-npm run db:push      # Push schema to Neon
-npm run db:studio    # Open Drizzle Studio
+npm run dev                # Start dev server (Turbopack)
+npm run build              # Production build
+npm run test:unit          # Unit tests (419 tests, no DB needed)
+npm run test:integration   # Integration tests (59 tests, per-worker SQLite harness)
+npm run test:e2e           # E2e tests (25 tests, Docker nginx + ingress simulator)
+npm run db:push            # Push schema to local SQLite
+npm run db:studio          # Open Drizzle Studio
+./ha-addon/deploy.sh       # Build + deploy addon to HA (bump version, scp, install)
 ```
 
 ## Testing Convention
@@ -52,8 +53,8 @@ npm run db:studio    # Open Drizzle Studio
 |-------------|---------------|---------|
 | Pure function in `lib/` | Unit test in `tests/unit/` | `npm run test:unit` |
 | API endpoint | Integration test in `tests/integration/` | `npm run test:integration` |
-| New UI page/route | E2e spec in `tests/e2e/` + update smoke test | `npx playwright test` |
-| Schema change | Update fixtures in `tests/fixtures/seed.ts` | — |
+| New UI page/route | E2e spec in `tests/e2e/` | `npm run test:e2e` |
+| Schema change | Update fixtures + regenerate migrations | `npx drizzle-kit generate` |
 
 ### Rules
 
@@ -62,26 +63,32 @@ npm run db:studio    # Open Drizzle Studio
 - **Extract pure functions** from route handlers into `lib/` modules for testability
 - **Run `npm run test:unit` before committing** — must pass
 - **Run `npm run test:integration` if backend changed** — must pass
+- **New pages need `data-testid="page-<name>"`** on the root element
 
-### Test file locations
+### Test architecture
 
 ```
 tests/
-  unit/              # Pure functions, no DB (vitest)
-  integration/       # API endpoints with real DB (vitest)
-  e2e/               # Browser tests (playwright)
-  fixtures/seed.ts   # Factory functions for test data
+  harness/
+    sqlite-db.ts        # Per-worker SQLite DB with schema migration
+    request.ts          # NextRequest helpers for direct route-handler calls
+    addon-stack.ts       # E2e orchestrator: Next.js standalone + Docker nginx + ingress simulator
+    ingress-simulator.ts # Node.js proxy mimicking HA's aiohttp ingress
+  fixtures/seed.ts       # Factory functions (makeVendor, makeFilament, makeSpool, etc.)
+  unit/                  # Pure functions, no DB (vitest)
+  integration/           # Route handlers called directly against SQLite harness (vitest)
+  e2e/                   # Playwright specs against the full addon stack
 ```
 
-### Templates
+Integration tests call route handlers directly via `NextRequest` — no dev server, no HTTP. The per-worker SQLite harness (`setupTestDb()`) ensures complete isolation from production data. A safety guard refuses to run if `SQLITE_PATH` points outside `tests/tmp/`.
 
-See `docs/test-templates.md` for copy-paste patterns.
+E2e tests run against the real HA addon stack: `npm run build` with `HA_ADDON=true` (basePath=/ingress), Docker nginx with the production `nginx.conf`, and a Node.js ingress simulator. Requires Docker (OrbStack or Docker Desktop).
 
 ### CI Pipeline
 
-- **Always** (PR + push): lint + typecheck + unit tests
-- **Backend changes** (push to main): integration tests
-- **Main only**: e2e tests + smoke tests against production
+- **Always** (PR + push): lint + typecheck + unit tests + integration tests
+- **Main push only**: e2e tests (Docker nginx + Playwright)
+- No external secrets needed — everything runs against local SQLite
 
 ## Conventions
 

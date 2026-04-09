@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 jobs:
-  # ── Lint + typecheck + unit tests ────────────────────────────────────────
+  # ── Stage 1: Fast gate — lint + typecheck + unit tests (<60s) ──────────
   lint-and-unit:
     runs-on: ubuntu-latest
     steps:
@@ -34,7 +34,7 @@ jobs:
       - name: Unit tests
         run: npm run test:unit
 
-  # ── Integration tests: per-worker SQLite harness, no external services ──
+  # ── Stage 2: Integration tests (per-worker SQLite, no services) ────────
   integration-tests:
     runs-on: ubuntu-latest
     needs: lint-and-unit
@@ -52,20 +52,40 @@ jobs:
       - name: Run integration tests
         run: npm run test:integration
 
-  # ── E2e tests: rewritten in Chunk 3 of docs/test-strategy.md ────────────
-  # Will build the HA addon container and run Playwright against the ingress
-  # simulator. Currently disabled until the harness is in place.
-  #
-  # e2e-tests:
-  #   runs-on: ubuntu-latest
-  #   needs: lint-and-unit
-  #   if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - uses: actions/setup-node@v4
-  #       with:
-  #         node-version: 22
-  #         cache: npm
-  #     - run: npm ci
-  #     - run: npx playwright install --with-deps chromium
-  #     - run: npm run test:e2e
+  # ── Stage 3: E2e tests (addon stack + Docker nginx + Playwright) ───────
+  # Runs on main push only — builds the HA addon standalone, starts nginx
+  # container with the real nginx.conf, ingress simulator, then Playwright.
+  # No secrets needed — everything is local SQLite + Docker.
+  e2e-tests:
+    runs-on: ubuntu-latest
+    needs: lint-and-unit
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright
+        run: npx playwright install --with-deps chromium
+
+      - name: Pull nginx image
+        run: docker pull nginx:alpine
+
+      - name: Run e2e tests
+        run: npm run test:e2e
+        env:
+          CI: true
+
+      - name: Upload test report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
