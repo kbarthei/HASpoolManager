@@ -149,7 +149,7 @@ export function SpoolsClient({
   }
 
   return (
-    <div className="space-y-3">
+    <div data-testid="page-spools" className="space-y-3">
       {/* Toolbar */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <SpoolFilters materials={materials} vendors={vendors} colors={colors} />

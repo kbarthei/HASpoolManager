@@ -34,7 +34,7 @@ export default async function Dashboard() {
   ]);
 
   return (
-    <div className="space-y-3">
+    <div data-testid="page-dashboard" className="space-y-3">
       {/* Draft spool notification */}
       {stats.draftSpoolCount > 0 && (
         <Link

@@ -54,7 +54,7 @@ export default async function PrintHistoryPage() {
   const grouped = groupByDate(completedPrints);
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
+    <div data-testid="page-prints" className="max-w-2xl mx-auto px-4 py-6 space-y-6">
       {/* Header */}
       <div>
         <h1 className="text-xl font-semibold">Print History</h1>

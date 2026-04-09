@@ -340,7 +340,7 @@ export function OrdersClient({ orders, rack, shoppingList, allFilaments }: Order
   const showFilters = deliveredOrders.length > 5;
 
   return (
-    <>
+    <div data-testid="page-orders">
       {/* Page header */}
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-lg font-semibold">Orders</h2>
@@ -499,6 +499,6 @@ export function OrdersClient({ orders, rack, shoppingList, allFilaments }: Order
         open={detailOpen}
         onClose={() => setDetailOpen(false)}
       />
-    </>
+    </div>
   );
 }

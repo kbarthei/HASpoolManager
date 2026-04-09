@@ -20,7 +20,7 @@ export default async function ScanPage({
   // No tag provided — show instructions
   if (!tag) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 text-center space-y-4">
+      <div data-testid="page-scan" className="flex flex-col items-center justify-center py-16 text-center space-y-4">
         <ScanLine className="h-16 w-16 text-muted-foreground/50" />
         <h2 className="text-lg font-semibold">Scan a Spool</h2>
         <p className="text-sm text-muted-foreground max-w-sm">
@@ -62,7 +62,7 @@ export default async function ScanPage({
 
   // No match or low confidence — show result page
   return (
-    <div className="max-w-md mx-auto py-8 space-y-4">
+    <div data-testid="page-scan" className="max-w-md mx-auto py-8 space-y-4">
       <Card className="p-4 rounded-xl">
         <div className="flex items-start gap-3">
           <AlertCircle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />

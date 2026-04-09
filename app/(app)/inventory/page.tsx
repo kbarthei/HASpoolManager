@@ -87,7 +87,7 @@ export default async function InventoryPage({
   const allSpoolsForClone = [...storageSpools, ...surplusSpools, ...workbenchSpools];
 
   return (
-    <div className="p-4 space-y-6">
+    <div data-testid="page-inventory" className="p-4 space-y-6">
       {/* Header row */}
       <div className="flex items-center justify-between">
         <h1 className="text-sm font-semibold text-foreground">Inventory</h1>

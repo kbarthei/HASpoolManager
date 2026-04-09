@@ -118,16 +118,19 @@ The following specs replace the old `tests/e2e/*.spec.ts` files. Each file is ~5
 
 | Spec file | Journey | Key assertions |
 |-----------|---------|----------------|
-| `01-smoke.spec.ts` | Load home page → nav appears → dashboard shows stat cards | Title, nav links prefixed, stat cards visible, no console errors |
-| `02-navigation.spec.ts` | Click through all top-level pages (Spools, Inventory, Orders, Prints, History, Admin, Storage, Scan) | Each page loads with `[data-testid=page-<name>]` visible, URL contains ingress prefix, back-button works |
+| `01-smoke.spec.ts` | Load home page → dashboard shows stat cards, health API reachable through full stack | Title, stat cards visible, no fatal console errors, `GET /api/v1/health` → 200 |
+| `02-navigation.spec.ts` | Navigate to all 7 real pages (Spools, Inventory, Orders, Prints, History, Admin, Scan) | Each page loads with `[data-testid=page-<name>]` visible, URL retains ingress prefix |
 | `03-spools-list.spec.ts` | Visit /spools, filter by vendor, open a detail page | List renders with seeded spools, filter reduces count, detail page shows remaining weight |
 | `04-spools-edit.spec.ts` | Open spool detail, edit remaining weight, save, verify update | Form submits, toast appears, value persists after reload |
 | `05-spool-create.spec.ts` | Click "new spool", fill form, save | New row appears in /spools list |
 | `06-orders-create.spec.ts` | New order form → add line items → save | Order appears in /orders with correct total |
 | `07-prints-history.spec.ts` | Open /history, verify prints from seed appear | Rows visible, usage events counted |
-| `08-admin-config.spec.ts` | Open /admin, verify DB + AI + HA sections render, sync log loads | Shows configured sync URL, shows SQLite as DB driver, sync log populates |
+| `08-admin-config.spec.ts` | Open /admin, verify DB + AI + HA sections render | Shows SQLite as DB driver, API key status visible |
 | `09-ingress-asset-loads.spec.ts` | Load home → verify CSS, fonts, static chunks all loaded | Zero 404s except known-harmless ABORTED RSC prefetches |
 | `10-hydration-clean.spec.ts` | Load every top-level page → assert no React #418 or other hydration errors | Console error count == 0 for each page |
+
+> **Pages note:** `/ams` and `/storage` redirect to `/inventory` — they are NOT standalone pages and have no `page-<name>` testid.
+> Real pages with anchors: dashboard, spools, inventory, orders, prints, history, admin, scan (8 total, 7 navigable + root).
 
 #### Nice-to-have (Chunk 3 extension)
 
@@ -136,25 +139,24 @@ The following specs replace the old `tests/e2e/*.spec.ts` files. Each file is ~5
 | `11-dark-mode.spec.ts` | Toggle theme, verify CSS variable changes, reload persists |
 | `12-scan-flow.spec.ts` | /scan page — paste synthetic tag, assert match result |
 | `13-order-parse.spec.ts` | Paste mock invoice text, verify AI parse returns items (AI mocked) |
-| `14-storage-drag.spec.ts` | Drag a spool between rack slots, verify position persists |
+| `14-inventory-sections.spec.ts` | Verify AMS + Rack + Surplus + Workbench sections render on /inventory |
 | `15-mobile-viewport.spec.ts` | All key pages render correctly at 375x667 |
 
 ### Test data
 
-One shared fixture file `tests/e2e/fixtures.ts` exports:
-- `seedMinimalFixtures(baseUrl, apiKey)` — creates 2 vendors, 3 filaments, 4 spools, 1 printer, 2 prints
-- `cleanupE2eFixtures(baseUrl, apiKey)` — deletes all records with `e2e_` prefix
+`tests/e2e/fixtures.ts` exports `openE2eDb()` which opens the shared SQLite
+file at `E2E_DB_PATH` (set by the global-setup harness) directly via
+better-sqlite3 in WAL mode. This is faster and more reliable than HTTP seeding:
+the test process inserts fixtures, the standalone Next.js server reads them
+through the same SQLite file.
 
-Each spec calls `seedMinimalFixtures` in `beforeAll` unless the spec has its own seed needs.
+Each spec that needs seed data calls `openE2eDb()` in `test.beforeAll`.
 
 ### Ingress-specific assertions
 
-Every spec inherits a shared `test.beforeEach` via a fixture that asserts:
-- No `/ingress/_next/...` unprefixed 404s
-- No React hydration errors in console
-- Page URL stays under `/api/hassio_ingress/<token>/ingress/...`
-
-These catch regressions in nginx.conf rewriting without needing dedicated tests.
+Specs 09 and 10 explicitly cover asset loading and hydration. Other specs
+naturally validate that the ingress path works because they navigate via
+the simulator's base URL and any prefix mismatch causes immediate 404s.
 
 ### Running e2e locally
 
@@ -168,73 +170,41 @@ npm run test:e2e -- --grep navigation  # single spec
 
 Broken into PR-sized chunks. Each chunk leaves `main` green and testable.
 
-### Chunk 0 — Cleanup: remove Vercel, Neon, Postgres
+### Chunk 0 — Cleanup: remove Vercel, Neon, Postgres ✅
 
-Prerequisite for everything else.
+Done. Single-driver SQLite world, Vercel/Neon artifacts deleted, admin page shows SQLite, README/CONTRIBUTING/CI updated.
 
-- Merge `lib/db/schema-sqlite.ts` into `lib/db/schema.ts` (delete the sqlite version)
-- Simplify `lib/db/index.ts` to single-driver (better-sqlite3 only)
-- Collapse `lib/db/sql-helpers.ts` branches to SQLite expressions
-- Remove `DATABASE_PROVIDER` env branching across the codebase
-- Delete `proxy.ts` (superseded by nginx)
-- Move `scripts/migrate-pg-to-sqlite.ts` → `scripts/archive/`
-- Update `.env.example` — no `DATABASE_URL`, just `SQLITE_PATH`
-- Remove deps: `@neondatabase/serverless`, `@vercel/*`, `vercel` CLI from package.json, drizzle pg dialect config
-- Update `drizzle.config.ts` to SQLite-only
-- Remove `.vercel/` ignore line (still keep gitignore entry)
-- Remove Vercel badge from README
-- `next.config.ts` — remove Vercel-specific bits
-- Verify `npm run build` still works
-- Verify the current addon still builds + deploys
-- **Deliverable**: one big PR, all existing tests still pass or are explicitly disabled with clear TODOs
+### Chunk 1 — Test harness ✅
 
-### Chunk 1 — Test harness
+Done. `tests/harness/sqlite-db.ts` creates a per-worker SQLite file, runs drizzle migrator, sets `SQLITE_PATH` before the lazy `@/lib/db` singleton initialises. Safety guard refuses to run against paths outside `tests/tmp/`. POC test (api-health) green.
 
-- `tests/harness/sqlite-db.ts` — function that returns `{ db, cleanup }`, creates fresh SQLite file, pushes schema
-- `tests/harness/next-app.ts` — spawns Next.js in-process bound to harness DB (uses `next().prepare()` API)
-- `tests/fixtures/seed.ts` rewritten to take a `db` argument
-- Migrate `tests/integration/api-health.test.ts` as proof-of-concept
-- `npm run test:integration` starts the harness automatically
-- **Deliverable**: 1 integration test green against harness; old tests still pass against their current setup (gated by env)
+### Chunk 2 — Migrate integration tests ✅
 
-### Chunk 2 — Migrate integration tests
+Done. All 6 test files rewritten to call route handlers directly via `tests/harness/request.ts` (synthesised `NextRequest`). No dev server, no external DB. `next/cache` mocked so `revalidatePath()` doesn't need a server context. 59/59 green.
 
-Rewrite each file to use the harness:
-- `api-health.test.ts` (done in Chunk 1)
-- `api-crud.test.ts`
-- `api-match.test.ts`
-- `api-events.test.ts` (if still relevant — check if endpoints still exist)
-- `api-admin-sync-log.test.ts`
-- `printer-sync.test.ts` (the big one — last, expect 2-3 days)
-- Delete any tests for deprecated endpoints
-- **Deliverable**: all integration tests run via harness, no DB env vars needed
+### Chunk 3 — E2e layer (in progress)
 
-### Chunk 3 — E2e layer
+Infrastructure done (Chunk 3a):
+- `tests/harness/addon-stack.ts` — orchestrates Next.js standalone + Docker nginx (real `nginx.conf`) + ingress simulator. SQLite test DB at `tests/tmp/e2e.db`. No HA base image needed.
+- `tests/harness/ingress-simulator.ts` — typed, binds ephemeral port
+- `tests/e2e/global-setup.ts` / `global-teardown.ts` — Playwright lifecycle hooks
+- `tests/e2e/fixtures.ts` — `openE2eDb()` for direct SQLite seeding
+- `tests/e2e/01-smoke.spec.ts` — 2 tests green (home page + health API)
+- Old specs (7 files) and root draft files (2 files) deleted
 
-- `tests/harness/docker-addon.ts` — builds addon image, runs container, seeds DB, exposes `:3000`, cleanup
-- `tests/harness/ingress-simulator.ts` — promoted from root, typed as TS
-- `tests/e2e/fixtures.ts` — seed + cleanup helpers (via HTTP to running container)
-- Write specs 01-10 from §4 (must-have)
-- Delete old `tests/e2e/*.spec.ts` files
-- Add required `data-testid` attributes to components as needed
-- `npm run test:e2e` orchestrates docker build + run + Playwright
-- **Deliverable**: e2e suite runs green in <5 min locally
+Remaining (Chunk 3b):
+- Write specs 02–10 from §4 (must-have)
+- Add `data-testid` anchors to pages and components as each spec requires
+- **Deliverable**: e2e suite with 10+ specs, runs green in <60s locally
 
-### Chunk 4 — CI rewrite
+### Chunk 4 — CI rewrite ✅ (partial)
 
-- New `.github/workflows/ci.yml`:
-  - Single job: lint + typecheck + unit + integration (parallel where possible)
-  - On main push: additionally run e2e (docker build in CI)
-  - No secrets beyond `GITHUB_TOKEN`
-- Remove `.github/workflows/*vercel*` or similar
-- Remove `scripts/smoke-test.sh` (or rewrite for container URL in CI)
-- **Deliverable**: CI green on a draft PR
+CI workflow rewritten for SQLite harness (no Neon secrets, no dev server). Lint + typecheck + unit + integration stages work. E2e stage commented out with TODO — to be enabled once Chunk 3b is complete and Docker-in-CI is validated.
 
 ### Chunk 5 — Polish + docs
 
-- Update `CLAUDE.md` testing section
-- Add `tests/README.md` with how-to-run-each-layer
-- Add `data-testid` audit — ensure all pages have at least `page-<name>`
+- Update `CLAUDE.md` testing section to reflect the harness
+- `data-testid` coverage audit
 - Coverage report via `vitest --coverage` in CI (non-blocking)
 - **Deliverable**: docs match reality, new contributor can run full suite first try
 
