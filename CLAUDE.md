@@ -44,6 +44,18 @@ npm run db:studio          # Open Drizzle Studio
 ./ha-addon/deploy.sh       # Build + deploy addon to HA (bump version, scp, install)
 ```
 
+## Test Data (gitignored, local only)
+
+```
+testdata/
+  db-snapshots/          # Production DB copies (prod-YYYY-MM-DD.db)
+  csv-imports/           # Sample CSVs for order import testing
+```
+
+- Snapshot the prod DB before risky changes: `cp data/haspoolmanager.db testdata/db-snapshots/prod-$(date +%Y-%m-%d).db`
+- Keep test CSVs and sample invoices in `testdata/csv-imports/`
+- This directory is gitignored — never committed, local only
+
 ## Testing Convention
 
 **Every code change must include appropriate tests.** Follow the test pyramid:
