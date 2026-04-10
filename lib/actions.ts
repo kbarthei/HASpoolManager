@@ -375,6 +375,87 @@ export async function clearShoppingList() {
   revalidatePath("/orders");
 }
 
+// ─── Spool Link & Merge ─────────────────────────────────────────────────────
+
+export async function linkSpoolToOrderItem(spoolId: string, orderItemId: string) {
+  const spool = await db.query.spools.findFirst({ where: eq(spools.id, spoolId) });
+  if (!spool) throw new Error("Spool not found");
+
+  const item = await db.query.orderItems.findFirst({ where: eq(orderItems.id, orderItemId) });
+  if (!item) throw new Error("Order item not found");
+
+  // If the order item already points to a different spool, unlink it
+  if (item.spoolId && item.spoolId !== spoolId) {
+    await db.update(orderItems).set({ spoolId: null }).where(eq(orderItems.id, orderItemId));
+  }
+
+  // Link spool to order item
+  await db.update(orderItems).set({ spoolId }).where(eq(orderItems.id, orderItemId));
+
+  // Transfer purchase price from order item to spool (if spool has none)
+  const updates: Record<string, unknown> = { updatedAt: new Date() };
+  if (!spool.purchasePrice && item.unitPrice) {
+    updates.purchasePrice = item.unitPrice;
+    updates.currency = "EUR";
+  }
+  await db.update(spools).set(updates).where(eq(spools.id, spoolId));
+
+  revalidatePath("/");
+  revalidatePath("/spools");
+  revalidatePath(`/spools/${spoolId}`);
+  revalidatePath("/orders");
+}
+
+export async function mergeSpools(targetSpoolId: string, sourceSpoolId: string) {
+  if (targetSpoolId === sourceSpoolId) throw new Error("Cannot merge spool with itself");
+
+  const target = await db.query.spools.findFirst({ where: eq(spools.id, targetSpoolId) });
+  const source = await db.query.spools.findFirst({ where: eq(spools.id, sourceSpoolId) });
+  if (!target) throw new Error("Target spool not found");
+  if (!source) throw new Error("Source spool not found");
+
+  // Move print usage records from source to target
+  await db.update(printUsage)
+    .set({ spoolId: targetSpoolId })
+    .where(eq(printUsage.spoolId, sourceSpoolId));
+
+  // Move tag mappings from source to target
+  await db.update(tagMappings)
+    .set({ spoolId: targetSpoolId })
+    .where(eq(tagMappings.spoolId, sourceSpoolId));
+
+  // Re-link order items from source to target
+  await db.update(orderItems)
+    .set({ spoolId: targetSpoolId })
+    .where(eq(orderItems.spoolId, sourceSpoolId));
+
+  // Transfer purchase price if target has none
+  const updates: Record<string, unknown> = { updatedAt: new Date() };
+  if (!target.purchasePrice && source.purchasePrice) {
+    updates.purchasePrice = source.purchasePrice;
+    updates.currency = source.currency;
+  }
+  if (!target.purchaseDate && source.purchaseDate) {
+    updates.purchaseDate = source.purchaseDate;
+  }
+  await db.update(spools).set(updates).where(eq(spools.id, targetSpoolId));
+
+  // Clear AMS slot if source was in one
+  await db.update(amsSlots)
+    .set({ spoolId: null, isEmpty: true, updatedAt: new Date() })
+    .where(eq(amsSlots.spoolId, sourceSpoolId));
+
+  // Delete the source spool
+  await db.delete(spools).where(eq(spools.id, sourceSpoolId));
+
+  revalidatePath("/");
+  revalidatePath("/spools");
+  revalidatePath(`/spools/${targetSpoolId}`);
+  revalidatePath("/orders");
+  revalidatePath("/storage");
+  revalidatePath("/ams");
+}
+
 export async function archiveSpool(spoolId: string) {
   // If spool is in an AMS slot, clear the slot first
   const slot = await db.query.amsSlots.findFirst({

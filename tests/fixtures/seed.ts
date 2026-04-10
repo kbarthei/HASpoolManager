@@ -14,6 +14,8 @@ import {
   printUsage,
   printers,
   amsSlots,
+  orders,
+  orderItems,
 } from "@/lib/db/schema";
 import { eq, inArray, sql, like } from "drizzle-orm";
 
@@ -123,6 +125,51 @@ export async function makeAmsSlot(
       isEmpty: !overrides.spoolId,
     })
     .returning({ id: amsSlots.id });
+  return row.id;
+}
+
+// ── Orders ───────────────────────────────────────────────────────────────────
+
+export async function makeOrder(
+  overrides: {
+    orderNumber?: string;
+    orderDate?: string;
+    status?: string;
+    totalCost?: number;
+  } = {},
+): Promise<string> {
+  const ts = Date.now();
+  const [row] = await db
+    .insert(orders)
+    .values({
+      orderNumber: overrides.orderNumber ?? `TEST-${ts}`,
+      orderDate: overrides.orderDate ?? new Date().toISOString().slice(0, 10),
+      status: overrides.status ?? "ordered",
+      totalCost: overrides.totalCost ?? null,
+    })
+    .returning({ id: orders.id });
+  return row.id;
+}
+
+export async function makeOrderItem(
+  orderId: string,
+  filamentId: string,
+  overrides: {
+    spoolId?: string | null;
+    quantity?: number;
+    unitPrice?: number | null;
+  } = {},
+): Promise<string> {
+  const [row] = await db
+    .insert(orderItems)
+    .values({
+      orderId,
+      filamentId,
+      spoolId: overrides.spoolId ?? null,
+      quantity: overrides.quantity ?? 1,
+      unitPrice: overrides.unitPrice ?? null,
+    })
+    .returning({ id: orderItems.id });
   return row.id;
 }
 

@@ -12,6 +12,8 @@ import { ExternalLink } from "lucide-react";
 import { WeightAdjuster } from "@/components/spool/weight-adjuster";
 import { ArchiveButton } from "@/components/spool/archive-button";
 import { AddToShoppingListButton } from "@/components/spool/add-to-shopping-list-button";
+import { SpoolManageSection } from "@/components/spool/spool-manage-section";
+import { and, ne, sql } from "drizzle-orm";
 
 export default async function SpoolDetailPage({
   params,
@@ -43,6 +45,53 @@ export default async function SpoolDetailPage({
       },
     },
   });
+
+  // ── Candidates for "Link to Order" ──
+  // Order items for the same filament that are either unlinked or linked to a different spool
+  const orderItemCandidates = !orderItem
+    ? await db.query.orderItems.findMany({
+        where: eq(schema.orderItems.filamentId, spool.filamentId),
+        with: {
+          order: { with: { shop: true } },
+        },
+      }).then((items) => items.map((oi) => ({
+        id: oi.id,
+        unitPrice: oi.unitPrice,
+        quantity: oi.quantity,
+        order: {
+          id: oi.order.id,
+          orderNumber: oi.order.orderNumber,
+          orderDate: oi.order.orderDate,
+          shop: oi.order.shop,
+        },
+        currentSpoolId: oi.spoolId,
+      })))
+    : [];
+
+  // ── Candidates for "Merge Spool" ──
+  // Other spools of the same filament (exclude self)
+  const mergeCandidatesRaw = await db.query.spools.findMany({
+    where: and(
+      eq(schema.spools.filamentId, spool.filamentId),
+      ne(schema.spools.id, id),
+    ),
+    with: {
+      printUsage: true,
+      tagMappings: true,
+      orderItems: true,
+    },
+  });
+  const mergeCandidates = mergeCandidatesRaw.map((s) => ({
+    id: s.id,
+    remainingWeight: s.remainingWeight,
+    initialWeight: s.initialWeight,
+    purchasePrice: s.purchasePrice,
+    location: s.location,
+    status: s.status,
+    usageCount: s.printUsage.length,
+    orderLinked: s.orderItems.length > 0,
+    tagCount: s.tagMappings.length,
+  }));
 
   const usedWeight = spool.initialWeight - spool.remainingWeight;
   const costPerGram = spool.purchasePrice
@@ -141,6 +190,16 @@ export default async function SpoolDetailPage({
         </Card>
         </Link>
       )}
+
+      {/* Manage: Link to Order / Merge Duplicate */}
+      <SpoolManageSection
+        spoolId={spool.id}
+        filamentName={spool.filament.name}
+        colorHex={spool.filament.colorHex || "888888"}
+        hasOrderLink={!!orderItem}
+        orderItemCandidates={orderItemCandidates}
+        mergeCandidates={mergeCandidates}
+      />
 
       {/* Shopping list + Archive actions */}
       <div className="flex flex-col gap-2">

@@ -37,7 +37,7 @@ Read these before starting any implementation:
 npm run dev                # Start dev server (Turbopack)
 npm run build              # Production build
 npm run test:unit          # Unit tests (419 tests, no DB needed)
-npm run test:integration   # Integration tests (60 tests, per-worker SQLite harness)
+npm run test:integration   # Integration tests (65 tests, per-worker SQLite harness)
 npm run test:e2e           # E2e tests (25 tests, Docker nginx + ingress simulator)
 npm run db:push            # Push schema to local SQLite
 npm run db:studio          # Open Drizzle Studio
