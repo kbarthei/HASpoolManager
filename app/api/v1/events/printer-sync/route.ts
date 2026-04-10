@@ -365,7 +365,15 @@ export async function POST(request: NextRequest) {
     const printLayersTotal = num(body.print_layers_total);
     const printLayersCurrent = num(body.print_layers_current);
     const printProgress = num(body.print_progress);
-    const printError = bool(body.print_error);
+    // print_error is an integer error code from Bambu Lab:
+    //   0           = no error
+    //   50348044    = user cancelled (0x0300400C)
+    //   0x07XX8011  = AMS filament runout (XX = tray index)
+    //   0x18XX8011  = AMS HT filament runout
+    // HA sends it as string "0", "50348044", or binary_sensor "on"/"off"
+    const printErrorRaw = str(body.print_error);
+    const printErrorCode = num(printErrorRaw);
+    const printError = printErrorRaw === "on" || printErrorRaw === "true" || printErrorCode !== 0;
 
     // Use gcode_state for lifecycle decisions (reliable, 10 values)
     // Fall back to stg_cur classification if gcode_state is not provided (backward compat)
@@ -378,13 +386,30 @@ export async function POST(request: NextRequest) {
     // "ambiguous" (OFFLINE, UNKNOWN) → don't change running state
 
     // Log what we received for debugging
-    console.log(`[printer-sync] gcode=${gcodeState} stg=${rawState} lifecycle=${lifecycle} name="${printName}" weight=${printWeight}`);
+    console.log(`[printer-sync] gcode=${gcodeState} stg=${rawState} lifecycle=${lifecycle} name="${printName}" weight=${printWeight} error=${printErrorCode}`);
 
     // ── 1. Print state transitions ────────────────────────────────────────
 
-    const runningPrint = await db.query.prints.findFirst({
+    let runningPrint = await db.query.prints.findFirst({
       where: and(eq(prints.printerId, printer_id), eq(prints.status, "running")),
     });
+
+    // Auto-close stale prints: if a print has been "running" for >24h without
+    // updates, it's stuck (missed FINISH event). Close it so new prints can be tracked.
+    if (runningPrint && runningPrint.updatedAt) {
+      const staleMs = Date.now() - new Date(runningPrint.updatedAt).getTime();
+      const STALE_THRESHOLD_MS = 24 * 60 * 60 * 1000; // 24 hours
+      if (staleMs > STALE_THRESHOLD_MS) {
+        console.log(`[printer-sync] AUTO-CLOSING stale print "${runningPrint.name}" (${Math.round(staleMs / 3600000)}h old)`);
+        await db.update(prints).set({
+          status: "failed",
+          finishedAt: new Date(),
+          notes: `Auto-closed: stale for ${Math.round(staleMs / 3600000)}h`,
+          updatedAt: new Date(),
+        }).where(eq(prints.id, runningPrint.id));
+        runningPrint = undefined;
+      }
+    }
 
     let printTransition: PrintTransition = "none";
     let affectedPrintId: string | null = runningPrint?.id ?? null;
@@ -497,17 +522,23 @@ export async function POST(request: NextRequest) {
           if (remain >= 0) endRemainsFailed[def.key] = remain;
         }
 
-        // Scale weight by progress — don't charge full slicer weight for a partial print
+        // Scale weight by progress — don't charge full slicer weight for a partial print.
+        // If no progress data at all (failed during PREPARE before any extrusion),
+        // skip usage entirely — we don't know how much was used.
         const progress = printProgress > 0 ? printProgress
           : (printLayersCurrent > 0 && printLayersTotal > 0)
             ? (printLayersCurrent / printLayersTotal) * 100
             : null;
-        const partialWeight = progress !== null && progress < 100
-          ? Math.round(totalWeight * (progress / 100) * 100) / 100
-          : totalWeight;
 
-        await createPrintUsage(runningPrint.id, printer_id, partialWeight, endRemainsFailed);
-        console.log(`[printer-sync] FAILED: "${runningPrint.name}" progress=${progress ?? "unknown"}% partialWeight=${partialWeight}g (total=${totalWeight}g)`);
+        if (progress !== null && progress > 0) {
+          const partialWeight = progress < 100
+            ? Math.round(totalWeight * (progress / 100) * 100) / 100
+            : totalWeight;
+          await createPrintUsage(runningPrint.id, printer_id, partialWeight, endRemainsFailed);
+          console.log(`[printer-sync] FAILED: "${runningPrint.name}" progress=${progress}% partialWeight=${partialWeight}g (total=${totalWeight}g)`);
+        } else {
+          console.log(`[printer-sync] FAILED: "${runningPrint.name}" no progress data, skipping usage deduction`);
+        }
       } else {
         console.log(`[printer-sync] FAILED: "${runningPrint.name}" (no weight)`);
       }

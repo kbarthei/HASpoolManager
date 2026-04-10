@@ -216,7 +216,7 @@ describe("printer-sync integration", () => {
         print_weight: 30,
         active_slot_tag: tagUid,
       });
-      const r2 = await sync({ print_state: "FAILED", print_weight: 30 });
+      const r2 = await sync({ print_state: "FAILED", print_weight: 30, print_progress: 100 });
       expect(r2.body.print_transition).toBe("failed");
 
       const usage = await db.query.printUsage.findFirst({
@@ -774,6 +774,326 @@ describe("printer-sync integration", () => {
 
       const spool = await db.query.spools.findFirst({ where: eq(spools.id, weightSyncSpoolId) });
       expect(spool!.remainingWeight).toBe(500);
+    });
+  });
+
+  // ── J. Critical Gap Tests ─────────────────────────────────────────────────
+
+  describe("J. Critical Gaps", () => {
+    it("J1: gcode_state takes precedence over print_state", async () => {
+      // gcode_state=RUNNING should start print even if print_state=idle
+      const r = await sync({
+        gcode_state: "RUNNING",
+        print_state: "idle",
+        print_name: `test-print-J1-${Date.now()}`,
+      });
+      expect(r.body.print_transition).toBe("started");
+      // Clean up
+      await sync({ gcode_state: "FINISH" });
+    });
+
+    it("J2: OFFLINE keeps running print alive (ambiguous state)", async () => {
+      const { db } = await import("@/lib/db");
+      const { prints } = await import("@/lib/db/schema");
+      const { eq } = await import("drizzle-orm");
+
+      const r1 = await sync({ gcode_state: "RUNNING", print_name: `test-print-J2-${Date.now()}` });
+      expect(r1.body.print_transition).toBe("started");
+
+      const r2 = await sync({ gcode_state: "OFFLINE" });
+      expect(r2.body.print_transition).toBe("none");
+
+      const print = await db.query.prints.findFirst({ where: eq(prints.id, r1.body.print_id as string) });
+      expect(print!.status).toBe("running");
+      // Clean up
+      await sync({ gcode_state: "FINISH" });
+    });
+
+    it("J3: PAUSE keeps running print alive", async () => {
+      const { db } = await import("@/lib/db");
+      const { prints } = await import("@/lib/db/schema");
+      const { eq } = await import("drizzle-orm");
+
+      const r1 = await sync({ gcode_state: "RUNNING", print_name: `test-print-J3-${Date.now()}` });
+      expect(r1.body.print_transition).toBe("started");
+
+      const r2 = await sync({ gcode_state: "PAUSE" });
+      expect(r2.body.print_transition).toBe("none");
+
+      const print = await db.query.prints.findFirst({ where: eq(prints.id, r1.body.print_id as string) });
+      expect(print!.status).toBe("running");
+      // Resume and finish
+      await sync({ gcode_state: "RUNNING" });
+      await sync({ gcode_state: "FINISH" });
+    });
+
+    it("J4: Failed print with no progress → no usage deducted", async () => {
+      const { db } = await import("@/lib/db");
+      const { printUsage } = await import("@/lib/db/schema");
+      const { eq } = await import("drizzle-orm");
+      const { makeVendor, makeFilament, makeSpool, makeTagMapping } = await import("../fixtures/seed");
+
+      const vendorId = await makeVendor(`J4V_${Date.now()}`);
+      const filamentId = await makeFilament(vendorId, { name: `J4Fil_${Date.now()}` });
+      const spoolId = await makeSpool(filamentId, { remainingWeight: 1000, initialWeight: 1000 });
+      const tagUid = `J4TAG${Date.now().toString(16).toUpperCase()}`.slice(0, 16);
+      await makeTagMapping(spoolId, tagUid);
+
+      const r1 = await sync({
+        gcode_state: "PREPARE",
+        print_name: `test-print-J4-${Date.now()}`,
+        print_weight: 500,
+        active_slot_tag: tagUid,
+      });
+      expect(r1.body.print_transition).toBe("started");
+
+      // Fail immediately — no progress, no layers
+      const r2 = await sync({
+        gcode_state: "FAILED",
+        print_weight: 500,
+        print_progress: 0,
+        print_layers_current: 0,
+        print_layers_total: 0,
+      });
+      expect(r2.body.print_transition).toBe("failed");
+
+      // No usage should be created
+      const usage = await db.query.printUsage.findFirst({
+        where: eq(printUsage.printId, r1.body.print_id as string),
+      });
+      expect(usage).toBeUndefined();
+    });
+
+    it("J5: Spool marked empty when remaining hits 0", async () => {
+      const { db } = await import("@/lib/db");
+      const { spools: spoolsTable, printUsage } = await import("@/lib/db/schema");
+      const { eq } = await import("drizzle-orm");
+      const { makeVendor, makeFilament, makeSpool, makeTagMapping } = await import("../fixtures/seed");
+
+      const vendorId = await makeVendor(`J5V_${Date.now()}`);
+      const filamentId = await makeFilament(vendorId, { name: `J5Fil_${Date.now()}` });
+      // Spool with only 10g left
+      const spoolId = await makeSpool(filamentId, { remainingWeight: 10, initialWeight: 1000, purchasePrice: 20 });
+      const tagUid = `J5TAG${Date.now().toString(16).toUpperCase()}`.slice(0, 16);
+      await makeTagMapping(spoolId, tagUid);
+
+      const r1 = await sync({
+        gcode_state: "RUNNING",
+        print_name: `test-print-J5-${Date.now()}`,
+        print_weight: 50,
+        active_slot_tag: tagUid,
+      });
+      // Finish — will deduct 50g from a spool with 10g
+      await sync({ gcode_state: "FINISH", print_weight: 50 });
+
+      const spool = await db.query.spools.findFirst({ where: eq(spoolsTable.id, spoolId) });
+      expect(spool!.remainingWeight).toBe(0);
+      expect(spool!.status).toBe("empty");
+    });
+
+    it("J6: Slot swap moves old spool to workbench (not surplus)", async () => {
+      const { db } = await import("@/lib/db");
+      const { spools: spoolsTable, amsSlots } = await import("@/lib/db/schema");
+      const { eq, and } = await import("drizzle-orm");
+      const { makeVendor, makeFilament, makeSpool, makeTagMapping } = await import("../fixtures/seed");
+
+      const vendorId = await makeVendor(`J6V_${Date.now()}`);
+      const filamentId = await makeFilament(vendorId, { name: `J6Fil_${Date.now()}` });
+      const oldSpoolId = await makeSpool(filamentId, { location: "ams" });
+      const oldTag = `J6OLD${Date.now().toString(16).toUpperCase()}`.slice(0, 16);
+      await makeTagMapping(oldSpoolId, oldTag);
+
+      // First sync: old spool in slot_1
+      await sync({
+        print_state: "idle",
+        slot_1_type: "PLA",
+        slot_1_color: "FF0000FF",
+        slot_1_tag: oldTag,
+        slot_1_remain: 80,
+        slot_1_empty: false,
+      });
+
+      // New spool replaces old in same slot
+      const newSpoolId = await makeSpool(filamentId);
+      const newTag = `J6NEW${Date.now().toString(16).toUpperCase()}`.slice(0, 16);
+      await makeTagMapping(newSpoolId, newTag);
+
+      await sync({
+        print_state: "idle",
+        slot_1_type: "PLA",
+        slot_1_color: "FF0000FF",
+        slot_1_tag: newTag,
+        slot_1_remain: 100,
+        slot_1_empty: false,
+      });
+
+      // Old spool should be moved to workbench (not surplus, because slot is now occupied)
+      const oldSpool = await db.query.spools.findFirst({ where: eq(spoolsTable.id, oldSpoolId) });
+      expect(oldSpool!.location).toBe("workbench");
+    });
+
+    it("J7: activeSpoolIds accumulates across spool changes mid-print", async () => {
+      const { db } = await import("@/lib/db");
+      const { prints } = await import("@/lib/db/schema");
+      const { eq } = await import("drizzle-orm");
+      const { makeVendor, makeFilament, makeSpool, makeTagMapping } = await import("../fixtures/seed");
+
+      const vendorId = await makeVendor(`J7V_${Date.now()}`);
+      const filamentId = await makeFilament(vendorId, { name: `J7Fil_${Date.now()}` });
+      const spool1 = await makeSpool(filamentId);
+      const spool2 = await makeSpool(filamentId);
+      const tag1 = `J7T1${Date.now().toString(16).toUpperCase()}`.slice(0, 16);
+      const tag2 = `J7T2${Date.now().toString(16).toUpperCase()}`.slice(0, 16);
+      await makeTagMapping(spool1, tag1);
+      await makeTagMapping(spool2, tag2);
+
+      // Start print with spool1
+      const r1 = await sync({
+        gcode_state: "RUNNING",
+        print_name: `test-print-J7-${Date.now()}`,
+        active_slot_tag: tag1,
+      });
+      expect(r1.body.print_transition).toBe("started");
+
+      // Continue with spool2 (mid-print swap)
+      await sync({
+        gcode_state: "RUNNING",
+        active_slot_tag: tag2,
+      });
+
+      const print = await db.query.prints.findFirst({
+        where: eq(prints.id, r1.body.print_id as string),
+      });
+      const ids = JSON.parse(print!.activeSpoolIds!);
+      expect(ids).toContain(spool1);
+      expect(ids).toContain(spool2);
+      expect(ids.length).toBe(2);
+
+      // Clean up
+      await sync({ gcode_state: "FINISH" });
+    });
+
+    it("J8: remainSnapshot captured at print start", async () => {
+      const { db } = await import("@/lib/db");
+      const { prints } = await import("@/lib/db/schema");
+      const { eq } = await import("drizzle-orm");
+
+      const r1 = await sync({
+        gcode_state: "RUNNING",
+        print_name: `test-print-J8-${Date.now()}`,
+        slot_1_remain: 80,
+        slot_3_remain: 55,
+      });
+      expect(r1.body.print_transition).toBe("started");
+
+      const print = await db.query.prints.findFirst({
+        where: eq(prints.id, r1.body.print_id as string),
+      });
+      const snapshot = JSON.parse(print!.remainSnapshot!);
+      expect(snapshot.slot_1).toBe(80);
+      expect(snapshot.slot_3).toBe(55);
+
+      // Clean up
+      await sync({ gcode_state: "FINISH" });
+    });
+
+    it("J9: Multi-spool proportional weight via remain deltas", async () => {
+      const { db } = await import("@/lib/db");
+      const { printUsage, amsSlots } = await import("@/lib/db/schema");
+      const { eq, and } = await import("drizzle-orm");
+      const { makeVendor, makeFilament, makeSpool, makeTagMapping } = await import("../fixtures/seed");
+
+      const vendorId = await makeVendor(`J9V_${Date.now()}`);
+      const fil1Id = await makeFilament(vendorId, { name: `J9F1_${Date.now()}`, material: "PLA", colorHex: "FF0000" });
+      const fil2Id = await makeFilament(vendorId, { name: `J9F2_${Date.now()}`, material: "PLA", colorHex: "0000FF" });
+      const spool1 = await makeSpool(fil1Id, { remainingWeight: 500, initialWeight: 1000, purchasePrice: 20 });
+      const spool2 = await makeSpool(fil2Id, { remainingWeight: 800, initialWeight: 1000, purchasePrice: 25 });
+      const tag1 = `J9A${Date.now().toString(16).toUpperCase()}`.slice(0, 16);
+      const tag2 = `J9B${Date.now().toString(16).toUpperCase()}`.slice(0, 16);
+      await makeTagMapping(spool1, tag1);
+      await makeTagMapping(spool2, tag2);
+
+      // Assign spools to the existing seeded AMS slots (amsIndex=0, trayIndex=0 and 1)
+      // SLOT_DEFS: slot_1 = ams/0/0, slot_2 = ams/0/1
+      await db.update(amsSlots).set({ spoolId: spool1, isEmpty: false })
+        .where(and(eq(amsSlots.printerId, testPrinterId), eq(amsSlots.slotType, "ams"), eq(amsSlots.amsIndex, 0), eq(amsSlots.trayIndex, 0)));
+      await db.update(amsSlots).set({ spoolId: spool2, isEmpty: false })
+        .where(and(eq(amsSlots.printerId, testPrinterId), eq(amsSlots.slotType, "ams"), eq(amsSlots.amsIndex, 0), eq(amsSlots.trayIndex, 1)));
+
+      // Start print with spool1, remain slot_1=100, slot_2=100
+      const r1 = await sync({
+        gcode_state: "RUNNING",
+        print_name: `test-print-J9-${Date.now()}`,
+        print_weight: 100,
+        active_slot_tag: tag1,
+        slot_1_remain: 100,
+        slot_2_remain: 100,
+      });
+      expect(r1.body.print_transition).toBe("started");
+
+      // Add spool2 to activeSpoolIds by switching active tag
+      await sync({
+        gcode_state: "RUNNING",
+        active_slot_tag: tag2,
+        print_weight: 100,
+      });
+
+      // Finish: slot_1 went from 100→75 (25% delta), slot_2 from 100→50 (50% delta)
+      // Total delta = 75%, so spool1 gets 25/75 = 33.3% of 100g, spool2 gets 50/75 = 66.7%
+      await sync({
+        gcode_state: "FINISH",
+        print_weight: 100,
+        slot_1_remain: 75,
+        slot_2_remain: 50,
+      });
+
+      // Check usage records
+      const usage1 = await db.query.printUsage.findFirst({
+        where: eq(printUsage.spoolId, spool1),
+      });
+      const usage2 = await db.query.printUsage.findFirst({
+        where: eq(printUsage.spoolId, spool2),
+      });
+
+      // With proportional: spool1 should get ~33.3g, spool2 ~66.7g
+      expect(usage1).toBeDefined();
+      expect(usage2).toBeDefined();
+      const total = usage1!.weightUsed + usage2!.weightUsed;
+      expect(total).toBeCloseTo(100, 0);
+      expect(usage1!.weightUsed).toBeCloseTo(33.3, 0);
+      expect(usage2!.weightUsed).toBeCloseTo(66.7, 0);
+    });
+
+    it("J10: Stale print auto-closed after 24h", async () => {
+      const { db } = await import("@/lib/db");
+      const { prints } = await import("@/lib/db/schema");
+      const { eq } = await import("drizzle-orm");
+
+      // Create a print that started 25 hours ago
+      const staleDate = new Date(Date.now() - 25 * 60 * 60 * 1000);
+      const [stalePrint] = await db.insert(prints).values({
+        printerId: testPrinterId,
+        name: `stale-print-J10-${Date.now()}`,
+        status: "running",
+        startedAt: staleDate,
+        updatedAt: staleDate,
+      }).returning();
+
+      // Next sync should auto-close the stale print and start fresh
+      const r1 = await sync({
+        gcode_state: "RUNNING",
+        print_name: `new-print-J10-${Date.now()}`,
+      });
+      expect(r1.body.print_transition).toBe("started");
+      expect(r1.body.print_id).not.toBe(stalePrint.id);
+
+      // Stale print should be failed
+      const stale = await db.query.prints.findFirst({ where: eq(prints.id, stalePrint.id) });
+      expect(stale!.status).toBe("failed");
+      expect(stale!.notes).toContain("Auto-closed");
+
+      // Clean up
+      await sync({ gcode_state: "FINISH" });
     });
   });
 });
