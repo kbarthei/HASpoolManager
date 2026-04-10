@@ -13,6 +13,9 @@ HASpoolManager is a self-hosted Home Assistant addon that replaces Spoolman for 
 
 **Purchase -- Inventory -- Storage -- AMS Loading -- Print Tracking -- Usage Deduction -- Cost Analytics**
 
+<!-- Screenshot: save a dashboard PNG to docs/images/dashboard.png and uncomment -->
+<!-- ![Dashboard](docs/images/dashboard.png) -->
+
 ---
 
 ## Key Features

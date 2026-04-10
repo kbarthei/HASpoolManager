@@ -41,6 +41,16 @@ ssh "$HA_HOST" "rm -rf $HA_ADDON_DIR && tar -xzf $HA_TAR_PATH -C /addons/ && rm 
 echo "==> reloading HA addon store..."
 ssh "$HA_HOST" 'ha store reload >/dev/null 2>&1 && ha apps update local_haspoolmanager 2>&1 | tail -1'
 
+# ── GitHub Release ─────────────────────────────────────────────────────────
+echo "==> creating GitHub release v${version}..."
+git tag -a "v${version}" -m "Release v${version}" 2>/dev/null || echo "    (tag v${version} already exists, skipping)"
+git push origin "v${version}" 2>/dev/null || true
+if command -v gh &>/dev/null; then
+  gh release create "v${version}" --generate-notes --latest 2>/dev/null || echo "    (release already exists)"
+else
+  echo "    (gh CLI not available, skipping release creation)"
+fi
+
 echo ""
 echo "==> Live on HA:"
 ssh "$HA_HOST" 'ha apps info local_haspoolmanager 2>&1 | grep -E "^(version|state):"'
