@@ -1,5 +1,5 @@
 name: HASpoolManager
-version: "1.0.28"
+version: "1.0.29"
 slug: haspoolmanager
 description: "3D Printing Filament Lifecycle Manager"
 url: "https://github.com/kbarthei/HASpoolManager"
@@ -10,6 +10,7 @@ startup: application
 init: false
 ingress: true
 ingress_port: 3000
+homeassistant_api: true
 host_network: false
 ports:
   3001/tcp: 3001

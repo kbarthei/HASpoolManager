@@ -33,6 +33,18 @@ mkdir -p "$STAGE_DIR/haspoolmanager/app/.next"
 cp -R .next/static "$STAGE_DIR/haspoolmanager/app/.next/static"
 cp -R public "$STAGE_DIR/haspoolmanager/app/public"
 
+# Bundle the sync worker (TypeScript → single JS file via esbuild)
+echo "==> Bundling sync worker..."
+npx esbuild scripts/start-sync-worker.ts \
+  --bundle --platform=node --target=node22 --format=esm \
+  --external:better-sqlite3 --external:ws \
+  --outfile="$STAGE_DIR/haspoolmanager/app/sync-worker.js" 2>&1 | tail -1
+
+# Ensure ws is in the standalone node_modules (may not be traced by Next.js)
+if [ ! -d "$STAGE_DIR/haspoolmanager/app/node_modules/ws" ] && [ -d "node_modules/ws" ]; then
+  cp -R node_modules/ws "$STAGE_DIR/haspoolmanager/app/node_modules/ws"
+fi
+
 # Sanity checks
 if [ ! -f "$STAGE_DIR/haspoolmanager/app/node_modules/next/package.json" ]; then
   echo "ERROR: next package.json missing — cp lost files during staging"
