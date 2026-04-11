@@ -103,10 +103,15 @@ async function callSyncEngine(payload: Record<string, unknown>): Promise<void> {
 // ── Event handlers ──────────────────────────────────────────────────────────
 
 async function handleBambuEvent(event: Record<string, unknown>) {
-  const deviceId = event.device_id as string;
-  const eventType = event.type as string;
+  // bambu_lab_event structure: { event_type, data: { device_id, type }, ... }
+  const eventData = (event.data ?? event) as Record<string, unknown>;
+  const deviceId = (eventData.device_id ?? event.device_id) as string;
+  const eventType = (eventData.type ?? event.type ?? event.event_type) as string;
 
-  if (!deviceId) return;
+  if (!deviceId) {
+    console.log(`[sync-worker] bambu_lab_event without device_id:`, JSON.stringify(event).slice(0, 200));
+    return;
+  }
 
   console.log(`[sync-worker] bambu_lab_event: ${eventType} device=${deviceId}`);
 
@@ -131,22 +136,42 @@ async function handleBambuEvent(event: Record<string, unknown>) {
   );
 }
 
+let stateChangedCount = 0;
+let lastStatsLog = Date.now();
+
 async function handleStateChanged(event: Record<string, unknown>) {
+  stateChangedCount++;
+  // Log stats every 60s
+  if (Date.now() - lastStatsLog > 60000) {
+    console.log(`[sync-worker] state_changed: ${stateChangedCount} events received in last 60s`);
+    stateChangedCount = 0;
+    lastStatsLog = Date.now();
+  }
+
   const data = event.data as { entity_id: string; new_state?: { state: string; attributes: Record<string, unknown> } } | undefined;
   if (!data?.entity_id) return;
 
   // Find which printer this entity belongs to
   for (const printer of printers.values()) {
     if (printer.entityToField.has(data.entity_id)) {
-      printer.lastEventAt = Date.now();
-
-      // For tray entities: check if spool was swapped during active print
       const field = printer.entityToField.get(data.entity_id)!;
-      if (field.startsWith("slot_") && printer.isActive) {
-        console.log(`[sync-worker] tray change during print: ${field} entity=${data.entity_id}`);
+      const newState = data.new_state?.state ?? "?";
+      printer.lastEventAt = Date.now();
+      printer.isActive = ["running", "prepare", "pause", "slicing", "init"].includes(newState.toLowerCase());
+
+      // Only trigger full sync on IMPORTANT state changes, not every progress tick.
+      // Sync triggers: gcode_state, print_error, active_slot, tray changes
+      // Skip: progress %, layer count, remaining time (handled by watchdog poll)
+      const syncTriggers = ["gcode_state", "print_state", "print_error", "active_slot", "online"];
+      const isTrayChange = field.startsWith("slot_");
+      if (!syncTriggers.includes(field) && !isTrayChange) return;
+
+      console.log(`[sync-worker] sync trigger: ${field}=${newState}`);
+
+      if (isTrayChange && printer.isActive) {
+        console.log(`[sync-worker] tray change during print: ${field}`);
       }
 
-      // Full sync on relevant state changes
       const payload = await buildSyncPayload(printer);
       await callSyncEngine(payload);
       return;
@@ -257,9 +282,12 @@ async function registerPrinter(discovered: DiscoveredPrinter): Promise<PrinterSy
 
   printers.set(discovered.deviceId, state);
 
+  const missing = discovered.mappings.filter((m) => m.status === "missing");
   console.log(
     `[sync-worker] registered printer "${discovered.name}" (${discovered.model}) — ` +
-    `${discovered.mappings.length} entities mapped, ${discovered.unmappedEntities.length} unmapped`,
+    `${discovered.mappings.length} sync entities mapped` +
+    (missing.length > 0 ? `, ${missing.length} MISSING: ${missing.map((m) => m.field).join(", ")}` : "") +
+    ` (${discovered.unmappedEntities.length} other entities ignored)`,
   );
 
   return state;
