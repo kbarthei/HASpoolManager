@@ -12,7 +12,18 @@ import type { HAEntityRegistryEntry, HADeviceRegistryEntry } from "./ha-websocke
 // Maps original_name (English) → sync field name.
 // This is the built-in default. Users can override via Admin UI.
 
-const PRINTER_ENTITY_MAP: Record<string, string> = {
+// Map by entity_id suffix pattern — more stable than original_name which
+// is localized (German "Druckstatus" instead of English "Print Status").
+// The entity_id is derived from the integration's English key + device prefix.
+// e.g., sensor.h2s_druckstatus → suffix "druckstatus" — but even this is
+// localized. Instead, we match by the integration's internal translation key
+// which appears in the entity_id after the device prefix.
+//
+// Approach: match original_name (may be localized) against both English AND
+// German variants, plus common entity_id suffix patterns.
+
+const ENTITY_NAME_MAP: Record<string, string> = {
+  // English original_names (non-localized HA installs)
   "Print Status": "gcode_state",
   "Current Stage": "print_state",
   "Task Name": "print_name",
@@ -25,11 +36,23 @@ const PRINTER_ENTITY_MAP: Record<string, string> = {
   "Active Tray": "active_slot",
   "Online": "online",
   "External Spool": "slot_ext",
+  // German original_names (localized HA installs)
+  "Druckstatus": "gcode_state",
+  "Aktueller Arbeitsschritt": "print_state",
+  "Name der Aufgabe": "print_name",
+  "Druckfehler": "print_error",
+  "Druckfortschritt": "print_progress",
+  "Gewicht des Drucks": "print_weight",
+  "Gesamtzahl der Schichten": "print_layers_total",
+  "Aktuelle Schicht": "print_layers_current",
+  "Verbleibende Zeit": "print_remaining_time",
+  "Aktiver Slot": "active_slot",
+  "Externe Spule": "slot_ext",
 };
 
-// Tray entities share the name "Tray N" across AMS and AMS HT.
-// Disambiguation happens via parent device type.
-const TRAY_NAMES = ["Tray 1", "Tray 2", "Tray 3", "Tray 4"] as const;
+// Tray entities: original_name is "Tray N" (English) or "Slot N" (German)
+const TRAY_NAMES_EN = ["Tray 1", "Tray 2", "Tray 3", "Tray 4"] as const;
+const TRAY_NAMES_DE = ["Slot 1", "Slot 2", "Slot 3", "Slot 4"] as const;
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -81,13 +104,13 @@ export function discoverPrinters(
   const results: DiscoveredPrinter[] = [];
 
   for (const printer of printerDevices) {
-    // Find related AMS devices (share same bambu_lab identifier prefix)
-    const printerSerial = printer.identifiers?.find(([d]) => d === "bambu_lab")?.[1];
+    // Find related AMS devices. They share the printer's device name as prefix:
+    // e.g., printer "H2S_0938DC5A2501105", AMS "H2S_0938DC5A2501105_AMS_1",
+    // AMS HT "H2S_0938DC5A2501105_AMS_128", External "H2S_0938DC5A2501105_ExternalSpool"
+    const printerName = printer.name || "";
     const relatedDevices = bambuDevices.filter((d) => {
       if (d.id === printer.id) return false;
-      const serial = d.identifiers?.find(([domain]) => domain === "bambu_lab")?.[1];
-      // Related devices share a serial prefix or are explicitly linked
-      return serial && printerSerial && serial.startsWith(printerSerial.split("_")[0]);
+      return d.name?.startsWith(printerName) ?? false;
     });
 
     const amsDeviceIds = relatedDevices.map((d) => d.id);
@@ -105,11 +128,11 @@ export function discoverPrinters(
     for (const entity of printerEntities) {
       const origName = entity.original_name || "";
 
-      // Check direct map (non-tray entities)
-      if (PRINTER_ENTITY_MAP[origName]) {
+      // Check direct map (non-tray entities) — supports multiple languages
+      if (ENTITY_NAME_MAP[origName]) {
         mappings.push({
           entityId: entity.entity_id,
-          field: PRINTER_ENTITY_MAP[origName],
+          field: ENTITY_NAME_MAP[origName],
           originalName: origName,
           source: "auto",
           status: "ok",
@@ -119,7 +142,9 @@ export function discoverPrinters(
       }
 
       // Check tray entities — need to disambiguate AMS vs AMS HT
-      const trayIndex = TRAY_NAMES.indexOf(origName as typeof TRAY_NAMES[number]);
+      // Support both English ("Tray 1") and German ("Slot 1")
+      let trayIndex = TRAY_NAMES_EN.indexOf(origName as typeof TRAY_NAMES_EN[number]);
+      if (trayIndex < 0) trayIndex = TRAY_NAMES_DE.indexOf(origName as typeof TRAY_NAMES_DE[number]);
       if (trayIndex >= 0) {
         const parentDevice = bambuDevices.find((d) => d.id === entity.device_id);
         const parentModel = (parentDevice?.model || "").toLowerCase();

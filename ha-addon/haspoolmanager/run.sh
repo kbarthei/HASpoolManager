@@ -32,6 +32,15 @@ echo "    nginx will listen on :3000 (HA ingress) + :3001 (direct PWA access)"
 cd /app && node server.js &
 NEXT_PID=$!
 
+# Load supervisor token from s6 container environment (HA 2025.4+)
+if [ -z "$SUPERVISOR_TOKEN" ] && [ -f /run/s6/container_environment/SUPERVISOR_TOKEN ]; then
+  export SUPERVISOR_TOKEN="$(cat /run/s6/container_environment/SUPERVISOR_TOKEN)"
+fi
+if [ -z "$SUPERVISOR_TOKEN" ] && [ -f /run/s6/container_environment/HASSIO_TOKEN ]; then
+  export SUPERVISOR_TOKEN="$(cat /run/s6/container_environment/HASSIO_TOKEN)"
+fi
+echo "    SUPERVISOR_TOKEN=${SUPERVISOR_TOKEN:+set (${#SUPERVISOR_TOKEN} chars)}"
+
 # Start sync worker in background (waits 5s for Next.js to boot)
 if [ -n "$SUPERVISOR_TOKEN" ]; then
   echo "==> starting sync worker (HA API available)"

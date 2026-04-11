@@ -191,9 +191,59 @@ async function registerPrinter(discovered: DiscoveredPrinter): Promise<PrinterSy
   const existing = printers.get(discovered.deviceId);
   if (existing) return existing;
 
-  // TODO: Create or find printer record in DB
-  // For now, use a placeholder ID — Phase 3 will persist to DB
-  const printerId = discovered.deviceId;
+  // Find or create printer in the DB
+  // Match by model name (e.g., "H2S") — the DB has "H2S" from the original setup
+  let printerId: string;
+  try {
+    const port = process.env.PORT || "3002";
+    const basePath = process.env.HA_ADDON === "true" ? "/ingress" : "";
+    const apiKey = process.env.API_SECRET_KEY || "";
+
+    // Try to find existing printer by querying the API
+    const res = await fetch(`http://127.0.0.1:${port}${basePath}/api/v1/printers`, {
+      headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : {},
+    });
+    if (res.ok) {
+      const dbPrinters = await res.json() as Array<{ id: string; name: string; model: string }>;
+      // Match by model or name
+      const match = dbPrinters.find((p) =>
+        p.model?.includes(discovered.model || "") ||
+        p.name?.includes(discovered.model || "") ||
+        discovered.name.includes(p.name),
+      );
+      if (match) {
+        printerId = match.id;
+        console.log(`[sync-worker] matched to existing DB printer "${match.name}" (${match.id.slice(0, 8)})`);
+      } else {
+        // Create new printer via API
+        const createRes = await fetch(`http://127.0.0.1:${port}${basePath}/api/v1/printers`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
+          },
+          body: JSON.stringify({
+            name: discovered.name,
+            model: discovered.model || "Unknown",
+            serial: discovered.serial || "",
+            amsCount: discovered.amsDeviceIds.length,
+          }),
+        });
+        if (createRes.ok) {
+          const created = await createRes.json() as { id: string };
+          printerId = created.id;
+          console.log(`[sync-worker] created new DB printer "${discovered.name}" (${printerId.slice(0, 8)})`);
+        } else {
+          printerId = discovered.deviceId; // fallback
+          console.error(`[sync-worker] failed to create printer: ${createRes.status}`);
+        }
+      }
+    } else {
+      printerId = discovered.deviceId; // fallback
+    }
+  } catch {
+    printerId = discovered.deviceId; // fallback
+  }
 
   const state: PrinterSyncState = {
     printerId,
