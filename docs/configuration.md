@@ -20,34 +20,20 @@ Options set in the Home Assistant addon UI are stored in `/data/options.json` in
 | `HA_ADDON` | Addon only | Set to `"true"` to enable `basePath=/ingress` |
 | `NODE_ENV` | Both | `production` in addon, `development` locally |
 
-## 3. Home Assistant Integration
+### Home Assistant Integration
 
-The addon syncs with HA via a `rest_command` and an automation that fires every 60 seconds.
+The addon syncs with your printer automatically via the HA websocket API.
+No manual configuration is needed.
 
-### rest_command (configuration.yaml)
+**What happens under the hood:**
+- The addon subscribes to `bambu_lab_event` and `state_changed` events
+- Printers are auto-discovered from the bambu_lab integration
+- Entity mapping uses the integration's `original_name` (supports English + German)
+- Print lifecycle events trigger immediate sync
+- A watchdog polls as fallback when events stop
 
-```yaml
-rest_command:
-  haspoolmanager_sync:
-    url: "http://local-haspoolmanager:3000/api/v1/events/printer-sync"
-    method: POST
-    headers:
-      Authorization: "Bearer YOUR_API_KEY"
-    content_type: "application/json"
-    payload: >-
-      { "printer_id": "YOUR_PRINTER_ID", "gcode_state": "{{ states('sensor.h2s_druckstatus') }}", ... }
-```
-
-Changes to `rest_command` require a full HA restart.
-
-### Automation (automations.yaml)
-
-Two automation triggers keep the addon in sync:
-
-- **Timer-based:** fires every 60 seconds for continuous polling.
-- **State-change-based:** fires immediately on printer state transitions (e.g. RUNNING, FINISH, FAILED).
-
-Automation changes only need a reload (Developer Tools > YAML > Reload Automations), not a full restart.
+**Legacy:** If you previously used `rest_command` + automations, they can be
+safely removed. The addon's internal sync worker replaces them entirely.
 
 ## 4. Printer Setup
 

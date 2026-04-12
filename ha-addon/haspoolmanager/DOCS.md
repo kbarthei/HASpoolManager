@@ -25,55 +25,20 @@
 2. Tap Share > "Add to Home Screen"
 3. The app opens standalone without Safari bars
 
-## Printer Sync Setup
+## Printer Sync
 
-The addon syncs printer state via a rest_command that fires every 60 seconds.
+The addon syncs with your Bambu Lab printer automatically via Home Assistant's
+websocket API. No configuration needed — zero-config.
 
-### 1. Add rest_command to configuration.yaml
+**How it works:**
+1. On startup, the addon discovers all Bambu Lab printers connected to HA
+2. It subscribes to state change events via websocket
+3. Print lifecycle events (start, finish, fail) trigger immediate sync
+4. A watchdog polls every 2 minutes during active prints, every 5 minutes when idle
 
-```yaml
-rest_command:
-  haspoolmanager_sync:
-    url: "http://local-haspoolmanager:3000/api/v1/events/printer-sync"
-    method: POST
-    headers:
-      Authorization: "Bearer YOUR_API_KEY"
-    content_type: "application/json"
-    payload: >-
-      {
-        "printer_id": "YOUR_PRINTER_UUID",
-        "gcode_state": "{{ states('sensor.PRINTER_gcode_state') }}",
-        "print_state": "{{ states('sensor.PRINTER_print_state') }}",
-        "print_name": "{{ states('sensor.PRINTER_task_name') }}",
-        "print_progress": "{{ states('sensor.PRINTER_print_progress') }}",
-        "print_weight": "{{ states('sensor.PRINTER_print_weight') }}",
-        "print_error": "{{ states('binary_sensor.PRINTER_print_error') }}",
-        ... (slot data)
-      }
-```
+**No rest_command, no automations, no YAML editing required.**
 
-Replace `PRINTER` with your actual printer entity prefix and `YOUR_API_KEY` with the key from your addon configuration.
-
-After adding rest_command, a **full HA restart** is required (not just a config reload).
-
-### 2. Add automation to automations.yaml
-
-Create a time-pattern automation that calls `rest_command.haspoolmanager_sync` every minute:
-
-```yaml
-- alias: "Spool Manager - Printer Sync"
-  trigger:
-    - platform: time_pattern
-      seconds: "/60"
-  action:
-    - service: rest_command.haspoolmanager_sync
-```
-
-Automation changes only need a **reload**, not a full restart.
-
-### 3. Get your printer ID
-
-After the first successful sync, go to the admin page in the Spool Manager UI to see the printer UUID. Use this value as `printer_id` in your rest_command payload.
+The addon requires `homeassistant_api` access (configured automatically in the addon manifest).
 
 ## Network Ports
 
@@ -95,12 +60,15 @@ After the first successful sync, go to the admin page in the Spool Manager UI to
 
 Check the addon log in HA: Settings > Add-ons > HASpoolManager > Log tab.
 
-### Sync not working
+### Sync worker not starting
+Check the addon log for `[sync-worker]` messages. The worker requires `SUPERVISOR_TOKEN`
+which is loaded from `/run/s6/container_environment/`. If missing, verify that
+`homeassistant_api: true` is set in the addon config.
 
-1. Verify the rest_command URL uses `http://local-haspoolmanager:3000` (not the external port 3001)
-2. Check the API key matches between rest_command and addon config
-3. Check the admin page sync log for errors
-4. After adding rest_command: did you do a full HA restart (not just reload)?
+### Events not being received
+The sync worker subscribes to `bambu_lab_event` and `state_changed`. Verify the
+bambu_lab integration is installed and your printer is connected. Check the addon
+log for `discovered 1 printer(s)` and entity mapping counts.
 
 ### Server Actions fail on port 3001
 

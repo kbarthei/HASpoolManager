@@ -20,6 +20,27 @@ The sync handler processes each payload through four stages:
 
 ---
 
+## 1b. Sync Architecture (v1.0.38+)
+
+The addon contains a background sync worker that connects directly to HA via
+websocket. This replaces the previous approach of HA rest_command + automations.
+
+**Event channels:**
+| Channel | Events | Purpose |
+|---------|--------|---------|
+| `bambu_lab_event` | print_started, print_finished, print_canceled, print_failed | Print lifecycle |
+| `state_changed` | gcode_state, print_error, active_tray, tray sensors | State transitions + AMS changes |
+| Watchdog poll | All states | Fallback every 2 min (active) / 5 min (idle) |
+
+**Auto-discovery:** Printers are discovered automatically from the bambu_lab
+integration's entity registry. Entity mapping uses `original_name` with support
+for English and German HA installations.
+
+**Background process:** The sync worker runs as a separate Node.js process
+alongside Next.js, started by `run.sh`. It shares the SQLite database.
+
+---
+
 ## 2. Print Lifecycle State Machine
 
 ```
