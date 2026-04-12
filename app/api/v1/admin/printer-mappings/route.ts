@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth } from "@/lib/auth";
+import { optionalAuth } from "@/lib/auth";
 import { checkConnection } from "@/lib/ha-api";
 
 /**
@@ -10,7 +10,7 @@ import { checkConnection } from "@/lib/ha-api";
  * Only available when running as HA addon with SUPERVISOR_TOKEN.
  */
 export async function GET(request: NextRequest) {
-  const auth = await requireAuth(request);
+  const auth = await optionalAuth(request);
   if (!auth.authenticated) return auth.response;
 
   // Check if we're running as addon with HA API access
