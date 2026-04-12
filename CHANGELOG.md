@@ -1,11 +1,24 @@
 # Changelog
 
 All notable changes to HASpoolManager are documented here.
-Generated from [conventional commits](https://www.conventionalcommits.org/).
+Generated automatically from [conventional commits](https://www.conventionalcommits.org/).
 
 
 ## April 2026
 
+- **fix:** changelog workflow needs contents:write permission to push (`cf4884b`)
+- **feat:** per-tray weight from 3MF attributes (Phase 7) (`b62c21a`)
+- **fix:** admin printer mappings fetch path for ingress/PWA compatibility (`ec0ddaa`)
+- **fix:** load SUPERVISOR_TOKEN before Next.js + use optionalAuth for admin mappings (`f1c8794`)
+- **feat:** admin UI for printer entity mappings (Phase 3b) (`838d0fc`)
+- **docs:** update for sync worker migration (Phase 8 complete) (`a14d545`)
+- **fix:** throttle sync worker events + improve logging (`a241cd6`)
+- **fix:** sync worker entity discovery + printer matching + token loading (`6d94921`)
+- **feat:** native HA integration — sync worker with websocket + auto-discovery (`4573be5`)
+- **fix:** 3 sync bugs + 10 critical tests + state machine docs (`2e89fa1`)
+- **docs:** comprehensive addon DOCS.md + GitHub Releases in deploy.sh (`6a59302`)
+- **chore:** remove Sentry, boilerplate SVGs, and archived scripts (`a43d857`)
+- - ci: auto-generate CHANGELOG.md on every push to main (`5fe3b39`)
 - **feat:** spool link-to-order and merge-duplicate actions (`16cbe82`)
 - **docs:** complete documentation overhaul (`4e11c97`)
 - **fix:** scale failed print usage by progress + add direct PWA port + fix locale (`824c1f9`)
@@ -60,7 +73,7 @@ Generated from [conventional commits](https://www.conventionalcommits.org/).
 - **fix:** extend sync log retention from 24h to 72h, use Drizzle lt() for deletion (`5ffb880`)
 - **fix:** active spool matching falls back to fuzzy when RFID tag is zeros (`d972eaa`)
 
-## März 2026
+## March 2026
 
 - **test:** CI — add CHANGING_FILAMENT unit test + fix E3 stale-data false-positive (`c3ef2db`)
 - **fix:** add CHANGING_FILAMENT to active states — was misclassified as idle, splitting multi-filament prints (`f024251`)
@@ -225,6 +238,3 @@ Generated from [conventional commits](https://www.conventionalcommits.org/).
 - **docs:** add CLAUDE.md, HA setup context, and migration reference (`7b5ea87`)
 - **docs:** comprehensive project plan and architecture specs (`80bb0a5`)
 - - Initial commit (`6cb13ee`)
-
----
-*Generated on 2026-04-10 by `scripts/generate-changelog.sh`*
