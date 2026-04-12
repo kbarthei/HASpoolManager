@@ -628,6 +628,23 @@ export async function POST(request: NextRequest) {
       }
 
       await db.update(prints).set(updates).where(eq(prints.id, runningPrint.id));
+    } else if (!runningPrint && isFailed && printName && !isCalibrationJob(printName)) {
+      // Print was cancelled so fast that we never saw a STARTED event.
+      // Create a failed record so it appears in history.
+      const haEventId = buildEventId(printName || "unknown", printer_id);
+      const [failedPrint] = await db.insert(prints).values({
+        printerId: printer_id,
+        name: printName || null,
+        status: "failed",
+        startedAt: new Date(),
+        finishedAt: new Date(),
+        durationSeconds: 0,
+        printWeight: printWeight || null,
+        haEventId,
+      }).returning();
+      affectedPrintId = failedPrint.id;
+      printTransition = "failed";
+      console.log(`[printer-sync] INSTANT-CANCEL: "${printName}" (no STARTED event seen)`);
     }
     // runningPrint && isIdle && printError → keep running (waiting for spool swap)
 
