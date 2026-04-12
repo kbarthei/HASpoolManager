@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- **feat:** mid-print spool swap detection (Phase 6) (`2b81de0`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`e0274c8`)
 - **fix:** changelog workflow needs contents:write permission to push (`cf4884b`)
 - **feat:** per-tray weight from 3MF attributes (Phase 7) (`b62c21a`)
 - **fix:** admin printer mappings fetch path for ingress/PWA compatibility (`ec0ddaa`)
