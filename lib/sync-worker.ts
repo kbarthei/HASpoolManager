@@ -14,6 +14,15 @@ import { discoverPrinters, buildFieldToEntityMap, buildEntityToFieldMap, type Di
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
+interface SpoolSwapEvent {
+  trayIndex: number;
+  amsUnit: number; // 0=AMS, 1=AMS HT
+  oldSpoolId: string | null;
+  newSpoolId: string | null;
+  progressAtSwap: number;
+  detectedAt: string; // ISO timestamp
+}
+
 interface PrinterSyncState {
   printerId: string; // DB printer ID
   deviceId: string; // HA device ID
@@ -22,6 +31,25 @@ interface PrinterSyncState {
   entityToField: Map<string, string>;
   lastEventAt: number;
   isActive: boolean; // currently printing?
+  pendingSwaps: SpoolSwapEvent[]; // swaps detected during current print
+  runoutSlot: { amsUnit: number; trayIndex: number } | null; // currently waiting for swap
+}
+
+// ── Runout error code parsing ────────────────────────────────────────────────
+
+/**
+ * Parse a Bambu Lab print_error code to detect filament runout.
+ * Error codes: 0x07XX8011 (AMS, XX=tray), 0x18XX8011 (AMS HT), 0x07FF8011 (external)
+ */
+function parseRunoutError(errorCode: number): { amsUnit: number; trayIndex: number } | null {
+  if (errorCode === 0) return null;
+  const hex = errorCode.toString(16).padStart(8, "0");
+  if (!hex.endsWith("8011")) return null;
+  const module = parseInt(hex.slice(0, 2), 16);
+  const slot = parseInt(hex.slice(2, 4), 16);
+  if (module === 0x07 && slot !== 0xff) return { amsUnit: 0, trayIndex: slot };
+  if (module === 0x18) return { amsUnit: 1, trayIndex: slot };
+  return null;
 }
 
 // ── State ────────────────────────────────────────────────────────────────────
@@ -169,23 +197,71 @@ async function handleStateChanged(event: Record<string, unknown>) {
     if (printer.entityToField.has(data.entity_id)) {
       const field = printer.entityToField.get(data.entity_id)!;
       const newState = data.new_state?.state ?? "?";
+      const attrs = data.new_state?.attributes ?? {};
       printer.lastEventAt = Date.now();
-      printer.isActive = ["running", "prepare", "pause", "slicing", "init"].includes(newState.toLowerCase());
 
-      // Only trigger full sync on IMPORTANT state changes, not every progress tick.
-      // Sync triggers: gcode_state, print_error, active_slot, tray changes
-      // Skip: progress %, layer count, remaining time (handled by watchdog poll)
+      // Track active state from gcode_state
+      if (field === "gcode_state") {
+        const wasActive = printer.isActive;
+        printer.isActive = ["running", "prepare", "pause", "slicing", "init"].includes(newState.toLowerCase());
+        if (wasActive && !printer.isActive) {
+          // Print ended — clear swap tracking
+          printer.pendingSwaps = [];
+          printer.runoutSlot = null;
+        }
+      } else {
+        printer.isActive = printer.isActive; // preserve current state
+      }
+
+      // ── Spool swap detection ──────────────────────────────────────
+      if (field === "print_error" && printer.isActive) {
+        const errorStr = newState === "on" ? "1" : newState === "off" ? "0" : newState;
+        const errorCode = parseInt(errorStr, 10) || 0;
+        const runout = parseRunoutError(errorCode);
+        if (runout) {
+          printer.runoutSlot = runout;
+          // Read current progress
+          const progressEntity = printer.fieldToEntity.get("print_progress");
+          let progress = 0;
+          if (progressEntity) {
+            try {
+              const pStates = await getEntityStates([progressEntity]);
+              progress = parseFloat(pStates.get(progressEntity)?.state ?? "0") || 0;
+            } catch { /* ignore */ }
+          }
+          console.log(`[sync-worker] RUNOUT: tray=${runout.trayIndex} ams=${runout.amsUnit} progress=${progress}%`);
+          printer.pendingSwaps.push({
+            trayIndex: runout.trayIndex,
+            amsUnit: runout.amsUnit,
+            oldSpoolId: null,
+            newSpoolId: null,
+            progressAtSwap: progress,
+            detectedAt: new Date().toISOString(),
+          });
+        } else if (errorCode === 0 && printer.runoutSlot) {
+          console.log(`[sync-worker] RUNOUT cleared — swap complete`);
+          printer.runoutSlot = null;
+        }
+      }
+
+      // Tray refilled during swap
+      if (field.startsWith("slot_") && printer.runoutSlot && printer.isActive) {
+        if (attrs.empty === false || attrs.empty === "False") {
+          console.log(`[sync-worker] tray refilled: ${field} tag=${attrs.tag_uid ?? "?"}`);
+        }
+      }
+
+      // Only trigger full sync on important state changes
       const syncTriggers = ["gcode_state", "print_state", "print_error", "active_slot", "online"];
       const isTrayChange = field.startsWith("slot_");
       if (!syncTriggers.includes(field) && !isTrayChange) return;
 
       console.log(`[sync-worker] sync trigger: ${field}=${newState}`);
 
-      if (isTrayChange && printer.isActive) {
-        console.log(`[sync-worker] tray change during print: ${field}`);
-      }
-
       const payload = await buildSyncPayload(printer);
+      if (printer.pendingSwaps.length > 0) {
+        payload.spool_swaps = printer.pendingSwaps;
+      }
       await callSyncEngine(payload);
       return;
     }
@@ -291,6 +367,8 @@ async function registerPrinter(discovered: DiscoveredPrinter): Promise<PrinterSy
     entityToField: buildEntityToFieldMap(discovered.mappings),
     lastEventAt: Date.now(),
     isActive: false,
+    pendingSwaps: [],
+    runoutSlot: null,
   };
 
   printers.set(discovered.deviceId, state);

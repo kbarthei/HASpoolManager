@@ -404,6 +404,10 @@ export async function POST(request: NextRequest) {
     const trayWeights = (body.tray_weights && typeof body.tray_weights === "object")
       ? body.tray_weights as Record<string, number>
       : undefined;
+    // Mid-print spool swaps detected by the sync worker
+    const spoolSwaps = Array.isArray(body.spool_swaps) ? body.spool_swaps as Array<{
+      trayIndex: number; amsUnit: number; progressAtSwap: number; detectedAt: string;
+    }> : undefined;
     // print_error is an integer error code from Bambu Lab:
     //   0           = no error
     //   50348044    = user cancelled (0x0300400C)
@@ -616,6 +620,11 @@ export async function POST(request: NextRequest) {
             updates.activeSpoolIds = JSON.stringify(existingIds);
           }
         }
+      }
+
+      // Store spool swap data from sync worker
+      if (spoolSwaps && spoolSwaps.length > 0) {
+        updates.spoolSwaps = JSON.stringify(spoolSwaps);
       }
 
       await db.update(prints).set(updates).where(eq(prints.id, runningPrint.id));

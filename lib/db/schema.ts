@@ -248,6 +248,7 @@ export const prints = sqliteTable(
     activeSpoolId: text("active_spool_id").references(() => spools.id),
     activeSpoolIds: text("active_spool_ids"), // JSON array of all spool IDs seen during print
     remainSnapshot: text("remain_snapshot"), // JSON: {"slot_1": 80, "slot_2": 100, ...} — captured at print start
+    spoolSwaps: text("spool_swaps"), // JSON array of mid-print spool swaps: [{trayIndex, oldSpoolId, newSpoolId, progressAtSwap}]
     haEventId: text("ha_event_id"),
     notes: text("notes"),
     createdAt: tsCol("created_at").notNull().default(sql`(datetime('now'))`),
