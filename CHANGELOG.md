@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- **fix:** handle instant-cancel (FAILED without prior STARTED event) (`80cd825`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`8e2bec5`)
 - **feat:** mid-print spool swap detection (Phase 6) (`2b81de0`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`e0274c8`)
 - **fix:** changelog workflow needs contents:write permission to push (`cf4884b`)
