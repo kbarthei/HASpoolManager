@@ -39,11 +39,17 @@ export function PrinterMappings() {
   async function fetchMappings() {
     setLoading(true);
     try {
-      const res = await fetch("/api/v1/admin/printer-mappings");
+      // Use the current page origin + pathname prefix to build the API URL.
+      // On HA ingress: /api/hassio_ingress/{token}/ingress/api/v1/...
+      // On direct PWA: /api/v1/... (nginx rewrites to /ingress/api/v1/...)
+      const base = window.location.pathname.includes("/ingress/")
+        ? window.location.pathname.split("/ingress/")[0] + "/ingress"
+        : "";
+      const res = await fetch(`${base}/api/v1/admin/printer-mappings`);
       const json = await res.json();
       setData(json);
-    } catch {
-      setData({ available: false, reason: "Network error", printers: [] });
+    } catch (err) {
+      setData({ available: false, reason: `Network error: ${err}`, printers: [] });
     } finally {
       setLoading(false);
     }
