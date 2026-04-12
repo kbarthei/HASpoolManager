@@ -1,0 +1,182 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Loader2, RefreshCw, Check, AlertTriangle, X, Wifi } from "lucide-react";
+
+interface Mapping {
+  field: string;
+  entityId: string;
+  originalName: string;
+  source: "auto" | "manual";
+  status: "ok" | "missing" | "unknown";
+}
+
+interface Printer {
+  deviceId: string;
+  name: string;
+  model: string | null;
+  serial: string | null;
+  dbPrinterId: string | null;
+  dbPrinterName: string | null;
+  mappings: Mapping[];
+  unmappedCount: number;
+}
+
+interface MappingsResponse {
+  available: boolean;
+  reason?: string;
+  printers: Printer[];
+}
+
+export function PrinterMappings() {
+  const [data, setData] = useState<MappingsResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState<string | null>(null);
+
+  async function fetchMappings() {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/v1/admin/printer-mappings");
+      const json = await res.json();
+      setData(json);
+    } catch {
+      setData({ available: false, reason: "Network error", printers: [] });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    fetchMappings();
+  }, []);
+
+  if (loading) {
+    return (
+      <Card className="p-4">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Discovering printers...
+        </div>
+      </Card>
+    );
+  }
+
+  if (!data?.available) {
+    return (
+      <Card className="p-4 space-y-2">
+        <h2 className="text-sm font-semibold">Sync Worker</h2>
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Wifi className="h-3.5 w-3.5" />
+          {data?.reason || "Not available"}
+        </div>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="p-4 space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-semibold">Sync Worker — Printer Discovery</h2>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 text-xs gap-1"
+          onClick={fetchMappings}
+          disabled={loading}
+        >
+          <RefreshCw className={`h-3 w-3 ${loading ? "animate-spin" : ""}`} />
+          Re-Discover
+        </Button>
+      </div>
+
+      {data.printers.length === 0 ? (
+        <p className="text-xs text-muted-foreground">
+          No Bambu Lab printers found. Is the bambu_lab integration installed?
+        </p>
+      ) : (
+        data.printers.map((printer) => {
+          const okCount = printer.mappings.filter((m) => m.status === "ok").length;
+          const missingCount = printer.mappings.filter((m) => m.status === "missing").length;
+          const isExpanded = expanded === printer.deviceId;
+
+          return (
+            <div key={printer.deviceId} className="space-y-2">
+              {/* Printer header */}
+              <button
+                className="w-full flex items-center justify-between bg-muted/30 rounded-lg px-3 py-2 hover:bg-muted/50 transition text-left"
+                onClick={() => setExpanded(isExpanded ? null : printer.deviceId)}
+              >
+                <div className="flex items-center gap-2">
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] h-5 px-1.5 bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
+                  >
+                    connected
+                  </Badge>
+                  <span className="text-sm font-medium">{printer.model || printer.name}</span>
+                  {printer.dbPrinterName && (
+                    <span className="text-xs text-muted-foreground">
+                      → DB: {printer.dbPrinterName}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span className="flex items-center gap-0.5">
+                    <Check className="h-3 w-3 text-emerald-500" />
+                    {okCount}
+                  </span>
+                  {missingCount > 0 && (
+                    <span className="flex items-center gap-0.5 text-amber-500">
+                      <AlertTriangle className="h-3 w-3" />
+                      {missingCount}
+                    </span>
+                  )}
+                  <span>{printer.unmappedCount} ignored</span>
+                </div>
+              </button>
+
+              {/* Expanded: entity mapping table */}
+              {isExpanded && (
+                <div className="rounded-lg border border-border overflow-hidden ml-2">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="bg-muted/50">
+                        <th className="text-left px-3 py-1.5 font-medium">Field</th>
+                        <th className="text-left px-3 py-1.5 font-medium">Entity</th>
+                        <th className="text-left px-3 py-1.5 font-medium">Name</th>
+                        <th className="text-center px-3 py-1.5 font-medium w-16">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {printer.mappings.map((m) => (
+                        <tr key={m.field} className="hover:bg-muted/20">
+                          <td className="px-3 py-1.5 font-mono">{m.field}</td>
+                          <td className="px-3 py-1.5 font-mono text-muted-foreground truncate max-w-[200px]">
+                            {m.entityId}
+                          </td>
+                          <td className="px-3 py-1.5 text-muted-foreground">{m.originalName}</td>
+                          <td className="px-3 py-1.5 text-center">
+                            {m.status === "ok" ? (
+                              <Check className="h-3.5 w-3.5 text-emerald-500 mx-auto" />
+                            ) : m.status === "missing" ? (
+                              <X className="h-3.5 w-3.5 text-red-500 mx-auto" />
+                            ) : (
+                              <AlertTriangle className="h-3.5 w-3.5 text-amber-500 mx-auto" />
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          );
+        })
+      )}
+    </Card>
+  );
+}

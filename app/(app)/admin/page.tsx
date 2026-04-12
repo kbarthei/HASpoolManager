@@ -14,6 +14,7 @@ import { RackSettings } from "./rack-settings";
 import { ImportOrdersCard } from "./import-orders-card";
 import { AdminTools } from "./admin-tools";
 import { RefreshPricesButton } from "./refresh-prices-button";
+import { PrinterMappings } from "./printer-mappings";
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -64,11 +65,9 @@ export default async function AdminPage() {
 
   const configDetails = {
     ha: {
-      syncUrl: isAddon
-        ? "http://local-haspoolmanager:3000/api/v1/events/printer-sync"
-        : "http://localhost:3000/api/v1/events/printer-sync",
-      syncInterval: "60 seconds",
-      authMethod: "Bearer token",
+      syncMethod: isAddon ? "Websocket (sync worker)" : "REST API (manual)",
+      syncMode: isAddon ? "Event-driven + watchdog fallback" : "External polling",
+      supervisorToken: isAddon ? (process.env.SUPERVISOR_TOKEN ? "set" : "missing") : "n/a",
       apiSecretKey: maskSecret(process.env.API_SECRET_KEY),
       apiSecretSet: !!process.env.API_SECRET_KEY,
     },
@@ -169,6 +168,9 @@ export default async function AdminPage() {
         </div>
       </Card>
 
+      {/* ── Printer Discovery & Entity Mappings ─────────────────────────── */}
+      <PrinterMappings />
+
       {/* ── Manual Actions ───────────────────────────────────────────────── */}
       <Card className="p-4 space-y-3">
         <h2 className="text-sm font-semibold">Manual Actions</h2>
@@ -205,9 +207,14 @@ export default async function AdminPage() {
           </p>
           <div className="space-y-1">
             {[
-              { label: "Sync URL", value: configDetails.ha.syncUrl, mono: true },
-              { label: "Sync interval", value: configDetails.ha.syncInterval, mono: false },
-              { label: "Auth method", value: configDetails.ha.authMethod, mono: false },
+              { label: "Sync method", value: configDetails.ha.syncMethod, mono: false },
+              { label: "Sync mode", value: configDetails.ha.syncMode, mono: false },
+              {
+                label: "SUPERVISOR_TOKEN",
+                value: configDetails.ha.supervisorToken,
+                mono: true,
+                status: configDetails.ha.supervisorToken === "missing" ? "warn" : undefined,
+              },
               {
                 label: "API_SECRET_KEY",
                 value: configDetails.ha.apiSecretKey,
