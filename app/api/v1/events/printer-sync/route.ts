@@ -219,6 +219,7 @@ async function createPrintUsage(
   printerId: string,
   totalWeight: number,
   endRemains?: Record<string, number>,
+  trayWeights?: Record<string, number>,
 ) {
   try {
     const print = await db.query.prints.findFirst({
@@ -239,14 +240,47 @@ async function createPrintUsage(
       return;
     }
 
-    // ── Proportional weight distribution using remain deltas ──────────────
+    // ── Per-tray weight distribution ──────────────────────────────────────
+    // Priority 1: Per-tray weights from 3MF attributes (e.g., "AMS 1 Tray 4": 752.76)
+    // Priority 2: Proportional distribution using remain% deltas
+    // Priority 3: Equal split across all spools
     let proportionalWeights: Record<string, number> | null = null;
 
+    if (trayWeights && Object.keys(trayWeights).length > 0 && spoolIds.length > 1) {
+      // Map per-tray weights to spool IDs via AMS slot assignments
+      proportionalWeights = {};
+      for (const spoolId of spoolIds) {
+        const slot = await db.query.amsSlots.findFirst({
+          where: and(eq(amsSlots.printerId, printerId), eq(amsSlots.spoolId, spoolId)),
+        });
+        if (slot) {
+          // Build the tray key: "AMS {amsIndex+1} Tray {trayIndex+1}" or "AMS HT {n} Tray 1"
+          const trayKey = slot.slotType === "ams_ht"
+            ? `AMS HT ${slot.amsIndex} Tray ${slot.trayIndex + 1}`
+            : slot.slotType === "ams"
+              ? `AMS ${slot.amsIndex + 1} Tray ${slot.trayIndex + 1}`
+              : null;
+          if (trayKey && trayWeights[trayKey] !== undefined) {
+            proportionalWeights[spoolId] = trayWeights[trayKey];
+          }
+        }
+      }
+      // Validate: if we found weights for all spools, use them
+      if (Object.keys(proportionalWeights).length === spoolIds.length) {
+        console.log(`[printer-sync] PER-TRAY (3MF): ${Object.entries(proportionalWeights).map(([id, w]) => `${id.slice(0,8)}=${w}g`).join(", ")}`);
+      } else {
+        // Incomplete mapping — fall through to remain% deltas
+        console.log(`[printer-sync] PER-TRAY (3MF): incomplete (${Object.keys(proportionalWeights).length}/${spoolIds.length}), falling back to remain%`);
+        proportionalWeights = null;
+      }
+    }
+
+    // Fallback: proportional distribution using remain% deltas
     const startRemains: Record<string, number> = print?.remainSnapshot
       ? (() => { try { return JSON.parse(print.remainSnapshot!); } catch { return {}; } })()
       : {};
 
-    if (Object.keys(startRemains).length > 0 && endRemains && spoolIds.length > 1) {
+    if (!proportionalWeights && Object.keys(startRemains).length > 0 && endRemains && spoolIds.length > 1) {
       const deltas: { spoolId: string; delta: number }[] = [];
 
       for (const spoolId of spoolIds) {
@@ -365,6 +399,11 @@ export async function POST(request: NextRequest) {
     const printLayersTotal = num(body.print_layers_total);
     const printLayersCurrent = num(body.print_layers_current);
     const printProgress = num(body.print_progress);
+    // Per-tray weights from 3MF file (sent by sync worker as tray_weights attribute)
+    // e.g., { "AMS 1 Tray 1": 150.5, "AMS 1 Tray 4": 50.0 }
+    const trayWeights = (body.tray_weights && typeof body.tray_weights === "object")
+      ? body.tray_weights as Record<string, number>
+      : undefined;
     // print_error is an integer error code from Bambu Lab:
     //   0           = no error
     //   50348044    = user cancelled (0x0300400C)
@@ -498,7 +537,7 @@ export async function POST(request: NextRequest) {
       }
 
       // Create print_usage record and deduct weight from active spool
-      await createPrintUsage(runningPrint.id, printer_id, finalWeight || 0, endRemainsFinish);
+      await createPrintUsage(runningPrint.id, printer_id, finalWeight || 0, endRemainsFinish, trayWeights);
 
       console.log(`[printer-sync] FINISHED: "${runningPrint.name}" weight=${finalWeight}g`);
     } else if (runningPrint && isFailed) {
@@ -534,7 +573,7 @@ export async function POST(request: NextRequest) {
           const partialWeight = progress < 100
             ? Math.round(totalWeight * (progress / 100) * 100) / 100
             : totalWeight;
-          await createPrintUsage(runningPrint.id, printer_id, partialWeight, endRemainsFailed);
+          await createPrintUsage(runningPrint.id, printer_id, partialWeight, endRemainsFailed, trayWeights);
           console.log(`[printer-sync] FAILED: "${runningPrint.name}" progress=${progress}% partialWeight=${partialWeight}g (total=${totalWeight}g)`);
         } else {
           console.log(`[printer-sync] FAILED: "${runningPrint.name}" no progress data, skipping usage deduction`);

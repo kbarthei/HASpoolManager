@@ -63,6 +63,19 @@ async function buildSyncPayload(printer: PrinterSyncState): Promise<Record<strin
       payload[`${prefix}_filament_id`] = state.attributes.filament_id ?? "";
       payload[`${prefix}_remain`] = state.attributes.remain ?? -1;
       payload[`${prefix}_empty`] = state.attributes.empty ?? true;
+    } else if (field === "print_weight") {
+      // print_weight: state is total weight, attributes have per-tray breakdown
+      // e.g., { "AMS 1 Tray 1": 150.5, "AMS 1 Tray 4": 50.0 }
+      payload[field] = state.state;
+      const trayWeights: Record<string, number> = {};
+      for (const [key, value] of Object.entries(state.attributes)) {
+        if (key.startsWith("AMS") && typeof value === "number") {
+          trayWeights[key] = value;
+        }
+      }
+      if (Object.keys(trayWeights).length > 0) {
+        payload.tray_weights = trayWeights;
+      }
     } else {
       // Simple state fields
       payload[field] = state.state;
