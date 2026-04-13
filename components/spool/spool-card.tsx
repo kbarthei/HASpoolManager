@@ -3,6 +3,7 @@ import { Card } from "@/components/ui/card";
 import { SpoolColorDot } from "@/components/spool/spool-color-dot";
 import { SpoolProgressBar } from "@/components/spool/spool-progress-bar";
 import { SpoolMaterialBadge } from "@/components/spool/spool-material-badge";
+import { cn } from "@/lib/utils";
 
 type SpoolCardData = {
   id: string;
@@ -23,16 +24,30 @@ type SpoolCardData = {
 
 export function SpoolCard({ spool }: { spool: SpoolCardData }) {
   const colorHex = spool.filament.colorHex ?? "888888";
+  const percent = spool.initialWeight > 0
+    ? Math.round((spool.remainingWeight / spool.initialWeight) * 100)
+    : 0;
+  const isLow = percent > 0 && percent <= 20;
+  const isEmpty = percent === 0;
 
   return (
     <Link href={`/spools/${spool.id}`} className="block">
-      <Card className="rounded-xl p-3 hover:bg-accent/50 transition gap-2 ring-0 bg-card/60">
+      <Card
+        className={cn(
+          "rounded-xl p-3 hover:bg-accent/50 transition gap-2 ring-0 bg-card/60",
+          isLow && "ring-1 ring-amber-500/40 dark:ring-amber-500/30",
+          isEmpty && "opacity-50",
+        )}
+      >
         {/* Top row: color dot + material badge */}
         <div className="flex items-center gap-1.5 justify-between px-0">
           <div className="flex items-center gap-1.5">
             <SpoolColorDot hex={colorHex} size="md" />
             <SpoolMaterialBadge material={spool.filament.material} />
           </div>
+          {isLow && (
+            <span className="text-[9px] font-semibold text-amber-500 uppercase tracking-wider">Low</span>
+          )}
         </div>
 
         {/* Filament name + vendor */}
@@ -55,7 +70,10 @@ export function SpoolCard({ spool }: { spool: SpoolCardData }) {
         {/* Bottom row: weight + location */}
         <div className="flex items-center justify-between px-0">
           <div className="flex items-center gap-1">
-            <span className="font-mono text-xs">{spool.remainingWeight}g</span>
+            <span className={cn(
+              "font-mono text-xs font-semibold",
+              isLow && "text-amber-500",
+            )}>{spool.remainingWeight}g</span>
             <span className="text-xs text-muted-foreground">/ {spool.initialWeight}g</span>
           </div>
           {spool.location && (
