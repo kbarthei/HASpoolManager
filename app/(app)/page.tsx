@@ -56,7 +56,7 @@ export default async function Dashboard() {
         <AddOrderButton />
       </div>
       <div data-testid="dashboard-stats" className="grid grid-cols-2 md:grid-cols-4 gap-2">
-        <StatCard label="Active Spools" value={stats.activeSpools} href="/spools" testId="stat-active-spools" />
+        <StatCard label="Active Spools" value={stats.activeSpools} accent href="/spools" testId="stat-active-spools" />
         <StatCard
           label="Printer"
           value={
