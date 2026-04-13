@@ -52,7 +52,7 @@ export function ColorDistributionChart({ data }: { data: ColorDistribution[] }) 
                   <Cell
                     key={`${entry.colorHex}-${idx}`}
                     fill={`#${entry.colorHex.replace(/^#/, "")}`}
-                    stroke="hsl(var(--background))"
+                    stroke="var(--background)"
                     strokeWidth={1}
                   />
                 ))}

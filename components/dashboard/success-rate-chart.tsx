@@ -65,7 +65,7 @@ export function SuccessRateChart({ data }: { data: SuccessRatePerMonth[] }) {
               />
               <ReferenceLine
                 y={90}
-                stroke="hsl(var(--muted-foreground))"
+                stroke="var(--muted-foreground)"
                 strokeDasharray="3 3"
                 strokeOpacity={0.4}
               />
