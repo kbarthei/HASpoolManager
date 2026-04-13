@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- **fix:** e2e hydration test filters for chunk load + admin API errors (`5ed6e7f`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`b0ab60e`)
 - **fix:** graceful fetch errors in client components (fixes e2e hydration) (`bf37af8`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`81e8fda`)
 - **fix:** CI failures — empty public dir + Dockerfile BUILD_FROM arg scoping (`c08415c`)
