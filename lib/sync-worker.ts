@@ -210,7 +210,10 @@ async function handleBambuEvent(event: Record<string, unknown>) {
         const coverState = states.get(coverEntity);
         const entityPicture = coverState?.attributes?.entity_picture as string;
         if (entityPicture) {
-          const imgRes = await fetch(`http://supervisor/core${entityPicture}`, {
+          // entity_picture has its own ?token= param, but we use the supervisor token
+          // Strip the entity token and use supervisor auth instead
+          const imgUrl = entityPicture.split("?")[0];
+          const imgRes = await fetch(`http://supervisor/core${imgUrl}`, {
             headers: { Authorization: `Bearer ${process.env.SUPERVISOR_TOKEN}` },
           });
           if (imgRes.ok) {
