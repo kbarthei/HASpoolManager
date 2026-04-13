@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- **fix:** sync worker reads initial printer state after restart (`1dfa245`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`d70055b`)
 - **feat:** entity mapping overrides with auto/manual indicator + reset (`b2cb7f2`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`4a9a1ba`)
 - **feat:** entity mapping override in admin UI + read-only DB query endpoint (`56b9398`)
