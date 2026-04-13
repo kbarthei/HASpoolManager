@@ -2,7 +2,7 @@ import { defineConfig } from "vitest/config";
 import path from "path";
 import { config } from "dotenv";
 
-// Load .env.local so DATABASE_URL and API_SECRET_KEY are available in tests
+// Load .env.local so API_SECRET_KEY and other env vars are available in tests
 config({ path: path.resolve(__dirname, ".env.local") });
 
 export default defineConfig({
