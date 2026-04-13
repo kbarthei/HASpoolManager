@@ -17,13 +17,13 @@ This rewrite:
 
 ```
 ┌──────────────────────────────────────────────┐
-│ E2e (Playwright + Docker nginx + ingress)    │  25 tests (10 specs)
+│ E2e (Playwright + Docker nginx + ingress)    │  35 tests (13 specs)
 ├──────────────────────────────────────────────┤
 │ Integration (Vitest + SQLite file DB)        │  75 tests (7 files)
 ├──────────────────────────────────────────────┤
 │ Unit (Vitest, no DB)                         │  419 tests (10 files)
 └──────────────────────────────────────────────┘
-Total: 519 tests — CI runs all three layers, ~2 min total.
+Total: 529 tests — CI runs all three layers, ~2 min total.
 ```
 
 ### Layer responsibilities
@@ -70,7 +70,7 @@ Before rewriting tests, the codebase must lose its dual-driver baggage:
 |-------|-------|--------|
 | `tests/unit/` (10 files, 419 tests) | color, date, matching-scoring, order-parsing, price-crawler, printer-sync-helpers, storage-moves, theme, validations, weight-adjustment | ✅ All import real code, no DB |
 | `tests/integration/` (7 files, 75 tests) | api-health, api-crud, api-match, api-events, api-admin-sync-log, printer-sync, + 1 more | ✅ All use per-worker SQLite harness + direct route handler calls |
-| `tests/e2e/` (10 specs, 25 tests) | 01-smoke through 10-inventory-page | ✅ Run against addon stack (Docker nginx + ingress simulator) |
+| `tests/e2e/` (13 specs, 35 tests) | 01-smoke through 13-mobile-viewport | ✅ Run against addon stack (Docker nginx + ingress simulator) |
 | `tests/fixtures/seed.ts` | Factory functions (makeVendor, makeFilament, makeSpool, makePrinter, makeAmsSlot, makeTagMapping) | ✅ Uses `@/lib/db` singleton (lazy, binds to harness DB) |
 | `tests/harness/` | sqlite-db.ts, request.ts, addon-stack.ts, ingress-simulator.ts | ✅ Complete harness infrastructure |
 | `.github/workflows/ci.yml` | 3-stage pipeline: lint+unit → integration → e2e (main push) | ✅ No external secrets |
@@ -90,7 +90,7 @@ Before rewriting tests, the codebase must lose its dual-driver baggage:
 
 The following specs replace the old `tests/e2e/*.spec.ts` files. Each file is ~50-150 lines of Playwright, seeds minimal data, runs 3-8 assertions.
 
-#### Implemented (25 tests across 10 spec files) ✅
+#### Implemented (35 tests across 13 spec files) ✅
 
 | Spec file | Journey | Tests |
 |-----------|---------|-------|
@@ -104,6 +104,9 @@ The following specs replace the old `tests/e2e/*.spec.ts` files. Each file is ~5
 | `08-orders-page.spec.ts` | Seed shop + order + item, assert /orders renders | 1 |
 | `09-scan-page.spec.ts` | Visit /scan, assert "Scan a Spool" heading visible | 1 |
 | `10-inventory-page.spec.ts` | Seed printer + AMS slots + spool, assert /inventory renders | 1 |
+| `11-dark-mode.spec.ts` | Toggle theme, verify CSS variable changes, reload persists | 3 |
+| `12-scan-flow.spec.ts` | Paste synthetic tag on /scan, assert match result | 2 |
+| `13-mobile-viewport.spec.ts` | All key pages render correctly at 375×667 | 5 |
 
 > **Pages note:** `/ams` and `/storage` redirect to `/inventory` — they are NOT standalone pages and have no `page-<name>` testid.
 > Real pages with anchors: dashboard, spools, inventory, orders, prints, history, admin, scan (8 total, 7 navigable + root).
@@ -116,9 +119,6 @@ The following specs replace the old `tests/e2e/*.spec.ts` files. Each file is ~5
 | `12-spool-create.spec.ts` | Click "new spool", fill form, save, verify new row | Needs add-spool dialog testids |
 | `13-orders-create.spec.ts` | New order form → add line items → save | Needs add-order dialog testids |
 | `14-inventory-sections.spec.ts` | Verify AMS + Rack + Surplus + Workbench sections render on /inventory | Testids exist (`printer-section`, `rack-section`, etc.) |
-| `15-dark-mode.spec.ts` | Toggle theme, verify CSS variable changes, reload persists | |
-| `16-scan-flow.spec.ts` | Paste synthetic tag on /scan, assert match result | |
-| `17-mobile-viewport.spec.ts` | All key pages render correctly at 375×667 | |
 
 ### Test data
 
