@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- - ci: add security workflow (dependency audit + static analysis) (`658b158`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`778d859`)
 - **chore:** remove archived docs (historical planning, no longer needed) (`fbf0377`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`f3bf39e`)
 - **chore:** remove all Spoolman references + fix Vercel URLs (`7c74b39`)
