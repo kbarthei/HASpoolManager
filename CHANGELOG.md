@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- **docs:** full documentation refresh with screenshots (v1.0.53) (`cb4f1f1`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`b32118d`)
 - **feat:** auto-migrate DB schema on addon start (`10e1bdc`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`71bffa6`)
 - **fix:** swap detection via bambu_lab_event instead of binary_sensor state (`65453cc`)
