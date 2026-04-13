@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- **fix:** map camera entity (Kamera) for snapshot capture (`e1556bc`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`114b716`)
 - **test:** integration test for print image paths (PM-8) (`d79c451`)
 - **feat:** display cover image + snapshot on prints page and hero card (PM-7) (`7c55993`)
 - **feat:** API endpoints for print image storage + serving (PM-5, PM-6) (`faaa492`)
