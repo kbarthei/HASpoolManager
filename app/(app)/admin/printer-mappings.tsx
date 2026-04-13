@@ -4,7 +4,8 @@ import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, RefreshCw, Check, AlertTriangle, X, Wifi } from "lucide-react";
+import { Loader2, RefreshCw, Check, AlertTriangle, X, Wifi, ChevronDown } from "lucide-react";
+import { toast } from "sonner";
 
 interface Mapping {
   field: string;
@@ -12,6 +13,11 @@ interface Mapping {
   originalName: string;
   source: "auto" | "manual";
   status: "ok" | "missing" | "unknown";
+}
+
+interface EntityOption {
+  entityId: string;
+  originalName: string;
 }
 
 interface Printer {
@@ -23,6 +29,7 @@ interface Printer {
   dbPrinterName: string | null;
   mappings: Mapping[];
   unmappedCount: number;
+  allEntities: EntityOption[];
 }
 
 interface MappingsResponse {
@@ -31,27 +38,52 @@ interface MappingsResponse {
   printers: Printer[];
 }
 
+function getApiBase() {
+  if (typeof window === "undefined") return "";
+  return window.location.pathname.includes("/ingress/")
+    ? window.location.pathname.split("/ingress/")[0] + "/ingress"
+    : "";
+}
+
 export function PrinterMappings() {
   const [data, setData] = useState<MappingsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [editingRow, setEditingRow] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   async function fetchMappings() {
     setLoading(true);
     try {
-      // Use the current page origin + pathname prefix to build the API URL.
-      // On HA ingress: /api/hassio_ingress/{token}/ingress/api/v1/...
-      // On direct PWA: /api/v1/... (nginx rewrites to /ingress/api/v1/...)
-      const base = window.location.pathname.includes("/ingress/")
-        ? window.location.pathname.split("/ingress/")[0] + "/ingress"
-        : "";
-      const res = await fetch(`${base}/api/v1/admin/printer-mappings`);
+      const res = await fetch(`${getApiBase()}/api/v1/admin/printer-mappings`);
       const json = await res.json();
       setData(json);
     } catch (err) {
       setData({ available: false, reason: `Network error: ${err}`, printers: [] });
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function saveOverride(deviceId: string, field: string, entityId: string) {
+    setSaving(true);
+    try {
+      const res = await fetch(`${getApiBase()}/api/v1/admin/printer-mappings`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ deviceId, field, entityId }),
+      });
+      if (res.ok) {
+        toast.success(`Mapped ${field} → ${entityId.split(".").pop()}`);
+        setEditingRow(null);
+        fetchMappings();
+      } else {
+        toast.error("Failed to save override");
+      }
+    } catch {
+      toast.error("Network error");
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -141,6 +173,7 @@ export function PrinterMappings() {
                     </span>
                   )}
                   <span>{printer.unmappedCount} ignored</span>
+                  <ChevronDown className={`h-3.5 w-3.5 transition ${isExpanded ? "rotate-180" : ""}`} />
                 </div>
               </button>
 
@@ -160,8 +193,37 @@ export function PrinterMappings() {
                       {printer.mappings.map((m) => (
                         <tr key={m.field} className="hover:bg-muted/20">
                           <td className="px-3 py-1.5 font-mono">{m.field}</td>
-                          <td className="px-3 py-1.5 font-mono text-muted-foreground truncate max-w-[200px]">
-                            {m.entityId}
+                          <td className="px-3 py-1.5">
+                            {editingRow === m.field ? (
+                              <select
+                                className="w-full bg-background border border-input rounded px-1.5 py-0.5 text-xs font-mono"
+                                defaultValue={m.entityId}
+                                disabled={saving}
+                                onChange={(e) => {
+                                  if (e.target.value !== m.entityId) {
+                                    saveOverride(printer.deviceId, m.field, e.target.value);
+                                  } else {
+                                    setEditingRow(null);
+                                  }
+                                }}
+                                onBlur={() => !saving && setEditingRow(null)}
+                                autoFocus
+                              >
+                                {printer.allEntities.map((opt) => (
+                                  <option key={opt.entityId} value={opt.entityId}>
+                                    {opt.entityId} ({opt.originalName})
+                                  </option>
+                                ))}
+                              </select>
+                            ) : (
+                              <button
+                                className="font-mono text-muted-foreground hover:text-foreground hover:underline text-left truncate max-w-[250px] block"
+                                onClick={() => setEditingRow(m.field)}
+                                title="Click to change entity"
+                              >
+                                {m.entityId}
+                              </button>
+                            )}
                           </td>
                           <td className="px-3 py-1.5 text-muted-foreground">{m.originalName}</td>
                           <td className="px-3 py-1.5 text-center">

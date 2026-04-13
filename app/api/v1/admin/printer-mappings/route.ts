@@ -79,7 +79,7 @@ export async function GET(request: NextRequest) {
           status: m.status,
         })),
         unmappedCount: p.unmappedEntities.length,
-        unmappedEntities: p.unmappedEntities.slice(0, 10), // Limit for display
+        allEntities: [...p.mappings.map(m => ({ entityId: m.entityId, originalName: m.originalName })), ...p.unmappedEntities],
       };
     });
 
@@ -97,5 +97,55 @@ export async function GET(request: NextRequest) {
       },
       { status: 500 },
     );
+  }
+}
+
+/**
+ * POST /api/v1/admin/printer-mappings
+ *
+ * Save a manual entity mapping override.
+ * Body: { deviceId, field, entityId }
+ */
+export async function POST(request: NextRequest) {
+  const auth = await optionalAuth(request);
+  if (!auth.authenticated) return auth.response;
+
+  try {
+    const body = await request.json();
+    const { deviceId, field, entityId } = body;
+
+    if (!deviceId || !field || !entityId) {
+      return NextResponse.json({ error: "deviceId, field, and entityId required" }, { status: 400 });
+    }
+
+    const { db } = await import("@/lib/db");
+    const { settings } = await import("@/lib/db/schema");
+    const { eq } = await import("drizzle-orm");
+
+    // Load existing overrides
+    const existing = await db.query.settings.findFirst({
+      where: eq(settings.key, "entity_mapping_overrides"),
+    });
+
+    let overrides: Record<string, Record<string, string>> = {};
+    if (existing?.value) {
+      try { overrides = JSON.parse(existing.value); } catch { /* ignore */ }
+    }
+
+    // Set override: overrides[deviceId][field] = entityId
+    if (!overrides[deviceId]) overrides[deviceId] = {};
+    overrides[deviceId][field] = entityId;
+
+    // Save
+    const json = JSON.stringify(overrides);
+    if (existing) {
+      await db.update(settings).set({ value: json, updatedAt: new Date() }).where(eq(settings.key, "entity_mapping_overrides"));
+    } else {
+      await db.insert(settings).values({ key: "entity_mapping_overrides", value: json });
+    }
+
+    return NextResponse.json({ ok: true, overrides: overrides[deviceId] });
+  } catch (error) {
+    return NextResponse.json({ error: (error as Error).message }, { status: 500 });
   }
 }
