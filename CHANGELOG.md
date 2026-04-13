@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- **feat:** show addon version on admin page (Build & Cache section) (`0da2b6e`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`fa2fd19`)
 - **fix:** e2e hydration test filters for chunk load + admin API errors (`5ed6e7f`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`b0ab60e`)
 - **fix:** graceful fetch errors in client components (fixes e2e hydration) (`bf37af8`)
