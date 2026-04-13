@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- **test:** add 3 nice-to-have e2e specs (dark-mode, scan-flow, mobile-viewport) (`50b497b`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`516ce83`)
 - **fix:** Docker CI — use alpine:3.21 base + QEMU for cross-arch builds (`0f4d355`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`bcbfc12`)
 - **fix:** replace require('fs') with import in next.config.ts (lint error) (`f9b398b`)
