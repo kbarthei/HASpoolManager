@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- **fix:** add data-testid on spool detail + aria-label on sync refresh (audit #11, #12) (`5c2e720`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`d00a8ba`)
 - **fix:** GET endpoints use optionalAuth for browser access (audit #8) (`55b5e1b`)
 - **fix:** order cards keyboard accessible with role=button (audit #7) (`1158677`)
 - **fix:** add loading.tsx spinner for all async pages (audit #6) (`f9b9721`)
