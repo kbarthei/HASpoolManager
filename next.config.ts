@@ -1,4 +1,12 @@
 import type { NextConfig } from "next";
+import { readFileSync } from "fs";
+
+function readAddonVersion(): string {
+  try {
+    const yaml = readFileSync("ha-addon/haspoolmanager/config.yaml", "utf8");
+    return yaml.match(/version:\s*"([^"]+)"/)?.[1] ?? "dev";
+  } catch { return "dev"; }
+}
 
 const nextConfig: NextConfig = {
   output: "standalone",
@@ -12,7 +20,7 @@ const nextConfig: NextConfig = {
   ...(process.env.HA_ADDON === "true" ? { basePath: "/ingress" } : {}),
   env: {
     BUILD_TIMESTAMP: new Date().toISOString(),
-    ADDON_VERSION: (() => { try { return require("fs").readFileSync("ha-addon/haspoolmanager/config.yaml", "utf8").match(/version:\s*"([^"]+)"/)?.[1] ?? "dev"; } catch { return "dev"; } })(),
+    ADDON_VERSION: readAddonVersion(),
   },
   async headers() {
     // In HA addon mode, omit headers that conflict with HA ingress iframe
