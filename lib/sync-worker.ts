@@ -154,7 +154,7 @@ async function handleBambuEvent(event: Record<string, unknown>) {
     return;
   }
 
-  console.log(`[sync-worker] bambu_lab_event: ${eventType} device=${deviceId}`);
+  console.log(`[sync-worker] bambu_lab_event: ${eventType} device=${deviceId} data=${JSON.stringify(eventData).slice(0, 200)}`);
 
   // Auto-discover if unknown printer
   let printer: PrinterSyncState | undefined = printers.get(deviceId);
@@ -166,8 +166,39 @@ async function handleBambuEvent(event: Record<string, unknown>) {
 
   printer.lastEventAt = Date.now();
 
+  // ── Swap detection via bambu_lab_event ────────────────────────────
+  if (eventType === "event_print_error" && printer.isActive) {
+    // Filament runout detected — snapshot progress for weight splitting
+    const progressEntity = printer.fieldToEntity.get("print_progress");
+    let progress = 0;
+    if (progressEntity) {
+      try {
+        const pStates = await getEntityStates([progressEntity]);
+        progress = parseFloat(pStates.get(progressEntity)?.state ?? "0") || 0;
+      } catch { /* ignore */ }
+    }
+    // We don't have the exact tray index from the event, but we know print_error fired.
+    // Record a swap event — trayIndex will be resolved when tray sensor changes.
+    console.log(`[sync-worker] RUNOUT (event_print_error): progress=${progress}%`);
+    printer.runoutSlot = { amsUnit: -1, trayIndex: -1 }; // unknown slot, resolved on tray change
+    printer.pendingSwaps.push({
+      trayIndex: -1,
+      amsUnit: -1,
+      oldSpoolId: null,
+      newSpoolId: null,
+      progressAtSwap: progress,
+      detectedAt: new Date().toISOString(),
+    });
+  } else if (eventType === "event_print_error_cleared" && printer.runoutSlot) {
+    console.log(`[sync-worker] RUNOUT cleared (event_print_error_cleared)`);
+    printer.runoutSlot = null;
+  }
+
   // Build payload and sync
   const payload = await buildSyncPayload(printer);
+  if (printer.pendingSwaps.length > 0) {
+    payload.spool_swaps = printer.pendingSwaps;
+  }
   await callSyncEngine(payload);
 
   // Track active state
