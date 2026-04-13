@@ -6,6 +6,15 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- - design: collapsible analytics section on dashboard (`889d0ed`)
+- - design: card entry animations — fade-in-up with stagger (`483515f`)
+- - design: spool detail — color accent header with gradient tint (`987a833`)
+- - design: mobile nav — larger touch targets (h-14→h-16, icons 5→6) (`bac9538`)
+- - design: currently printing hero card with progress ring (`da82c25`)
+- - design: spool cards — low-stock amber ring + badge, empty opacity (`11672da`)
+- - design: fix chart colors — replace broken hsl(var(--primary)) with hex (`cfbb7c9`)
+- - design: stat cards — larger numbers (3xl→4xl) + teal accent on primary (`9d4e68d`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`45184bd`)
 - **fix:** dashboard e2e path './' not 'ingress/' (same as smoke test) (`a990f6f`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`4830411`)
 - **fix:** mobile-viewport e2e test timeout for dashboard (slow render) (`3d51d25`)
