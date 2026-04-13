@@ -6,6 +6,7 @@ import { getRackConfig } from "@/lib/queries";
 import { getSelectedPrinter } from "@/lib/printer-context";
 import { PrinterSelector } from "@/components/layout/printer-selector";
 import { AddSpoolDialog } from "@/components/spool/add-spool-dialog";
+import { AmsDryingStatus } from "@/components/ams/ams-drying-status";
 import { InventoryClient } from "./inventory-client";
 
 export const dynamic = "force-dynamic";
@@ -111,6 +112,8 @@ export default async function InventoryPage({
           )}
         </div>
       </div>
+
+      <AmsDryingStatus />
 
       <InventoryClient
         initialSlots={printer ? JSON.parse(JSON.stringify(printer.amsSlots)) : []}

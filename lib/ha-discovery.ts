@@ -36,7 +36,12 @@ const ENTITY_NAME_MAP: Record<string, string> = {
   "Active Tray": "active_slot",
   "Online": "online",
   "External Spool": "slot_ext",
+  // Drying status (per AMS unit)
+  "Drying": "ams_drying",
+  "Remaining Drying Time": "ams_drying_remaining",
   // German original_names (localized HA installs)
+  "Trocknen": "ams_drying",
+  "Verbleibende Trocknungszeit": "ams_drying_remaining",
   "Druckstatus": "gcode_state",
   "Aktueller Arbeitsschritt": "print_state",
   "Name der Aufgabe": "print_name",
