@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- **fix:** swap detection via bambu_lab_event instead of binary_sensor state (`65453cc`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`c26e73d`)
 - **fix:** sync worker reads initial printer state after restart (`1dfa245`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`d70055b`)
 - **feat:** entity mapping overrides with auto/manual indicator + reset (`b2cb7f2`)
