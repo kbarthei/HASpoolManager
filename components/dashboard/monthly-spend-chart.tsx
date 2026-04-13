@@ -13,7 +13,7 @@ import type { MonthlySpend } from "@/lib/queries";
 const chartConfig = {
   spend: {
     label: "Ausgaben",
-    color: "hsl(var(--primary))",
+    color: "#0d9488", // teal-600
   },
 } satisfies ChartConfig;
 
