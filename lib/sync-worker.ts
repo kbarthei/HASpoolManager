@@ -201,6 +201,78 @@ async function handleBambuEvent(event: Record<string, unknown>) {
   }
   await callSyncEngine(payload);
 
+  // Capture cover image at print start
+  if (eventType === "event_print_started" && printer) {
+    const coverEntity = printer.fieldToEntity.get("cover_image");
+    if (coverEntity) {
+      try {
+        const states = await getEntityStates([coverEntity]);
+        const coverState = states.get(coverEntity);
+        const entityPicture = coverState?.attributes?.entity_picture as string;
+        if (entityPicture) {
+          const imgRes = await fetch(`http://supervisor/core${entityPicture}`, {
+            headers: { Authorization: `Bearer ${process.env.SUPERVISOR_TOKEN}` },
+          });
+          if (imgRes.ok) {
+            const buffer = Buffer.from(await imgRes.arrayBuffer());
+            const { existsSync, mkdirSync, writeFileSync } = await import("fs");
+            const dir = "/config/snapshots";
+            if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+            const filename = `cover_${Date.now()}.jpg`;
+            writeFileSync(`${dir}/${filename}`, buffer);
+            // Store path on the print via internal API
+            const apiKey = process.env.API_SECRET_KEY || "";
+            const port = process.env.PORT || "3002";
+            const basePath = process.env.HA_ADDON === "true" ? "/ingress" : "";
+            await fetch(`http://127.0.0.1:${port}${basePath}/api/v1/prints/latest/cover`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}) },
+              body: JSON.stringify({ path: `snapshots/${filename}` }),
+            }).catch(() => {});
+            console.log(`[sync-worker] captured cover image: ${filename}`);
+          }
+        }
+      } catch (err) {
+        console.error("[sync-worker] cover image capture failed:", (err as Error).message);
+      }
+    }
+  }
+
+  // Capture camera snapshot at print end
+  if (["event_print_finished", "event_print_canceled", "event_print_failed"].includes(eventType) && printer) {
+    try {
+      const { callHAService } = await import("./ha-api");
+      const { existsSync, mkdirSync } = await import("fs");
+      const dir = "/config/snapshots";
+      if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+      const filename = `snapshot_${Date.now()}.jpg`;
+      // Find camera entity by checking all entities for this printer's device
+      // Camera entities follow pattern: camera.{printer_prefix}
+      // We look for any entity containing "camera" that belongs to this printer
+      const cameraEntityId = Array.from(printer.entityToField.keys())
+        .find(eid => eid.startsWith("camera."));
+      // If no camera entity mapped, try common pattern
+      const targetCamera = cameraEntityId || `camera.${printer.deviceId.slice(0, 20)}`;
+      const success = await callHAService("camera", "snapshot", {
+        entity_id: targetCamera,
+        filename: `${dir}/${filename}`,
+      });
+      if (success) {
+        const apiKey = process.env.API_SECRET_KEY || "";
+        const port = process.env.PORT || "3002";
+        const basePath = process.env.HA_ADDON === "true" ? "/ingress" : "";
+        await fetch(`http://127.0.0.1:${port}${basePath}/api/v1/prints/latest/snapshot`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}) },
+          body: JSON.stringify({ path: `snapshots/${filename}` }),
+        }).catch(() => {});
+        console.log(`[sync-worker] captured camera snapshot: ${filename}`);
+      }
+    } catch (err) {
+      console.error("[sync-worker] snapshot capture failed:", (err as Error).message);
+    }
+  }
+
   // Track active state
   const gcode = payload.gcode_state as string;
   printer.isActive = ["RUNNING", "PREPARE", "PAUSE", "SLICING", "INIT"].includes(
