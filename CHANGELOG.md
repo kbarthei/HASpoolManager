@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- **chore:** UI polish — tab order, font sizes, admin text (`2738c65`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`027227f`)
 - **fix:** handle instant-cancel (FAILED without prior STARTED event) (`80cd825`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`8e2bec5`)
 - **feat:** mid-print spool swap detection (Phase 6) (`2b81de0`)
