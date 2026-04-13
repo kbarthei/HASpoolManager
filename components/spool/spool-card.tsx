@@ -33,6 +33,7 @@ export function SpoolCard({ spool }: { spool: SpoolCardData }) {
   return (
     <Link href={`/spools/${spool.id}`} className="block">
       <Card
+        data-testid="spool-card"
         className={cn(
           "rounded-xl p-3 hover:bg-accent/50 transition gap-2 ring-0 bg-card/60",
           isLow && "ring-1 ring-amber-500/40 dark:ring-amber-500/30",

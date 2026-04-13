@@ -11,6 +11,7 @@ export function AnalyticsSection({ children }: { children: React.ReactNode }) {
   return (
     <div>
       <Card
+        data-testid="analytics-toggle"
         role="button"
         tabIndex={0}
         onClick={() => setOpen((v) => !v)}

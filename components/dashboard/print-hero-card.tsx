@@ -32,7 +32,7 @@ export function PrintHeroCard({
 
   return (
     <Link href="/prints">
-      <Card className="rounded-xl p-4 bg-gradient-to-r from-primary/10 to-primary/5 border-primary/20 hover:from-primary/15 hover:to-primary/10 transition-all">
+      <Card data-testid="print-hero" className="rounded-xl p-4 bg-gradient-to-r from-primary/10 to-primary/5 border-primary/20 hover:from-primary/15 hover:to-primary/10 transition-all">
         <div className="flex items-center gap-4">
           {/* Progress ring */}
           <div className="relative shrink-0">
