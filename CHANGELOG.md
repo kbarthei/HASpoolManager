@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- **chore:** remove all Spoolman references + fix Vercel URLs (`7c74b39`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`0d57c43`)
 - **feat:** Docker CI pipeline + addon repo for HA installation (`7fc2922`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`ca7e64b`)
 - **docs:** full documentation refresh with screenshots (v1.0.53) (`cb4f1f1`)
