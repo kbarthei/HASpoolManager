@@ -181,3 +181,9 @@
 .animate-fade-in-up {
   animation: fadeInUp 0.3s ease-out both;
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in-up {
+    animation: none;
+  }
+}
