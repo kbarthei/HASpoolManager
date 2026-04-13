@@ -159,10 +159,10 @@ describe("CRUD API integration", () => {
   });
 
   describe("Auth", () => {
-    it("GET /vendors without bearer returns 401 (requireAuth)", async () => {
+    it("GET /vendors without bearer returns 200 (optionalAuth)", async () => {
       const { GET } = await import("@/app/api/v1/vendors/route");
       const res = await GET(makeGetRequest("/api/v1/vendors", false));
-      expect(res.status).toBe(401);
+      expect(res.status).toBe(200);
     });
   });
 });

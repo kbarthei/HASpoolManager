@@ -2,11 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { orders } from "@/lib/db/schema";
 import { desc } from "drizzle-orm";
-import { requireAuth } from "@/lib/auth";
+import { requireAuth, optionalAuth } from "@/lib/auth";
 
 // GET /api/v1/orders — List orders with vendor and items (with filament)
 export async function GET(request: NextRequest) {
-  const auth = await requireAuth(request);
+  const auth = await optionalAuth(request);
   if (!auth.authenticated) return auth.response;
 
   try {

@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { vendors } from "@/lib/db/schema";
-import { requireAuth } from "@/lib/auth";
+import { requireAuth, optionalAuth } from "@/lib/auth";
 import { asc } from "drizzle-orm";
 import { validateBody, createVendorSchema } from "@/lib/validations";
 
 export async function GET(request: NextRequest) {
-  const auth = await requireAuth(request);
+  const auth = await optionalAuth(request);
   if (!auth.authenticated) return auth.response;
 
   try {

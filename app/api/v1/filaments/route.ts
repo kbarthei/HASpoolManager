@@ -2,11 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { filaments } from "@/lib/db/schema";
 import { eq, and, type SQL } from "drizzle-orm";
-import { requireAuth } from "@/lib/auth";
+import { requireAuth, optionalAuth } from "@/lib/auth";
 import { validateBody, createFilamentSchema } from "@/lib/validations";
 
 export async function GET(request: NextRequest) {
-  const auth = await requireAuth(request);
+  const auth = await optionalAuth(request);
   if (!auth.authenticated) return auth.response;
 
   try {
