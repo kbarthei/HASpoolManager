@@ -381,6 +381,21 @@ async function registerPrinter(discovered: DiscoveredPrinter): Promise<PrinterSy
     ` (${discovered.unmappedEntities.length} other entities ignored)`,
   );
 
+  // Read initial state to detect if a print is already running (e.g., after restart)
+  const gcodeEntity = state.fieldToEntity.get("gcode_state");
+  if (gcodeEntity) {
+    try {
+      const states = await getEntityStates([gcodeEntity]);
+      const gcodeState = states.get(gcodeEntity)?.state?.toLowerCase() || "";
+      state.isActive = ["running", "prepare", "pause", "slicing", "init"].includes(gcodeState);
+      if (state.isActive) {
+        console.log(`[sync-worker] printer is ACTIVE (${gcodeState}) — doing initial sync`);
+        const payload = await buildSyncPayload(state);
+        await callSyncEngine(payload);
+      }
+    } catch { /* ignore */ }
+  }
+
   return state;
 }
 
