@@ -2,12 +2,17 @@ node_modules
 .next
 .git
 data
+testdata
 .env.local
 .env*.local
 *.log
 .DS_Store
 .vercel
+.claude
+.superpowers
 tests
 playwright-report
 test-results
 coverage
+docs/images
+docs/archived

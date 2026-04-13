@@ -5,6 +5,23 @@
 [![CI](https://github.com/kbarthei/HASpoolManager/actions/workflows/ci.yml/badge.svg)](https://github.com/kbarthei/HASpoolManager/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
+[![Add repository on my Home Assistant][repository-badge]][repository-url]
+
+[repository-badge]: https://img.shields.io/badge/Add%20repository%20to%20my-Home%20Assistant-41BDF5?logo=home-assistant&style=for-the-badge
+[repository-url]: https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Fkbarthei%2Fhaspoolmanager-addon
+
+---
+
+## Installation
+
+1. Click the **"Add repository"** button above, or manually add this URL in your HA Add-on Store:
+   ```
+   https://github.com/kbarthei/haspoolmanager-addon
+   ```
+2. Find **HASpoolManager** in the store and click **Install**
+3. Start the addon — it auto-discovers your Bambu Lab printer, no configuration needed
+4. Optional: Open `http://homeassistant:3001` in Safari → Share → **Add to Home Screen** for a native PWA experience
+
 ---
 
 ## Overview
