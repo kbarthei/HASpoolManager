@@ -13,8 +13,9 @@ HASpoolManager is a self-hosted Home Assistant addon that replaces Spoolman for 
 
 **Purchase -- Inventory -- Storage -- AMS Loading -- Print Tracking -- Usage Deduction -- Cost Analytics**
 
-<!-- Screenshot: save a dashboard PNG to docs/images/dashboard.png and uncomment -->
-<!-- ![Dashboard](docs/images/dashboard.png) -->
+![Dashboard](docs/images/dashboard.png)
+![Inventory](docs/images/inventory.png)
+![Spool Detail](docs/images/spool-detail.png)
 
 ---
 
@@ -22,13 +23,17 @@ HASpoolManager is a self-hosted Home Assistant addon that replaces Spoolman for 
 
 | Feature | Description |
 |---|---|
+| **Zero-Config Sync** | Auto-discovers printers via HA websocket — no YAML, no rest_command, no automations needed |
 | **AI Order Parsing** | Paste an order confirmation email — Claude extracts filament line items, quantities, unit prices, and shops automatically |
 | **Smart Inventory** | Track 30+ spools across rack, AMS, surplus, and workbench with full lifecycle state machine |
 | **AMS Integration** | Real-time slot status for AMS (4-slot) and AMS HT (1-slot); RFID exact match plus CIE Delta-E fuzzy matching |
+| **AMS Drying Status** | Track drying state per AMS unit with automatic status updates |
+| **Per-Tray Weight Tracking** | 3MF-based per-tray weight consumption for accurate usage tracking |
+| **Mid-Print Spool Swap Detection** | Automatically detects and handles spool swaps during active prints |
 | **Cost Analytics** | Per-print filament costs, per-gram price history, shopping list with live price crawling |
 | **Digital Rack Twin** | Configurable 4x8 grid mirrors the physical spool rack — drag-and-drop positions, overflow areas, archive mode |
 | **Full Lifecycle** | Order, receive, store, load, print, track, archive — with confidence-scored spool matching at every step |
-| **Home Assistant Addon** | Webhook-based event system for print start, filament change, and finish — automatic weight deduction, no polling |
+| **Home Assistant Addon** | Native HA websocket sync worker with 21 auto-discovered entities (German + English support) |
 | **Apple Health Design** | Clean light/dark UI with teal accent, Geist fonts, dense mobile-first layout optimized for use at the printer |
 
 ---
@@ -71,7 +76,7 @@ graph TB
     ME --> DB
     AI --> CLAUDE
     PC --> SHOPS
-    HA -->|Webhooks| API
+    HA -->|Websocket Sync| API
     PWA --> NGINX
 ```
 
@@ -161,9 +166,9 @@ npm run db:studio          # Drizzle Studio
 | Level | Tests | Files |
 |-------|------:|------:|
 | Unit | 419 | 10 |
-| Integration | 60 | 6 |
+| Integration | 75 | 7 |
 | E2e | 25 | 10 |
-| **Total** | **504** | **26** |
+| **Total** | **519** | **27** |
 
 Unit tests cover the spool matching engine (RFID, CIE Delta-E, fuzzy), API route validation (Zod schemas), cost calculation, and data transformation utilities. Integration tests call route handlers directly against a per-worker SQLite harness. E2e tests run against the full addon stack: Next.js standalone, Docker nginx with production config, and a Node.js ingress simulator.
 

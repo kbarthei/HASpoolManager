@@ -19,11 +19,11 @@ This rewrite:
 ┌──────────────────────────────────────────────┐
 │ E2e (Playwright + Docker nginx + ingress)    │  25 tests (10 specs)
 ├──────────────────────────────────────────────┤
-│ Integration (Vitest + SQLite file DB)        │  65 tests (7 files)
+│ Integration (Vitest + SQLite file DB)        │  75 tests (7 files)
 ├──────────────────────────────────────────────┤
 │ Unit (Vitest, no DB)                         │  419 tests (10 files)
 └──────────────────────────────────────────────┘
-Total: 509 tests — CI runs all three layers, ~2 min total.
+Total: 519 tests — CI runs all three layers, ~2 min total.
 ```
 
 ### Layer responsibilities
@@ -69,7 +69,7 @@ Before rewriting tests, the codebase must lose its dual-driver baggage:
 | Layer | Files | Status |
 |-------|-------|--------|
 | `tests/unit/` (10 files, 419 tests) | color, date, matching-scoring, order-parsing, price-crawler, printer-sync-helpers, storage-moves, theme, validations, weight-adjustment | ✅ All import real code, no DB |
-| `tests/integration/` (6 files, 59 tests) | api-health, api-crud, api-match, api-events, api-admin-sync-log, printer-sync | ✅ All use per-worker SQLite harness + direct route handler calls |
+| `tests/integration/` (7 files, 75 tests) | api-health, api-crud, api-match, api-events, api-admin-sync-log, printer-sync, + 1 more | ✅ All use per-worker SQLite harness + direct route handler calls |
 | `tests/e2e/` (10 specs, 25 tests) | 01-smoke through 10-inventory-page | ✅ Run against addon stack (Docker nginx + ingress simulator) |
 | `tests/fixtures/seed.ts` | Factory functions (makeVendor, makeFilament, makeSpool, makePrinter, makeAmsSlot, makeTagMapping) | ✅ Uses `@/lib/db` singleton (lazy, binds to harness DB) |
 | `tests/harness/` | sqlite-db.ts, request.ts, addon-stack.ts, ingress-simulator.ts | ✅ Complete harness infrastructure |

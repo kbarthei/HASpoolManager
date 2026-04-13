@@ -43,7 +43,7 @@ npm run test:e2e           # Playwright browser tests
 npm run lint               # ESLint
 ```
 
-504 tests total across all layers. See `docs/test-strategy.md` for the full test pyramid and harness details.
+519 tests total across all layers. See `docs/test-strategy.md` for the full test pyramid and harness details.
 
 Project documentation lives in `docs/` (architecture, installation, configuration, test strategy).
 

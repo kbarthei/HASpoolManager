@@ -7,7 +7,7 @@ HASpoolManager is a Next.js 16 application (App Router) that runs as a Home Assi
 - **Runtime:** Next.js 16 standalone build on Alpine Linux (Docker container)
 - **Reverse proxy:** nginx handles ingress routing (port 3000 for HA ingress, port 3001 for direct access)
 - **Database:** SQLite at `/config/haspoolmanager.db` (20 tables, managed via Drizzle ORM)
-- **Integration:** Home Assistant communicates via `rest_command` webhooks every 60 seconds
+- **Integration:** Native HA websocket sync worker (zero-config, auto-discovers printers, 21 entities mapped)
 - **Printer:** Bambu Lab H2S with AMS (4 slots) + AMS HT (1 slot), integrated through HA entities
 
 ## 2. Request Flow
@@ -107,6 +107,12 @@ graph TD
 ┌─────────────────────────────────────────┐
 │ HA Addon Container (Alpine Linux)       │
 │                                         │
+│  run.sh starts:                         │
+│    1. migrate-db.js (schema migrations) │
+│    2. Next.js standalone (:3002)        │
+│    3. sync-worker.js (HA websocket)     │
+│    4. nginx (:3000 + :3001)             │
+│                                         │
 │  nginx (:3000 ingress, :3001 direct)    │
 │    ├── /ingress/* → Next.js :3002       │
 │    ├── /api/* → Next.js :3002           │
@@ -117,8 +123,14 @@ graph TD
 │    ├── API Routes (/api/v1/*)           │
 │    └── Server Actions                   │
 │                                         │
+│  Sync Worker (HA websocket client)      │
+│    ├── Auto-discovers printers via HA   │
+│    ├── 21 entities mapped (DE+EN)       │
+│    └── Zero-config, no YAML needed      │
+│                                         │
 │  SQLite (/config/haspoolmanager.db)     │
 │    └── 20 tables, Drizzle ORM           │
+│    └── Auto-migration on startup        │
 └─────────────────────────────────────────┘
 ```
 
