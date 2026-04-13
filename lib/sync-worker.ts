@@ -45,10 +45,10 @@ function parseRunoutError(errorCode: number): { amsUnit: number; trayIndex: numb
   if (errorCode === 0) return null;
   const hex = errorCode.toString(16).padStart(8, "0");
   if (!hex.endsWith("8011")) return null;
-  const module = parseInt(hex.slice(0, 2), 16);
+  const moduleId = parseInt(hex.slice(0, 2), 16);
   const slot = parseInt(hex.slice(2, 4), 16);
-  if (module === 0x07 && slot !== 0xff) return { amsUnit: 0, trayIndex: slot };
-  if (module === 0x18) return { amsUnit: 1, trayIndex: slot };
+  if (moduleId === 0x07 && slot !== 0xff) return { amsUnit: 0, trayIndex: slot };
+  if (moduleId === 0x18) return { amsUnit: 1, trayIndex: slot };
   return null;
 }
 

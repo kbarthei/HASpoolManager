@@ -1,0 +1,1 @@
+ALTER TABLE `prints` ADD `spool_swaps` text;

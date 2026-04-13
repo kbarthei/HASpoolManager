@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth";
+import Database from "better-sqlite3";
 
 /**
  * POST /api/v1/admin/query
@@ -30,7 +31,6 @@ export async function POST(request: NextRequest) {
     }
 
     // Use a separate readonly connection for true safety
-    const Database = require("better-sqlite3");
     const dbPath = process.env.SQLITE_PATH || "./data/haspoolmanager.db";
     const readonlyDb = new Database(dbPath, { readonly: true });
 
