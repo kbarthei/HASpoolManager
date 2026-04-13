@@ -39,6 +39,9 @@ const ENTITY_NAME_MAP: Record<string, string> = {
   // Drying status (per AMS unit)
   "Drying": "ams_drying",
   "Remaining Drying Time": "ams_drying_remaining",
+  // Cover image (3D model preview from slicer)
+  "Cover Image": "cover_image",
+  "Titelbild": "cover_image",
   // German original_names (localized HA installs)
   "Trocknen": "ams_drying",
   "Verbleibende Trocknungszeit": "ams_drying_remaining",
