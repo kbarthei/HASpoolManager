@@ -1,0 +1,95 @@
+name: Security
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Weekly deep scan every Monday at 06:00 UTC
+    - cron: "0 6 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  dependency-audit:
+    name: Dependency Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: npm audit (high + critical)
+        run: npm audit --audit-level=high
+        continue-on-error: true
+
+  static-analysis:
+    name: Static Security Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Check for secrets in code
+        run: |
+          echo "Scanning for hardcoded secrets..."
+          FINDINGS=$(grep -rn \
+            -e 'sk-ant-[a-zA-Z0-9]' \
+            -e 'AKIA[0-9A-Z]' \
+            --include="*.ts" --include="*.tsx" --include="*.js" \
+            . 2>/dev/null | grep -v node_modules | grep -v ".next" || true)
+          if [ -n "$FINDINGS" ]; then
+            echo "::error::Potential secrets found in code"
+            echo "$FINDINGS"
+            exit 1
+          else
+            echo "No hardcoded secrets found."
+          fi
+
+      - name: Check for unsafe patterns
+        run: |
+          echo "Scanning for unsafe code patterns..."
+          ISSUES=0
+
+          # eval / Function constructor
+          EVAL=$(grep -rn "eval(\|new Function(" --include="*.ts" --include="*.tsx" . | grep -v node_modules | grep -v ".next" || true)
+          if [ -n "$EVAL" ]; then
+            echo "::error::eval() or new Function() found:"
+            echo "$EVAL"
+            ISSUES=$((ISSUES + 1))
+          fi
+
+          # dangerouslySetInnerHTML
+          INNER=$(grep -rn "dangerouslySetInnerHTML" --include="*.tsx" . | grep -v node_modules || true)
+          if [ -n "$INNER" ]; then
+            echo "::warning::dangerouslySetInnerHTML found:"
+            echo "$INNER"
+            ISSUES=$((ISSUES + 1))
+          fi
+
+          echo ""
+          echo "API route auth check:"
+          for f in $(find app/api -name "route.ts" | sort); do
+            AUTH=$(grep -c "requireAuth\|optionalAuth" "$f" || true)
+            if [ "$AUTH" = "0" ]; then
+              echo "::error::No auth in $f"
+              ISSUES=$((ISSUES + 1))
+            else
+              TYPE=$(grep -o "requireAuth\|optionalAuth" "$f" | head -1)
+              echo "  $f — $TYPE"
+            fi
+          done
+
+          echo ""
+          if [ "$ISSUES" -gt 0 ]; then
+            echo "::warning::$ISSUES security pattern(s) found — review required"
+          else
+            echo "All checks passed."
+          fi
