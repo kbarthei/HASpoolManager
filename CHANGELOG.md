@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- **fix:** CI failures — empty public dir + Dockerfile BUILD_FROM arg scoping (`c08415c`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`f0eb04f`)
 - **fix:** lint errors + add spool_swaps DB migration for test harness (`186ec1a`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`03d7b1c`)
 - - security: fix CRITICAL + HIGH findings from security audit (`dcc11f6`)
