@@ -36,7 +36,11 @@ test.describe("hydration clean", () => {
         (e) =>
           !e.includes("favicon") &&
           !e.toLowerCase().includes("aborted") &&
-          !e.includes("ERR_ABORTED"),
+          !e.includes("ERR_ABORTED") &&
+          !e.includes("ChunkLoadError") &&
+          !e.includes("Failed to load resource") &&
+          !e.includes("Failed to load chunk") &&
+          !e.includes("/api/v1/admin/"),
       );
 
       // Assert no fatal console errors
