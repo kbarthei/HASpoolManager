@@ -8,6 +8,9 @@ import { test, expect } from "@playwright/test";
 const MOBILE_VIEWPORT = { width: 375, height: 667 };
 
 const PAGES = [
+  // Dashboard uses "./" (relative) because the ingress simulator's baseURL
+  // already includes the session prefix; "ingress/..." is only needed for
+  // sub-pages whose path doesn't start at the root. See 01-smoke.spec.ts.
   { name: "dashboard", path: "./", testId: "page-dashboard" },
   { name: "inventory", path: "ingress/inventory", testId: "page-inventory" },
   { name: "orders", path: "ingress/orders", testId: "page-orders" },
