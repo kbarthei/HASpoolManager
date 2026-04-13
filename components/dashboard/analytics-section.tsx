@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ChevronDown, BarChart3 } from "lucide-react";
+import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 export function AnalyticsSection({ children }: { children: React.ReactNode }) {
@@ -9,23 +10,28 @@ export function AnalyticsSection({ children }: { children: React.ReactNode }) {
 
   return (
     <div>
-      <button
+      <Card
+        role="button"
+        tabIndex={0}
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-2 w-full py-2 text-left group"
+        onKeyDown={(e) => e.key === "Enter" && setOpen((v) => !v)}
+        className="rounded-xl p-4 flex items-center gap-3 cursor-pointer hover:bg-accent/50 active:bg-accent/70 transition select-none"
       >
-        <BarChart3 className="h-4 w-4 text-muted-foreground" />
-        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-          Analytics
-        </span>
-        <div className="flex-1 h-px bg-border" />
+        <BarChart3 className="h-5 w-5 text-primary shrink-0" />
+        <div className="flex-1">
+          <p className="text-sm font-semibold">Analytics</p>
+          <p className="text-xs text-muted-foreground">
+            {open ? "Tap to collapse" : "10 charts — tap to expand"}
+          </p>
+        </div>
         <ChevronDown
           className={cn(
-            "h-4 w-4 text-muted-foreground transition-transform",
+            "h-5 w-5 text-muted-foreground transition-transform",
             open && "rotate-180",
           )}
         />
-      </button>
-      {open && <div className="space-y-2 animate-fade-in-up">{children}</div>}
+      </Card>
+      {open && <div className="space-y-2 mt-2 animate-fade-in-up">{children}</div>}
     </div>
   );
 }
