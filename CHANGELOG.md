@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- **chore:** cleanup stale files, env vars, and references (`6b74420`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`e93d3be`)
 - **feat:** show addon version on admin page (Build & Cache section) (`0da2b6e`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`fa2fd19`)
 - **fix:** e2e hydration test filters for chunk load + admin API errors (`5ed6e7f`)
