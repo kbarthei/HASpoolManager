@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- **feat:** Docker CI pipeline + addon repo for HA installation (`7fc2922`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`ca7e64b`)
 - **docs:** full documentation refresh with screenshots (v1.0.53) (`cb4f1f1`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`b32118d`)
 - **feat:** auto-migrate DB schema on addon start (`10e1bdc`)
