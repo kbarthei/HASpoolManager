@@ -82,10 +82,9 @@ export async function GET(request: NextRequest) {
       available: true,
       units: Array.from(unitMap.values()),
     });
-  } catch (error) {
+  } catch {
     return NextResponse.json({
       available: false,
-      error: String(error),
       units: [],
     });
   }

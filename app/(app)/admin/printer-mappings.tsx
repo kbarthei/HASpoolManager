@@ -57,10 +57,14 @@ export function PrinterMappings() {
     setLoading(true);
     try {
       const res = await fetch(`${getApiBase()}/api/v1/admin/printer-mappings`);
+      if (!res.ok) {
+        setData({ available: false, reason: `HTTP ${res.status}`, printers: [] });
+        return;
+      }
       const json = await res.json();
       setData(json);
-    } catch (err) {
-      setData({ available: false, reason: `Network error: ${err}`, printers: [] });
+    } catch {
+      setData({ available: false, reason: "Not available", printers: [] });
     } finally {
       setLoading(false);
     }

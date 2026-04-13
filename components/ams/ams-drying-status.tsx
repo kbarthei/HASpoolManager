@@ -20,11 +20,12 @@ export function AmsDryingStatus() {
     async function fetchDrying() {
       try {
         const res = await fetch(`${base}/api/v1/admin/ams-drying`);
+        if (!res.ok) return;
         const data = await res.json();
         if (data.available && data.units) {
           setUnits(data.units.filter((u: DryingUnit) => u.isDrying));
         }
-      } catch { /* ignore */ }
+      } catch { /* expected when HA API not available */ }
     }
 
     fetchDrying();
