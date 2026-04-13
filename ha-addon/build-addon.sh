@@ -31,7 +31,10 @@ mkdir -p "$STAGE_DIR/haspoolmanager/app"
 cp -R .next/standalone/. "$STAGE_DIR/haspoolmanager/app/"
 mkdir -p "$STAGE_DIR/haspoolmanager/app/.next"
 cp -R .next/static "$STAGE_DIR/haspoolmanager/app/.next/static"
-cp -R public "$STAGE_DIR/haspoolmanager/app/public"
+mkdir -p "$STAGE_DIR/haspoolmanager/app/public"
+if [ -d "public" ] && [ "$(ls -A public 2>/dev/null)" ]; then
+  cp -R public/. "$STAGE_DIR/haspoolmanager/app/public/"
+fi
 
 # Copy the DB migration script (plain JS, uses better-sqlite3 from standalone)
 cp scripts/migrate-db.js "$STAGE_DIR/haspoolmanager/app/migrate-db.js"

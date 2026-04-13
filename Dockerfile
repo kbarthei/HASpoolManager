@@ -1,8 +1,11 @@
 # Multi-stage Dockerfile for CI builds.
 # Builds Next.js from source, bundles sync worker, produces a standalone addon image.
 #
-# Usage (CI):  docker buildx build --platform linux/amd64,linux/arm64 -t ghcr.io/kbarthei/haspoolmanager:1.0.53 .
+# Usage (CI):  docker buildx build --build-arg BUILD_FROM=ghcr.io/home-assistant/aarch64-base:latest -t ghcr.io/kbarthei/haspoolmanager:latest .
 # Usage (local): ./ha-addon/deploy.sh (uses the simpler ha-addon/haspoolmanager/Dockerfile instead)
+
+# Global ARG — must be declared before first FROM for multi-stage propagation
+ARG BUILD_FROM=ghcr.io/home-assistant/aarch64-base:latest
 
 # ── Stage 1: Build ─────────────────────────────────────────────────────────
 FROM node:22-alpine AS builder
@@ -30,7 +33,7 @@ RUN npx esbuild scripts/start-sync-worker.ts \
 # Copy extras into standalone
 RUN cp scripts/migrate-db.js .next/standalone/migrate-db.js
 RUN cp -R .next/static .next/standalone/.next/static
-RUN mkdir -p .next/standalone/public && cp -R public/. .next/standalone/public/
+RUN mkdir -p .next/standalone/public && (cp -R public/. .next/standalone/public/ 2>/dev/null || true)
 
 # ── Stage 2: Runtime ───────────────────────────────────────────────────────
 ARG BUILD_FROM=ghcr.io/home-assistant/aarch64-base:latest
