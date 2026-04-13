@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- **fix:** Docker CI — use alpine:3.21 base + QEMU for cross-arch builds (`0f4d355`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`bcbfc12`)
 - **fix:** replace require('fs') with import in next.config.ts (lint error) (`f9b398b`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`5dbe39d`)
 - **chore:** cleanup stale files, env vars, and references (`6b74420`)
