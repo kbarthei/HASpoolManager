@@ -183,6 +183,68 @@ Never edit a committed migration file — generate a follow-up migration instead
 - E2e paths: `"./"` for dashboard (root), `"ingress/<page>"` for sub-pages (matches ingress simulator convention)
 - Empty directories need `.gitkeep` — Git doesn't track empty dirs, CI will fail if a build step expects them
 
+## TypeScript & Next.js Best Practices
+
+### TypeScript
+- **Strict mode** is enabled — never disable it. No `// @ts-ignore` without a comment explaining why.
+- Prefer `interface` over `type` for object shapes (better error messages, extendable)
+- Use discriminated unions for state: `{ status: "loading" } | { status: "error"; message: string } | { status: "ok"; data: T }`
+- Prefer `unknown` over `any` — force explicit type narrowing
+- Use `satisfies` for type-safe config objects (e.g., `chartConfig satisfies ChartConfig`)
+- Export types from the file that defines them — avoid barrel re-exports
+
+### Next.js App Router
+- **Server Components by default** — only add `"use client"` when the component needs interactivity (state, effects, event handlers)
+- Use `loading.tsx` or `<Suspense>` for async Server Components — never leave a page without a loading state
+- Server Actions (`"use server"`) for mutations from the UI. API Routes for external consumers (HA webhooks, sync worker).
+- `revalidatePath()` after every mutation — list all affected pages
+- `export const dynamic = "force-dynamic"` on pages that must not be cached (dashboard, admin)
+- Environment variables: only `NEXT_PUBLIC_*` in client code. Server-only secrets stay server-only.
+
+### React Patterns
+- **Minimize client state.** Prefer Server Components + `router.refresh()` over local state + React Query for data that changes rarely.
+- React Query (`@tanstack/react-query`) only for live-updating views (AMS polling every 30s)
+- `useCallback` / `useMemo` only when passing to child components or expensive computations — don't optimize prematurely
+- Keys on lists: use stable IDs (database UUIDs), never array index
+
+### API Design
+- Consistent response format: `{ data }` for success, `{ error: string }` for errors
+- Validate all POST bodies with Zod schemas from `lib/validations.ts`
+- Return appropriate HTTP status codes: 200 (ok), 201 (created), 400 (bad input), 401 (no auth), 403 (forbidden), 404 (not found), 500 (server error)
+- Never expose internal error details (stack traces, SQL errors) in responses
+
+### Performance
+- `next/image` for user-facing images — automatic WebP, lazy loading, responsive
+- Avoid importing entire icon libraries — Lucide icons are tree-shaken, but verify bundle impact
+- Recharts: use `<ChartContainer>` for consistent sizing and responsive behavior
+- Database queries: use Drizzle's `with` for eager loading (avoid N+1), `select()` for projections
+
+### Accessibility
+- Semantic HTML: `<nav>`, `<main>`, `<section>`, `<article>`, `<button>` — not `<div onClick>`
+- Touch targets: minimum 44×44px on mobile (Apple HIG)
+- Color contrast: ensure text is readable in both light and dark mode
+- Focus management: interactive elements must be keyboard-navigable
+- Screen reader: `aria-label` on icon-only buttons, `aria-expanded` on toggles
+
+### Git & CI
+- **Conventional commits:** `feat:`, `fix:`, `docs:`, `chore:`, `test:` prefixes — the changelog and releases are auto-generated from these
+- Commit small, focused changes — one concern per commit (reviewable, revertable)
+- Never force-push to `main`
+- CI must be green before deploying — lint + typecheck + unit + integration (e2e on main push)
+- `npm audit` runs in CI weekly — fix high/critical, accept moderate in dev dependencies
+
+### Dependencies
+- Minimize new dependencies — every package is attack surface and maintenance burden
+- Prefer Node.js built-ins over npm packages (e.g., `crypto.randomUUID()` not `uuid`)
+- Pin major versions in `package.json` — allow minor/patch via `^`
+- Review Dependabot PRs: merge patch/minor, evaluate major carefully
+
+### Comments & Documentation
+- Only add comments for **non-obvious logic** — the code should explain the "what", comments explain the "why"
+- No commented-out code — use git history instead
+- Update `docs/test-strategy.md` when adding/removing tests (it's the single source of truth)
+- API endpoint changes → update `docs/architecture/api-reference.md`
+
 ## CRITICAL: Bash Commands
 
 **NEVER prefix bash commands with `cd /path/to/project &&`.** The working directory is already the project root. Run commands directly:
