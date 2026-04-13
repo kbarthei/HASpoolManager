@@ -8,7 +8,7 @@ import { test, expect } from "@playwright/test";
 const MOBILE_VIEWPORT = { width: 375, height: 667 };
 
 const PAGES = [
-  { name: "dashboard", path: "ingress/", testId: "page-dashboard" },
+  { name: "dashboard", path: "./", testId: "page-dashboard" },
   { name: "inventory", path: "ingress/inventory", testId: "page-inventory" },
   { name: "orders", path: "ingress/orders", testId: "page-orders" },
   { name: "prints", path: "ingress/prints", testId: "page-prints" },
