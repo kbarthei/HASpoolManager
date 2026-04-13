@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- **fix:** dashboard e2e path './' not 'ingress/' (same as smoke test) (`a990f6f`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`4830411`)
 - **fix:** mobile-viewport e2e test timeout for dashboard (slow render) (`3d51d25`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`6b415b3`)
 - **test:** add 3 nice-to-have e2e specs (dark-mode, scan-flow, mobile-viewport) (`50b497b`)
