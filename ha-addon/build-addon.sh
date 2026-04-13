@@ -33,6 +33,9 @@ mkdir -p "$STAGE_DIR/haspoolmanager/app/.next"
 cp -R .next/static "$STAGE_DIR/haspoolmanager/app/.next/static"
 cp -R public "$STAGE_DIR/haspoolmanager/app/public"
 
+# Copy the DB migration script (plain JS, uses better-sqlite3 from standalone)
+cp scripts/migrate-db.js "$STAGE_DIR/haspoolmanager/app/migrate-db.js"
+
 # Bundle the sync worker (TypeScript → single JS file via esbuild)
 echo "==> Bundling sync worker..."
 npx esbuild scripts/start-sync-worker.ts \

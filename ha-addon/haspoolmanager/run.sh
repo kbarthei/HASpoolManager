@@ -32,6 +32,11 @@ if [ -z "$SUPERVISOR_TOKEN" ] && [ -f /run/s6/container_environment/HASSIO_TOKEN
   export SUPERVISOR_TOKEN="$(cat /run/s6/container_environment/HASSIO_TOKEN)"
 fi
 
+# Run database migrations before starting Next.js
+if [ -f /app/migrate-db.js ]; then
+  node /app/migrate-db.js
+fi
+
 echo "==> HASpoolManager starting"
 echo "    DB: $SQLITE_PATH"
 echo "    SUPERVISOR_TOKEN=${SUPERVISOR_TOKEN:+set (${#SUPERVISOR_TOKEN} chars)}"
