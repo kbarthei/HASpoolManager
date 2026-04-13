@@ -103,6 +103,29 @@ export async function getEntityStates(entityIds: string[]): Promise<Map<string, 
 }
 
 /**
+ * Call a Home Assistant service (e.g., camera.snapshot, light.turn_on).
+ */
+export async function callHAService(
+  domain: string,
+  service: string,
+  serviceData: Record<string, unknown>,
+): Promise<boolean> {
+  try {
+    const res = await fetch(`${HA_API_BASE}/services/${domain}/${service}`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${getToken()}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(serviceData),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Check if the HA API is reachable (addon has homeassistant_api access).
  */
 export async function checkConnection(): Promise<{ ok: boolean; error?: string }> {
