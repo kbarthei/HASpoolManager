@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- **docs:** comprehensive coding standards in CLAUDE.md (lessons learned) (`e7a4e26`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`c6991d3`)
 - **fix:** analytics toggle — Space key + aria-expanded (M5 review fix) (`93c5393`)
 - **fix:** prefers-reduced-motion fallback for animations (M4 review fix) (`20f5477`)
 - **fix:** add data-testid to new components per CLAUDE.md (M3 review fix) (`fb4cbdf`)
