@@ -246,13 +246,10 @@ async function handleBambuEvent(event: Record<string, unknown>) {
       const dir = "/config/snapshots";
       if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
       const filename = `snapshot_${Date.now()}.jpg`;
-      // Find camera entity by checking all entities for this printer's device
-      // Camera entities follow pattern: camera.{printer_prefix}
-      // We look for any entity containing "camera" that belongs to this printer
-      const cameraEntityId = Array.from(printer.entityToField.keys())
-        .find(eid => eid.startsWith("camera."));
-      // If no camera entity mapped, try common pattern
-      const targetCamera = cameraEntityId || `camera.${printer.deviceId.slice(0, 20)}`;
+      // Use the mapped camera entity, or fall back to searching entity keys
+      const targetCamera = printer.fieldToEntity.get("camera")
+        || Array.from(printer.entityToField.keys()).find(eid => eid.startsWith("camera."))
+        || "";
       const success = await callHAService("camera", "snapshot", {
         entity_id: targetCamera,
         filename: `${dir}/${filename}`,

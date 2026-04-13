@@ -42,6 +42,9 @@ const ENTITY_NAME_MAP: Record<string, string> = {
   // Cover image (3D model preview from slicer)
   "Cover Image": "cover_image",
   "Titelbild": "cover_image",
+  // Camera
+  "Camera": "camera",
+  "Kamera": "camera",
   // German original_names (localized HA installs)
   "Trocknen": "ams_drying",
   "Verbleibende Trocknungszeit": "ams_drying_remaining",
