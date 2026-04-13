@@ -59,7 +59,7 @@ export function BottomNav() {
 
   return (
     <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border pb-[env(safe-area-inset-bottom)]">
-      <div className="flex h-14 items-center justify-around">
+      <div className="flex h-16 items-center justify-around">
         {primaryTabs.map(({ label, href, icon: Icon, isActive }) => {
           const active = isActive(pathname);
           return (
@@ -70,7 +70,7 @@ export function BottomNav() {
                 active ? "text-primary" : "text-muted-foreground"
               }`}
             >
-              <Icon className="h-5 w-5" />
+              <Icon className="h-6 w-6" />
               {active && <span>{label}</span>}
             </Link>
           );
@@ -84,7 +84,7 @@ export function BottomNav() {
               isMoreActive || moreOpen ? "text-primary" : "text-muted-foreground"
             }`}
           >
-            {moreOpen ? <X className="h-5 w-5" /> : <MoreHorizontal className="h-5 w-5" />}
+            {moreOpen ? <X className="h-6 w-6" /> : <MoreHorizontal className="h-6 w-6" />}
             {(isMoreActive || moreOpen) && <span>More</span>}
           </button>
 
