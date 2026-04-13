@@ -113,7 +113,10 @@ function PendingOrderCard({
   return (
     <div
       className="rounded-xl border-l-[3px] border-l-primary border border-border bg-card p-3 space-y-2 cursor-pointer hover:bg-muted/30 transition"
+      role="button"
+      tabIndex={0}
       onClick={() => onCardClick(order)}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onCardClick(order); } }}
     >
       <div className="flex items-start justify-between">
         <div>
@@ -180,7 +183,7 @@ function DeliveredOrderCard({ order, onCardClick }: { order: Order; onCardClick:
     .join(", ");
 
   return (
-    <div className="flex items-center gap-3 rounded-lg bg-card px-3 py-2 hover:bg-muted/50 transition cursor-pointer" onClick={() => onCardClick(order)}>
+    <div className="flex items-center gap-3 rounded-lg bg-card px-3 py-2 hover:bg-muted/50 transition cursor-pointer" role="button" tabIndex={0} onClick={() => onCardClick(order)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onCardClick(order); } }}>
       <div className="flex -space-x-1">
         {order.items.slice(0, 3).map((item) => (
           <SpoolColorDot
