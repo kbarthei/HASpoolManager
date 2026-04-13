@@ -111,7 +111,77 @@ E2e tests run against the real HA addon stack: `npm run build` with `HA_ADDON=tr
 - Dense layout (compact padding, tight rows)
 - All API routes under /api/v1/
 - API key auth via Authorization: Bearer header
-- German-speaking user, but UI and code in English
+- German-speaking user, but **all UI text and code in English** — no hardcoded German strings in components
+
+## Data Integrity
+
+This app tracks physical objects (filament spools) connected to real hardware (3D printer).
+Wrong data = wrong cost tracking, missed prints, incorrect inventory. Treat data bugs as critical.
+
+- **Never assume event ordering.** The printer can go IDLE→RUNNING→FAILED in under a second. The sync worker may see events out of order after a restart.
+- **Parse HA values defensively.** HA sends `"unavailable"`, `"unknown"`, `"None"`, `"on"/"off"` as strings. Use `str()`, `num()`, `bool()` helpers from `lib/printer-sync-helpers.ts` — never raw `parseInt()` or `=== true`.
+- **`print_error` is an integer error code**, not a boolean. HA's `binary_sensor` gives `"on"/"off"`, but the actual error code (e.g., `0x07038011` for filament runout) comes only via `bambu_lab_event`. Don't parse it as `bool()`.
+- **Failed prints with no progress data → skip weight deduction.** Don't charge full slicer weight when `progress` is null (print failed before extrusion started).
+- **Stale prints:** If a print is "running" for >24h, auto-close as failed. Otherwise it blocks all future print tracking.
+- **SQLite WAL:** When copying the DB (SCP, backup), always include `.db-wal` and `.db-shm` files. Data in the WAL is invisible without them.
+
+## Sync Worker & HA Integration
+
+The sync worker is the heart of the system — a background Node.js process alongside Next.js.
+
+- **Token loading:** `SUPERVISOR_TOKEN` comes from `/run/s6/container_environment/`, not environment variables. Load it in `run.sh` BEFORE starting Next.js and the sync worker.
+- **Entity mapping:** HA's `original_name` is **localized** (German "Druckstatus", not English "Print Status"). Map by both German and English names. Never assume English.
+- **After restart, read initial state.** `isActive` starts as `false`. If a print is already running, the first `state_changed` event won't fire (state didn't change). Read `gcode_state` immediately after discovery.
+- **Event throttling:** Only trigger full sync on important state changes (`gcode_state`, `print_error`, `active_slot`, tray changes). Skip progress%, layer count, remaining time — those are handled by watchdog poll.
+- **Swap detection:** Use `bambu_lab_event: event_print_error`, not `binary_sensor` state. The binary_sensor only gives on/off, not the error code needed to identify which tray ran out.
+- **Server Actions via nginx:** The direct-access nginx (port 3001) must set `Host: $host:$server_port` so `x-forwarded-host` matches the browser's `Origin` header. Without port, Server Actions reject with 500.
+
+## Security Rules
+
+- **Admin/mutation endpoints:** `requireAuth` (Bearer token required)
+- **Read-only UI endpoints** (spools GET, printers GET, sync-log GET): `optionalAuth` (browser has no token, HA ingress handles auth)
+- **Port 3001 is unauthenticated by design** — LAN-only PWA access. All sensitive endpoints must use `requireAuth`.
+- **Raw SQL** (`sql.raw()`, `db.all()`): Use `better-sqlite3` readonly mode. Block semicolons and multi-statements. Sanitize error messages (don't expose table/column names).
+- **No dynamic code execution** with user-controlled data
+- **Validate URLs before server-side fetch** (order parser, price crawler) — prevent SSRF
+- **Never expose raw error details** in API responses — log server-side, return generic message
+
+## Component Standards
+
+- Use `cn()` from `@/lib/utils` for conditional classNames — never template string concatenation
+- shadcn/ui uses `@base-ui/react` (not Radix) — use `onClick` not `onSelect` for menu items
+- Client components: handle fetch errors gracefully (non-200 responses, network failures). A failed API call must **never** break page rendering — show fallback UI or empty state.
+- Server Components for data-heavy pages, Client wrappers only where interactivity needed
+- CSS colors: use hex values (`#0d9488`), not `hsl(var(--primary))`. The CSS variables store hex, not HSL — `hsl()` wrapper produces invisible/black output.
+- CSS animations: always add `@media (prefers-reduced-motion: reduce)` fallback
+- Interactive elements with `role="button"`: handle both `Enter` and `Space` keys + set `aria-expanded` for toggles
+- Inline styles with DB values (colors, etc.): sanitize with regex before interpolation
+- `data-testid` on every new page root (`page-<name>`) and interactive component
+
+## Database Changes
+
+Schema changes require 3 steps — all three, every time:
+
+1. **Edit `lib/db/schema.ts`** — add/modify the column
+2. **Run `npx drizzle-kit generate`** — creates migration SQL in `lib/db/migrations/`
+3. **Add to `scripts/migrate-db.js`** — idempotent check (`PRAGMA table_info`) + `ALTER TABLE`
+
+The migration script runs automatically on every addon start before Next.js boots.
+Integration tests use the Drizzle migrator — if the migration file is missing, tests will fail with "no such column".
+
+Never edit a committed migration file — generate a follow-up migration instead.
+
+## Code Quality
+
+- Functions longer than 40 lines — split into smaller functions
+- Logic duplicated more than twice — extract to `lib/` utility
+- No `any` types — use real types or `unknown`
+- `require()` is forbidden in TypeScript files — use ES `import` (lint rule)
+- Don't shadow reserved names — use `moduleId` not `module`, `className` not `class`
+- Async operations need error handling — `try/catch` or `.catch()`
+- E2e tests: use `data-testid` selectors, not text content matchers. Use condition waits (`toBeVisible`, `toHaveAttribute`) instead of `waitForTimeout`.
+- E2e paths: `"./"` for dashboard (root), `"ingress/<page>"` for sub-pages (matches ingress simulator convention)
+- Empty directories need `.gitkeep` — Git doesn't track empty dirs, CI will fail if a build step expects them
 
 ## CRITICAL: Bash Commands
 
