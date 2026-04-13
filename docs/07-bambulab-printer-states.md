@@ -537,4 +537,3 @@ export const IDLE_STATES = new Set(["IDLE", ""]);
 - [ha-bambulab Issue #992](https://github.com/greghesp/ha-bambulab/issues/992) — State change frequency
 - [ha-bambulab Issue #1833](https://github.com/greghesp/ha-bambulab/issues/1833) — Missing stg_cur values
 - [Bambu Lab Forum: MQTT Report Specification](https://forum.bambulab.com/t/x1c-mqtt-report-specification-eg-list-of-gcode-state-values/169693)
-- [SpoolmanSync](https://github.com/gibz104/SpoolmanSync) — Alternative filament tracking approach

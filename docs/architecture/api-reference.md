@@ -28,7 +28,7 @@ No auth required. Returns service status and version.
 
 **curl**
 ```bash
-curl https://your-app.vercel.app/api/v1/health
+curl http://homeassistant:3001/api/v1/health
 ```
 
 ---
@@ -214,7 +214,7 @@ Register a new spool.
   "location": "storage",
   "status": "active",
   "lotNumber": "B2024Q1",
-  "notes": "Migrated from Spoolman"
+  "notes": "Imported via CSV"
 }
 ```
 

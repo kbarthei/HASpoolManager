@@ -37,10 +37,10 @@ Add these actions in order:
 
 **Action 4: Open URL**
 - Search for "URL" → select **"Open URL"**
-- URL: `https://haspoolmanager.vercel.app/scan?tag=` followed by the cleaned text
+- URL: `http://homeassistant:3001/ingress/scan?tag=` followed by the cleaned text
 - To build this: type the URL, then tap the variable button and insert the result from Step 3
 
-The full URL pattern: `https://haspoolmanager.vercel.app/scan?tag={cleaned_serial}`
+The full URL pattern: `http://homeassistant:3001/ingress/scan?tag={cleaned_serial}`
 
 ### Step 3: Add to Home Screen
 
@@ -77,6 +77,6 @@ Instead of a manual shortcut, you can set up an **NFC Automation**:
 1. Open Shortcuts → **Automation** tab
 2. Tap **+** → **NFC**
 3. Scan a specific spool's tag
-4. Action: Open URL `https://haspoolmanager.vercel.app/scan?tag={UID}`
+4. Action: Open URL `http://homeassistant:3001/ingress/scan?tag={UID}`
 
 This triggers automatically when you tap the spool — no need to open the Shortcuts app. However, you need to create one automation per spool.

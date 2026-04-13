@@ -26,7 +26,7 @@
 
 ## Overview
 
-HASpoolManager is a self-hosted Home Assistant addon that replaces Spoolman for Bambu Lab printer setups. It manages the complete filament lifecycle — from ordering new spools to tracking per-print costs — across 30+ spools with RFID exact matching for Bambu filaments and CIE Delta-E color-distance fuzzy matching for third-party brands. The mobile-first UI is designed for use at the printer, with direct PWA access on port 3001.
+HASpoolManager is a self-hosted Home Assistant addon for Bambu Lab printer setups. It manages the complete filament lifecycle — from ordering new spools to tracking per-print costs — across 30+ spools with RFID exact matching for Bambu filaments and CIE Delta-E color-distance fuzzy matching for third-party brands. The mobile-first UI is designed for use at the printer, with direct PWA access on port 3001.
 
 **Purchase -- Inventory -- Storage -- AMS Loading -- Print Tracking -- Usage Deduction -- Cost Analytics**
 

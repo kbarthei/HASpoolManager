@@ -74,7 +74,7 @@ Filament product definitions. One filament type = one row (e.g. "Bambu Lab PLA M
 | `bed_temp_default` / `_min` / `_max` | integer | °C |
 | `spool_weight` | integer | Net filament weight in grams, default 1000 |
 | `bambu_idx` | text | Bambu filament code (e.g. "GFA00") |
-| `external_id` | text | Spoolman migration ID |
+| `external_id` | text | External system ID (for imports) |
 | `notes` | text | |
 
 **Unique index:** `(vendor_id, name, color_hex)`
@@ -103,7 +103,7 @@ Physical spool instances. Each purchase creates one or more spool rows.
 | `first_used_at` | timestamptz | Set on first print |
 | `last_used_at` | timestamptz | Updated after each print |
 | `notes` | text | |
-| `external_id` | text | Spoolman migration ID |
+| `external_id` | text | External system ID (for imports) |
 
 **Constraint:** status IN ('active','archived','empty','returned')
 **Indexes:** `filament_id`, `status`, `location`

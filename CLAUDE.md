@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-3D Printing Filament Lifecycle Manager — a modern Next.js application replacing Spoolman. Covers the full filament journey: Purchase → Inventory → Storage → AMS Loading → Print Tracking → Usage Deduction → Cost Analytics → Reorder Alerts.
+3D Printing Filament Lifecycle Manager — a modern Next.js application covering the full filament journey: Purchase → Inventory → Storage → AMS Loading → Print Tracking → Usage Deduction → Cost Analytics → Reorder Alerts.
 
 ## Architecture
 
@@ -27,7 +27,7 @@ Read these before starting any implementation:
 
 - The user has a Bambu Lab H2S printer with AMS (4 slots) + AMS HT (1 slot)
 - Home Assistant runs on a separate machine, accessible via SMB at /Volumes/config
-- This app replaced Spoolman (30 spools migrated successfully)
+- Managing 30+ spools across physical storage and AMS slots
 - Bambu spools have RFID tags (exact match), third-party spools need fuzzy matching
 - The HA config repo is at github.com/kbarthei/kb_homeassistant
 
