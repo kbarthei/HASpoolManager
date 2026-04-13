@@ -68,7 +68,7 @@ export default async function Dashboard() {
         <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Dashboard</h2>
         <AddOrderButton />
       </div>
-      <div data-testid="dashboard-stats" className="grid grid-cols-2 md:grid-cols-4 gap-2">
+      <div data-testid="dashboard-stats" className="grid grid-cols-2 md:grid-cols-4 gap-2 [&>*]:animate-fade-in-up [&>*:nth-child(1)]:delay-[0ms] [&>*:nth-child(2)]:delay-[50ms] [&>*:nth-child(3)]:delay-[100ms] [&>*:nth-child(4)]:delay-[150ms]">
         <StatCard label="Active Spools" value={stats.activeSpools} accent href="/spools" testId="stat-active-spools" />
         <StatCard
           label="Printer"
