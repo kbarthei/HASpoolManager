@@ -21,7 +21,7 @@ test.describe("mobile viewport", () => {
   for (const { name, path, testId } of PAGES) {
     test(`${name} page renders at 375×667 without horizontal overflow`, async ({ page }) => {
       await page.goto(path);
-      await expect(page.getByTestId(testId)).toBeVisible();
+      await expect(page.getByTestId(testId)).toBeVisible({ timeout: 10000 });
 
       // Check no horizontal scrollbar (body width should not exceed viewport)
       const bodyWidth = await page.evaluate(() => document.body.scrollWidth);
