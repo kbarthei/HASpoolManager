@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- **feat:** AMS drying status indicator on inventory page (`01ccc6a`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`5d7ddae`)
 - **chore:** UI polish — tab order, font sizes, admin text (`2738c65`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`027227f`)
 - **fix:** handle instant-cancel (FAILED without prior STARTED event) (`80cd825`)
