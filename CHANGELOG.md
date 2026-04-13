@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- - design: analytics toggle — full card button instead of thin text (`ffef330`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`f9a015e`)
 - - design: collapsible analytics section on dashboard (`889d0ed`)
 - - design: card entry animations — fade-in-up with stagger (`483515f`)
 - - design: spool detail — color accent header with gradient tint (`987a833`)
