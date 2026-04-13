@@ -15,7 +15,13 @@ export function AnalyticsSection({ children }: { children: React.ReactNode }) {
         role="button"
         tabIndex={0}
         onClick={() => setOpen((v) => !v)}
-        onKeyDown={(e) => e.key === "Enter" && setOpen((v) => !v)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            setOpen((v) => !v);
+          }
+        }}
+        aria-expanded={open}
         className="rounded-xl p-4 flex items-center gap-3 cursor-pointer hover:bg-accent/50 active:bg-accent/70 transition select-none"
       >
         <BarChart3 className="h-5 w-5 text-primary shrink-0" />
