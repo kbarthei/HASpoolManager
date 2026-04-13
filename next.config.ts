@@ -18,7 +18,18 @@ const nextConfig: NextConfig = {
     // (HSTS forces HTTPS upgrades, X-Frame-Options can block embedding,
     // Permissions-Policy on subdocuments has been observed to cancel loads).
     if (process.env.HA_ADDON === "true") {
-      return [];
+      // Keep security headers but omit X-Frame-Options (breaks HA ingress iframe)
+      // and HSTS (forces HTTPS upgrades on a LAN HTTP addon)
+      return [
+        {
+          source: "/(.*)",
+          headers: [
+            { key: "X-Content-Type-Options", value: "nosniff" },
+            { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+            { key: "X-DNS-Prefetch-Control", value: "on" },
+          ],
+        },
+      ];
     }
     return [
       {

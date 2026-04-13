@@ -1,16 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { optionalAuth } from "@/lib/auth";
-import { db } from "@/lib/db";
-import { sql } from "drizzle-orm";
+import { requireAuth } from "@/lib/auth";
 
 /**
  * POST /api/v1/admin/query
  *
  * Execute a read-only SQL query against the production database.
- * For admin debugging only — rejects any write operations.
+ * REQUIRES Bearer token authentication.
+ * Uses better-sqlite3 readonly mode for defense-in-depth.
  */
 export async function POST(request: NextRequest) {
-  const auth = await optionalAuth(request);
+  const auth = await requireAuth(request);
   if (!auth.authenticated) return auth.response;
 
   try {
@@ -21,25 +20,31 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No query provided" }, { status: 400 });
     }
 
-    // Block write operations
-    const upper = query.toUpperCase();
-    const writeOps = ["INSERT", "UPDATE", "DELETE", "DROP", "ALTER", "CREATE", "REPLACE", "ATTACH", "DETACH", "VACUUM", "PRAGMA"];
+    // Defense in depth: block obvious write operations at string level
+    const upper = query.toUpperCase().replace(/\s+/g, " ");
+    const writeOps = ["INSERT", "UPDATE", "DELETE", "DROP", "ALTER", "CREATE", "REPLACE", "ATTACH", "DETACH", "VACUUM", "PRAGMA", "BEGIN", "COMMIT", "ROLLBACK", "REINDEX"];
     for (const op of writeOps) {
-      if (upper.startsWith(op) || upper.includes(` ${op} `)) {
-        return NextResponse.json({ error: `Write operation "${op}" not allowed` }, { status: 403 });
+      if (upper.startsWith(op) || upper.includes(` ${op} `) || upper.includes(`;`)) {
+        return NextResponse.json({ error: "Write operations and multi-statements not allowed" }, { status: 403 });
       }
     }
 
-    const result = db.all(sql.raw(query));
+    // Use a separate readonly connection for true safety
+    const Database = require("better-sqlite3");
+    const dbPath = process.env.SQLITE_PATH || "./data/haspoolmanager.db";
+    const readonlyDb = new Database(dbPath, { readonly: true });
 
-    return NextResponse.json({
-      rows: result,
-      count: result.length,
-    });
+    try {
+      const stmt = readonlyDb.prepare(query);
+      const result = stmt.all();
+      return NextResponse.json({ rows: result, count: result.length });
+    } finally {
+      readonlyDb.close();
+    }
   } catch (error) {
-    return NextResponse.json(
-      { error: (error as Error).message },
-      { status: 400 },
-    );
+    // Don't expose internal error details
+    const msg = (error as Error).message || "Query error";
+    const safeMsg = msg.includes("SQLITE") ? "SQL error" : msg;
+    return NextResponse.json({ error: safeMsg }, { status: 400 });
   }
 }

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { optionalAuth } from "@/lib/auth";
+import { requireAuth, optionalAuth } from "@/lib/auth";
 import { checkConnection } from "@/lib/ha-api";
 import { db } from "@/lib/db";
 import { settings } from "@/lib/db/schema";
@@ -139,7 +139,7 @@ export async function GET(request: NextRequest) {
  * Body: { deviceId, field, entityId }
  */
 export async function POST(request: NextRequest) {
-  const auth = await optionalAuth(request);
+  const auth = await requireAuth(request);
   if (!auth.authenticated) return auth.response;
 
   try {
@@ -185,7 +185,7 @@ export async function POST(request: NextRequest) {
  * Body: { deviceId, field }
  */
 export async function DELETE(request: NextRequest) {
-  const auth = await optionalAuth(request);
+  const auth = await requireAuth(request);
   if (!auth.authenticated) return auth.response;
 
   try {
