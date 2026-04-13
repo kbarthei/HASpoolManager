@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- **fix:** cover image fetch — strip entity token, use supervisor auth (`9c22877`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`173a424`)
 - **fix:** map camera entity (Kamera) for snapshot capture (`e1556bc`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`114b716`)
 - **test:** integration test for print image paths (PM-8) (`d79c451`)
