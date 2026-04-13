@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- **feat:** auto-migrate DB schema on addon start (`10e1bdc`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`71bffa6`)
 - **fix:** swap detection via bambu_lab_event instead of binary_sensor state (`65453cc`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`c26e73d`)
 - **fix:** sync worker reads initial printer state after restart (`1dfa245`)
