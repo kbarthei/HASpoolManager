@@ -12,6 +12,7 @@ const nextConfig: NextConfig = {
   ...(process.env.HA_ADDON === "true" ? { basePath: "/ingress" } : {}),
   env: {
     BUILD_TIMESTAMP: new Date().toISOString(),
+    ADDON_VERSION: (() => { try { return require("fs").readFileSync("ha-addon/haspoolmanager/config.yaml", "utf8").match(/version:\s*"([^"]+)"/)?.[1] ?? "dev"; } catch { return "dev"; } })(),
   },
   async headers() {
     // In HA addon mode, omit headers that conflict with HA ingress iframe

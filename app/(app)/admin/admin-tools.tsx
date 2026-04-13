@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 interface AdminToolsProps {
   buildInfo: {
+    version: string;
     commitSha: string | null;
     deployedAt: string | null;
     runtime: string;
@@ -33,6 +34,10 @@ export function AdminTools({ buildInfo }: AdminToolsProps) {
     <div className="space-y-3">
       {/* Build Info */}
       <div className="grid grid-cols-2 gap-2 text-xs">
+        <div className="flex items-center justify-between bg-muted/30 rounded-lg px-3 py-2 col-span-2">
+          <span className="text-muted-foreground">Version</span>
+          <span className="font-mono font-semibold text-sm">v{buildInfo.version}</span>
+        </div>
         <div className="flex items-center justify-between bg-muted/30 rounded-lg px-3 py-2">
           <span className="text-muted-foreground">Commit</span>
           <span className="font-mono">{buildInfo.commitSha || "dev"}</span>

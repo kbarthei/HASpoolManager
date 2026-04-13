@@ -43,6 +43,7 @@ function relativeTime(date: Date | string | null | undefined): string {
 export default async function AdminPage() {
   // Build/deploy info (BUILD_TIMESTAMP is set at build time in next.config.ts)
   const buildInfo = {
+    version: process.env.ADDON_VERSION ?? "dev",
     commitSha: process.env.GIT_COMMIT_SHA?.slice(0, 7) ?? null,
     deployedAt: process.env.BUILD_TIMESTAMP
       ? formatDateTime(process.env.BUILD_TIMESTAMP)
