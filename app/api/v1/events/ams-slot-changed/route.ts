@@ -4,6 +4,7 @@ import { amsSlots, spools } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { requireAuth } from "@/lib/auth";
 import { matchSpool } from "@/lib/matching";
+import { bool } from "@/lib/printer-sync-helpers";
 import { validateBody, amsSlotChangedSchema } from "@/lib/validations";
 
 /**
@@ -52,7 +53,7 @@ export async function POST(request: NextRequest) {
       ),
     });
 
-    const isEmpty = body.is_empty === true;
+    const isEmpty = bool(body.is_empty);
     const normalizedColor = body.tray_color?.replace("#", "").slice(0, 8) || null;
 
     // Run matching engine if slot is not empty
