@@ -15,13 +15,6 @@ const tabs = [
     isActive: (path: string) => path === "/",
   },
   {
-    label: "Spools",
-    href: "/spools",
-    icon: Circle,
-    testId: "nav-spools",
-    isActive: (path: string) => path.startsWith("/spools"),
-  },
-  {
     label: "Inventory",
     href: "/inventory",
     icon: Package,
@@ -51,6 +44,13 @@ const tabs = [
     icon: Clock,
     testId: "nav-history",
     isActive: (path: string) => path.startsWith("/history"),
+  },
+  {
+    label: "Spools",
+    href: "/spools",
+    icon: Circle,
+    testId: "nav-spools",
+    isActive: (path: string) => path.startsWith("/spools"),
   },
   {
     label: "Admin",

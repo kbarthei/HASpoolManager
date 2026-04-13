@@ -12,7 +12,7 @@ export function FilamentSummary({ summary }: { summary: FilamentSummaryData }) {
       </CardHeader>
       <CardContent className="p-3 pt-0">
         {summary.length === 0 ? (
-          <p className="text-xs text-muted-foreground">No active spools</p>
+          <p className="text-sm text-muted-foreground">No active spools</p>
         ) : (
           <div className="flex flex-col gap-2">
             {summary.map(({ vendor, count, materials }) => (
@@ -20,15 +20,15 @@ export function FilamentSummary({ summary }: { summary: FilamentSummaryData }) {
                 <div className="flex items-center justify-between">
                   <Link
                     href={`/spools?vendor=${encodeURIComponent(vendor)}`}
-                    className="text-xs font-medium hover:underline"
+                    className="text-sm font-medium hover:underline"
                   >
                     {vendor}
                   </Link>
-                  <span className="text-xs text-muted-foreground font-mono">
+                  <span className="text-sm text-muted-foreground font-mono">
                     {count} spool{count !== 1 ? "s" : ""}
                   </span>
                 </div>
-                <p className="text-[10px] text-muted-foreground leading-tight mt-0.5">
+                <p className="text-xs text-muted-foreground leading-tight mt-0.5">
                   {materials.map(m => `${m.material} (${m.count})`).join(" · ")}
                 </p>
               </div>

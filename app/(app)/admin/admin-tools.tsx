@@ -57,7 +57,7 @@ export function AdminTools({ buildInfo }: AdminToolsProps) {
         disabled={purging}
         className="flex items-center h-7 px-3 rounded-md bg-muted text-foreground border border-border text-xs font-medium hover:bg-accent transition-colors disabled:opacity-40"
       >
-        {purging ? "Purging..." : "Purge All Caches"}
+        {purging ? "Refreshing..." : "Refresh All Pages"}
       </button>
     </div>
   );

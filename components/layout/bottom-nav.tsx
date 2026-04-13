@@ -13,12 +13,6 @@ const primaryTabs = [
     isActive: (path: string) => path === "/",
   },
   {
-    label: "Spools",
-    href: "/spools",
-    icon: Circle,
-    isActive: (path: string) => path.startsWith("/spools"),
-  },
-  {
     label: "Inventory",
     href: "/inventory",
     icon: Package,
@@ -27,12 +21,18 @@ const primaryTabs = [
       path.startsWith("/ams") ||
       path.startsWith("/storage"),
   },
+  {
+    label: "Orders",
+    href: "/orders",
+    icon: ShoppingCart,
+    isActive: (path: string) => path.startsWith("/orders"),
+  },
 ];
 
 const moreItems = [
-  { label: "Orders", href: "/orders", icon: ShoppingCart, isActive: (path: string) => path.startsWith("/orders") },
   { label: "Prints", href: "/prints", icon: Printer, isActive: (path: string) => path.startsWith("/prints") },
   { label: "History", href: "/history", icon: Clock, isActive: (path: string) => path.startsWith("/history") },
+  { label: "Spools", href: "/spools", icon: Circle, isActive: (path: string) => path.startsWith("/spools") },
   { label: "Admin", href: "/admin", icon: Settings, isActive: (path: string) => path.startsWith("/admin") },
 ];
 

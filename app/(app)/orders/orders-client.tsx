@@ -192,22 +192,22 @@ function DeliveredOrderCard({ order, onCardClick }: { order: Order; onCardClick:
         ))}
       </div>
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 text-xs">
+        <div className="flex items-center gap-2 text-sm">
           <span className="font-medium">{order.shop?.name ?? "Unknown"}</span>
           <span className="text-muted-foreground">
             {formatDate(order.orderDate)}
           </span>
         </div>
-        <p className="text-[11px] text-muted-foreground truncate">
+        <p className="text-xs text-muted-foreground truncate">
           {itemSummary}
         </p>
       </div>
-      <span className="text-xs font-mono shrink-0">
+      <span className="text-sm font-mono shrink-0">
         {order.totalCost
           ? `${parseFloat(order.totalCost).toFixed(2)}€`
           : "—"}
       </span>
-      <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+      <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
     </div>
   );
 }

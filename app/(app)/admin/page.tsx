@@ -177,10 +177,10 @@ export default async function AdminPage() {
         <div className="flex items-center justify-between">
           <div>
             <p className="text-xs font-medium">Clear Stale Running Prints</p>
-            <p className="text-xs text-muted-foreground mt-0.5">
+            <p className="text-xs text-muted-foreground mt-0.5 max-w-md">
               {runningCount.count > 0
-                ? `${runningCount.count} print${runningCount.count === 1 ? "" : "s"} currently marked as running`
-                : "No running prints"}
+                ? `${runningCount.count} print${runningCount.count === 1 ? "" : "s"} currently marked as running. If a print is stuck (e.g., the FINISH event was missed), click to mark ${runningCount.count === 1 ? "it" : "them"} as failed and unblock future print tracking.`
+                : "No stale prints. Prints are auto-closed after 24h, but you can manually clear them here if needed."}
             </p>
           </div>
           <ClearStaleButton runningCount={runningCount.count} />
