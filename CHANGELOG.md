@@ -6,6 +6,14 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- **fix:** GET endpoints use optionalAuth for browser access (audit #8) (`55b5e1b`)
+- **fix:** order cards keyboard accessible with role=button (audit #7) (`1158677`)
+- **fix:** add loading.tsx spinner for all async pages (audit #6) (`f9b9721`)
+- **fix:** sanitize error responses in printer-mappings (audit #5) (`44ee221`)
+- **fix:** use bool() helper for HA values in ams-slot-changed (audit #4) (`271cd5d`)
+- **fix:** explicit field destructuring in PUT routes, no ...body spread (audit #3) (`330ae5c`)
+- **fix:** remove broken hsl() wrapper from chart stroke colors (audit #2) (`43bd077`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`a3266e9`)
 - **docs:** add generic best practices to CLAUDE.md coding standards (`fa1cd5f`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`4acf415`)
 - **docs:** comprehensive coding standards in CLAUDE.md (lessons learned) (`e7a4e26`)
