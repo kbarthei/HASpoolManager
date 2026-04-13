@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { optionalAuth } from "@/lib/auth";
 import { checkConnection } from "@/lib/ha-api";
+import { db } from "@/lib/db";
+import { settings } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
 
 /**
  * GET /api/v1/admin/printer-mappings
@@ -37,9 +40,7 @@ export async function GET(request: NextRequest) {
     // Run discovery via websocket
     const { HAWebSocketClient } = await import("@/lib/ha-websocket");
     const { discoverPrinters } = await import("@/lib/ha-discovery");
-    const { db } = await import("@/lib/db");
-    const { printers } = await import("@/lib/db/schema");
-    const { eq } = await import("drizzle-orm");
+    const { printers: printersTable } = await import("@/lib/db/schema");
 
     const ws = new HAWebSocketClient();
     await ws.connect();
@@ -53,8 +54,20 @@ export async function GET(request: NextRequest) {
 
     const discovered = discoverPrinters(entities, devices);
 
+    // Load stored overrides
+    const overrideRow = await db.query.settings.findFirst({
+      where: eq(settings.key, "entity_mapping_overrides"),
+    });
+    let allOverrides: Record<string, Record<string, string>> = {};
+    if (overrideRow?.value) {
+      try { allOverrides = JSON.parse(overrideRow.value); } catch { /* ignore */ }
+    }
+
     // Match discovered printers to DB records
     const dbPrinters = await db.query.printers.findMany();
+
+    // Build entity lookup for resolving override entity names
+    const entityLookup = new Map(entities.map(e => [e.entity_id, e.original_name || ""]));
 
     const result = discovered.map((p) => {
       const dbMatch = dbPrinters.find(
@@ -64,6 +77,31 @@ export async function GET(request: NextRequest) {
           p.name.includes(db.name),
       );
 
+      const deviceOverrides = allOverrides[p.deviceId] || {};
+
+      // Apply overrides to mappings
+      const mappings = p.mappings.map((m) => {
+        if (deviceOverrides[m.field]) {
+          const overrideEntityId = deviceOverrides[m.field];
+          return {
+            field: m.field,
+            entityId: overrideEntityId,
+            originalName: entityLookup.get(overrideEntityId) || "?",
+            source: "manual" as const,
+            status: "ok" as const,
+            autoEntityId: m.entityId, // keep the original for "reset"
+          };
+        }
+        return {
+          field: m.field,
+          entityId: m.entityId,
+          originalName: m.originalName,
+          source: m.source,
+          status: m.status,
+          autoEntityId: null,
+        };
+      });
+
       return {
         deviceId: p.deviceId,
         name: p.name,
@@ -71,13 +109,7 @@ export async function GET(request: NextRequest) {
         serial: p.serial,
         dbPrinterId: dbMatch?.id ?? null,
         dbPrinterName: dbMatch?.name ?? null,
-        mappings: p.mappings.map((m) => ({
-          field: m.field,
-          entityId: m.entityId,
-          originalName: m.originalName,
-          source: m.source,
-          status: m.status,
-        })),
+        mappings,
         unmappedCount: p.unmappedEntities.length,
         allEntities: [...p.mappings.map(m => ({ entityId: m.entityId, originalName: m.originalName })), ...p.unmappedEntities],
       };
@@ -118,10 +150,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "deviceId, field, and entityId required" }, { status: 400 });
     }
 
-    const { db } = await import("@/lib/db");
-    const { settings } = await import("@/lib/db/schema");
-    const { eq } = await import("drizzle-orm");
-
     // Load existing overrides
     const existing = await db.query.settings.findFirst({
       where: eq(settings.key, "entity_mapping_overrides"),
@@ -145,6 +173,40 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({ ok: true, overrides: overrides[deviceId] });
+  } catch (error) {
+    return NextResponse.json({ error: (error as Error).message }, { status: 500 });
+  }
+}
+
+/**
+ * DELETE /api/v1/admin/printer-mappings
+ *
+ * Reset a manual override back to auto-discovery.
+ * Body: { deviceId, field }
+ */
+export async function DELETE(request: NextRequest) {
+  const auth = await optionalAuth(request);
+  if (!auth.authenticated) return auth.response;
+
+  try {
+    const body = await request.json();
+    const { deviceId, field } = body;
+
+    const existing = await db.query.settings.findFirst({
+      where: eq(settings.key, "entity_mapping_overrides"),
+    });
+    if (!existing?.value) return NextResponse.json({ ok: true });
+
+    const overrides: Record<string, Record<string, string>> = JSON.parse(existing.value);
+    if (overrides[deviceId]) {
+      delete overrides[deviceId][field];
+      if (Object.keys(overrides[deviceId]).length === 0) delete overrides[deviceId];
+    }
+
+    await db.update(settings).set({ value: JSON.stringify(overrides), updatedAt: new Date() })
+      .where(eq(settings.key, "entity_mapping_overrides"));
+
+    return NextResponse.json({ ok: true });
   } catch (error) {
     return NextResponse.json({ error: (error as Error).message }, { status: 500 });
   }

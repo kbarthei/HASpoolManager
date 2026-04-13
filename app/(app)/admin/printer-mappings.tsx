@@ -13,6 +13,7 @@ interface Mapping {
   originalName: string;
   source: "auto" | "manual";
   status: "ok" | "missing" | "unknown";
+  autoEntityId: string | null; // original auto-discovered entity (for reset)
 }
 
 interface EntityOption {
@@ -63,6 +64,22 @@ export function PrinterMappings() {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function resetOverride(deviceId: string, field: string) {
+    setSaving(true);
+    try {
+      const res = await fetch(`${getApiBase()}/api/v1/admin/printer-mappings`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ deviceId, field }),
+      });
+      if (res.ok) {
+        toast.success(`Reset ${field} to auto`);
+        fetchMappings();
+      }
+    } catch { /* ignore */ }
+    finally { setSaving(false); }
   }
 
   async function saveOverride(deviceId: string, field: string, entityId: string) {
@@ -227,13 +244,25 @@ export function PrinterMappings() {
                           </td>
                           <td className="px-3 py-1.5 text-muted-foreground">{m.originalName}</td>
                           <td className="px-3 py-1.5 text-center">
-                            {m.status === "ok" ? (
-                              <Check className="h-3.5 w-3.5 text-emerald-500 mx-auto" />
-                            ) : m.status === "missing" ? (
-                              <X className="h-3.5 w-3.5 text-red-500 mx-auto" />
-                            ) : (
-                              <AlertTriangle className="h-3.5 w-3.5 text-amber-500 mx-auto" />
-                            )}
+                            <div className="flex items-center justify-center gap-1">
+                              {m.status === "ok" ? (
+                                <Check className="h-3.5 w-3.5 text-emerald-500" />
+                              ) : m.status === "missing" ? (
+                                <X className="h-3.5 w-3.5 text-red-500" />
+                              ) : (
+                                <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+                              )}
+                              {m.source === "manual" && (
+                                <button
+                                  className="text-[9px] px-1 py-0.5 rounded bg-amber-500/15 text-amber-600 border border-amber-500/30 hover:bg-amber-500/25 transition"
+                                  title={`Manual override (auto: ${m.autoEntityId}). Click to reset.`}
+                                  onClick={() => resetOverride(printer.deviceId, m.field)}
+                                  disabled={saving}
+                                >
+                                  manual
+                                </button>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       ))}
