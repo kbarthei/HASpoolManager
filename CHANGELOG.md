@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- **docs:** add generic best practices to CLAUDE.md coding standards (`fa1cd5f`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`4acf415`)
 - **docs:** comprehensive coding standards in CLAUDE.md (lessons learned) (`e7a4e26`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`c6991d3`)
 - **fix:** analytics toggle — Space key + aria-expanded (M5 review fix) (`93c5393`)
