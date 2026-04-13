@@ -1095,5 +1095,34 @@ describe("printer-sync integration", () => {
       // Clean up
       await sync({ gcode_state: "FINISH" });
     });
+
+    it("J12: cover image and snapshot paths stored on print record", async () => {
+      const { db } = await import("@/lib/db");
+      const { prints } = await import("@/lib/db/schema");
+      const { eq } = await import("drizzle-orm");
+
+      // Start and finish a print
+      const r1 = await sync({
+        gcode_state: "RUNNING",
+        print_name: `test-print-J12-${Date.now()}`,
+      });
+      expect(r1.body.print_transition).toBe("started");
+
+      // Simulate setting cover image and snapshot paths
+      await db.update(prints).set({
+        coverImagePath: "snapshots/cover_test.jpg",
+        snapshotPath: "snapshots/snapshot_test.jpg",
+      }).where(eq(prints.id, r1.body.print_id as string));
+
+      // Verify they are stored
+      const print = await db.query.prints.findFirst({
+        where: eq(prints.id, r1.body.print_id as string),
+      });
+      expect(print!.coverImagePath).toBe("snapshots/cover_test.jpg");
+      expect(print!.snapshotPath).toBe("snapshots/snapshot_test.jpg");
+
+      // Clean up
+      await sync({ gcode_state: "FINISH" });
+    });
   });
 });
