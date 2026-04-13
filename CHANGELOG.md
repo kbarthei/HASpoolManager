@@ -6,6 +6,14 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- **test:** integration test for print image paths (PM-8) (`d79c451`)
+- **feat:** display cover image + snapshot on prints page and hero card (PM-7) (`7c55993`)
+- **feat:** API endpoints for print image storage + serving (PM-5, PM-6) (`faaa492`)
+- **feat:** capture cover image at print start + snapshot at finish (PM-4) (`7fff282`)
+- **feat:** map cover image entity (Titelbild) in HA discovery (PM-3) (`e292d13`)
+- **feat:** add cover_image_path + snapshot_path columns to prints (PM-2) (`f08719a`)
+- **feat:** add callHAService to HA API client (PM-1) (`0979c13`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`866c723`)
 - **fix:** add data-testid on spool detail + aria-label on sync refresh (audit #11, #12) (`5c2e720`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`d00a8ba`)
 - **fix:** GET endpoints use optionalAuth for browser access (audit #8) (`55b5e1b`)
