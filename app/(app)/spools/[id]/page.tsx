@@ -98,21 +98,32 @@ export default async function SpoolDetailPage({
     ? spool.purchasePrice / spool.initialWeight
     : 0;
 
+  const hex = spool.filament.colorHex || "888888";
+
   return (
     <div className="space-y-3 max-w-2xl">
-      {/* Hero */}
-      <div className="flex items-start gap-4">
-        <SpoolColorDot hex={spool.filament.colorHex || "888888"} size="lg" />
-        <div>
-          <h1 className="text-xl font-bold">{spool.filament.name}</h1>
-          <p className="text-sm text-muted-foreground">{spool.filament.vendor.name}</p>
-          <div className="flex items-center gap-2 mt-1">
-            <SpoolMaterialBadge material={spool.filament.material} />
-            {spool.filament.colorHex && (
+      {/* Hero with color accent */}
+      <div
+        className="rounded-xl p-4 relative overflow-hidden"
+        style={{
+          background: `linear-gradient(135deg, #${hex}15 0%, transparent 60%)`,
+        }}
+      >
+        <div
+          className="absolute top-0 left-0 right-0 h-1 rounded-t-xl"
+          style={{ backgroundColor: `#${hex}` }}
+        />
+        <div className="flex items-start gap-4 pt-1">
+          <SpoolColorDot hex={hex} size="lg" />
+          <div>
+            <h1 className="text-xl font-bold">{spool.filament.name}</h1>
+            <p className="text-sm text-muted-foreground">{spool.filament.vendor.name}</p>
+            <div className="flex items-center gap-2 mt-1">
+              <SpoolMaterialBadge material={spool.filament.material} />
               <span className="text-xs text-muted-foreground font-mono">
-                #{spool.filament.colorHex}
+                #{hex}
               </span>
-            )}
+            </div>
           </div>
         </div>
       </div>
