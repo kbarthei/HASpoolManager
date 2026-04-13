@@ -6,6 +6,12 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- **fix:** analytics toggle — Space key + aria-expanded (M5 review fix) (`93c5393`)
+- **fix:** prefers-reduced-motion fallback for animations (M4 review fix) (`20f5477`)
+- **fix:** add data-testid to new components per CLAUDE.md (M3 review fix) (`fb4cbdf`)
+- **test:** document dashboard path convention in mobile-viewport spec (M2 review fix) (`c40ecb6`)
+- **docs:** sync test-strategy.md with 3 new e2e specs (M1 review fix) (`c5bddc9`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`dfda1f2`)
 - - design: analytics toggle — full card button instead of thin text (`ffef330`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`f9a015e`)
 - - design: collapsible analytics section on dashboard (`889d0ed`)
