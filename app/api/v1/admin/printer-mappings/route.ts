@@ -124,7 +124,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       {
         available: false,
-        reason: `Discovery error: ${(error as Error).message}`,
+        reason: "Discovery error",
         printers: [],
       },
       { status: 500 },
@@ -174,7 +174,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ ok: true, overrides: overrides[deviceId] });
   } catch (error) {
-    return NextResponse.json({ error: (error as Error).message }, { status: 500 });
+    console.error("POST /api/v1/admin/printer-mappings error:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 
@@ -208,6 +209,7 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json({ ok: true });
   } catch (error) {
-    return NextResponse.json({ error: (error as Error).message }, { status: 500 });
+    console.error("DELETE /api/v1/admin/printer-mappings error:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
