@@ -20,6 +20,7 @@ import { VendorQualityChart } from "@/components/dashboard/vendor-quality-chart"
 import { StockValueChart } from "@/components/dashboard/stock-value-chart";
 import { SuccessRateChart } from "@/components/dashboard/success-rate-chart";
 import { AddOrderButton } from "@/components/orders/add-order-button";
+import { PrintHeroCard } from "@/components/dashboard/print-hero-card";
 import Link from "next/link";
 
 export default async function Dashboard() {
@@ -48,6 +49,18 @@ export default async function Dashboard() {
           </span>
           <span className="ml-auto text-xs opacity-70">Identify →</span>
         </Link>
+      )}
+
+      {/* Currently printing hero */}
+      {printerStatus.status === "printing" && (
+        <PrintHeroCard
+          printName={printerStatus.printName || "Printing"}
+          progress={Math.round(printerStatus.progress ?? 0)}
+          remainingTime={printerStatus.remainingTime ?? null}
+          spoolName={printerStatus.activeSpool?.name ?? null}
+          spoolColor={printerStatus.activeSpool?.colorHex ?? null}
+          material={printerStatus.activeSpool?.material ?? null}
+        />
       )}
 
       {/* Stats row */}
