@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- **fix:** replace require('fs') with import in next.config.ts (lint error) (`f9b398b`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`5dbe39d`)
 - **chore:** cleanup stale files, env vars, and references (`6b74420`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`e93d3be`)
 - **feat:** show addon version on admin page (Build & Cache section) (`0da2b6e`)
