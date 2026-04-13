@@ -61,6 +61,7 @@ export default async function Dashboard() {
           spoolName={printerStatus.activeSpool?.name ?? null}
           spoolColor={printerStatus.activeSpool?.colorHex ?? null}
           material={printerStatus.activeSpool?.material ?? null}
+          coverImageUrl={null}
         />
       )}
 

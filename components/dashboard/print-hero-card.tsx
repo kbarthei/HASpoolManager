@@ -10,6 +10,7 @@ interface PrintHeroProps {
   spoolName: string | null;
   spoolColor: string | null;
   material: string | null;
+  coverImageUrl?: string | null;
 }
 
 export function PrintHeroCard({
@@ -19,6 +20,7 @@ export function PrintHeroCard({
   spoolName,
   spoolColor,
   material,
+  coverImageUrl,
 }: PrintHeroProps) {
   const circumference = 2 * Math.PI * 36;
   const strokeDashoffset = circumference - (progress / 100) * circumference;
@@ -59,6 +61,15 @@ export function PrintHeroCard({
               <span className="text-lg font-bold font-mono tabular-nums">{progress}%</span>
             </div>
           </div>
+
+          {/* Cover image */}
+          {coverImageUrl && (
+            <img
+              src={coverImageUrl}
+              alt="3D preview"
+              className="h-16 w-16 rounded-lg object-cover bg-muted shrink-0"
+            />
+          )}
 
           {/* Print info */}
           <div className="flex-1 min-w-0">

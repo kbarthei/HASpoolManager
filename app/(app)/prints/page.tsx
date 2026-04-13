@@ -159,6 +159,28 @@ export default async function PrintHistoryPage() {
                       )}
                     </div>
 
+                    {/* Thumbnails */}
+                    {(print.coverImagePath || print.snapshotPath) && (
+                      <div className="flex gap-1 shrink-0">
+                        {print.coverImagePath && (
+                          <img
+                            src={`/api/v1/snapshots/${print.coverImagePath.replace("snapshots/", "")}`}
+                            alt="3D preview"
+                            className="h-10 w-10 rounded object-cover bg-muted"
+                            loading="lazy"
+                          />
+                        )}
+                        {print.snapshotPath && (
+                          <img
+                            src={`/api/v1/snapshots/${print.snapshotPath.replace("snapshots/", "")}`}
+                            alt="Print result"
+                            className="h-10 w-10 rounded object-cover bg-muted"
+                            loading="lazy"
+                          />
+                        )}
+                      </div>
+                    )}
+
                     {/* Body */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-baseline justify-between gap-2">
