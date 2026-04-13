@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- **feat:** entity mapping overrides with auto/manual indicator + reset (`b2cb7f2`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`4a9a1ba`)
 - **feat:** entity mapping override in admin UI + read-only DB query endpoint (`56b9398`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`38f3d01`)
 - **feat:** AMS drying status indicator on inventory page (`01ccc6a`)
