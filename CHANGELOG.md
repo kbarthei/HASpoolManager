@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- **fix:** lint errors + add spool_swaps DB migration for test harness (`186ec1a`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`03d7b1c`)
 - - security: fix CRITICAL + HIGH findings from security audit (`dcc11f6`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`708d0dc`)
 - - ci: add security workflow (dependency audit + static analysis) (`658b158`)
