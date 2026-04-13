@@ -52,11 +52,28 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
+    const {
+      name,
+      model,
+      serial,
+      mqttTopic,
+      haDeviceId,
+      ipAddress,
+      amsCount,
+      isActive,
+    } = body;
 
     const [updated] = await db
       .update(printers)
       .set({
-        ...body,
+        name,
+        model,
+        serial,
+        mqttTopic,
+        haDeviceId,
+        ipAddress,
+        amsCount,
+        isActive,
         updatedAt: new Date(),
       })
       .where(eq(printers.id, id))

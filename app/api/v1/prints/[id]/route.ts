@@ -53,12 +53,32 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
+    const {
+      name,
+      gcodeFile,
+      status,
+      finishedAt,
+      durationSeconds,
+      totalLayers,
+      printWeight,
+      printLength,
+      totalCost,
+      notes,
+    } = body;
 
     const [updated] = await db
       .update(prints)
       .set({
-        ...body,
-        finishedAt: body.finishedAt ? new Date(body.finishedAt) : undefined,
+        name,
+        gcodeFile,
+        status,
+        finishedAt: finishedAt ? new Date(finishedAt) : undefined,
+        durationSeconds,
+        totalLayers,
+        printWeight,
+        printLength,
+        totalCost,
+        notes,
         updatedAt: new Date(),
       })
       .where(eq(prints.id, id))

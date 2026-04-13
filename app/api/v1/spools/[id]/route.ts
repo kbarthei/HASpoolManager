@@ -53,11 +53,38 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
+    const {
+      filamentId,
+      lotNumber,
+      purchaseDate,
+      purchasePrice,
+      currency,
+      initialWeight,
+      remainingWeight,
+      location,
+      status,
+      firstUsedAt,
+      lastUsedAt,
+      notes,
+      externalId,
+    } = body;
 
     const [updated] = await db
       .update(spools)
       .set({
-        ...body,
+        filamentId,
+        lotNumber,
+        purchaseDate,
+        purchasePrice,
+        currency,
+        initialWeight,
+        remainingWeight,
+        location,
+        status,
+        firstUsedAt,
+        lastUsedAt,
+        notes,
+        externalId,
         updatedAt: new Date(),
       })
       .where(eq(spools.id, id))
