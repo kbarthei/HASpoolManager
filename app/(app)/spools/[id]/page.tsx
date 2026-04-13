@@ -101,7 +101,7 @@ export default async function SpoolDetailPage({
   const hex = spool.filament.colorHex || "888888";
 
   return (
-    <div className="space-y-3 max-w-2xl">
+    <div data-testid="page-spool-detail" className="space-y-3 max-w-2xl">
       {/* Hero with color accent */}
       <div
         className="rounded-xl p-4 relative overflow-hidden"

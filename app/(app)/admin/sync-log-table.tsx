@@ -141,6 +141,7 @@ export function SyncLogTable() {
             onClick={() => refetch()}
             disabled={isFetching}
             title="Refresh"
+            aria-label="Refresh sync log"
           >
             <RefreshCw
               className={`h-3.5 w-3.5 ${isFetching ? "animate-spin" : ""}`}
