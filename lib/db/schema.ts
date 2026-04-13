@@ -249,6 +249,8 @@ export const prints = sqliteTable(
     activeSpoolIds: text("active_spool_ids"), // JSON array of all spool IDs seen during print
     remainSnapshot: text("remain_snapshot"), // JSON: {"slot_1": 80, "slot_2": 100, ...} — captured at print start
     spoolSwaps: text("spool_swaps"), // JSON array of mid-print spool swaps: [{trayIndex, oldSpoolId, newSpoolId, progressAtSwap}]
+    coverImagePath: text("cover_image_path"), // 3D model preview from slicer (captured at print start)
+    snapshotPath: text("snapshot_path"), // Camera snapshot (captured at print finish)
     haEventId: text("ha_event_id"),
     notes: text("notes"),
     createdAt: tsCol("created_at").notNull().default(sql`(datetime('now'))`),

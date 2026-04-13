@@ -45,6 +45,26 @@ const migrations = [
       db.exec("ALTER TABLE prints ADD COLUMN spool_swaps TEXT");
     },
   },
+  {
+    name: "prints.cover_image_path column",
+    check: () => {
+      const cols = db.pragma("table_info(prints)");
+      return cols.some((c) => c.name === "cover_image_path");
+    },
+    apply: () => {
+      db.exec("ALTER TABLE prints ADD COLUMN cover_image_path TEXT");
+    },
+  },
+  {
+    name: "prints.snapshot_path column",
+    check: () => {
+      const cols = db.pragma("table_info(prints)");
+      return cols.some((c) => c.name === "snapshot_path");
+    },
+    apply: () => {
+      db.exec("ALTER TABLE prints ADD COLUMN snapshot_path TEXT");
+    },
+  },
   // Add future migrations here:
   // {
   //   name: "table.column_name",
