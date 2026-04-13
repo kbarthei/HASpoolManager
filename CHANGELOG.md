@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- **fix:** graceful fetch errors in client components (fixes e2e hydration) (`bf37af8`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`81e8fda`)
 - **fix:** CI failures — empty public dir + Dockerfile BUILD_FROM arg scoping (`c08415c`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`f0eb04f`)
 - **fix:** lint errors + add spool_swaps DB migration for test harness (`186ec1a`)
