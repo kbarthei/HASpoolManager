@@ -6,6 +6,10 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- **fix:** restore changelog push-to-main (branch protection now allows it) (`9263b09`)
+- **fix:** changelog workflow triggers on tags only (no push to main) (`178a7ea`)
+- **chore:** add MIT license (`9373372`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`e932267`)
 - **fix:** cover image fetch — strip entity token, use supervisor auth (`9c22877`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`173a424`)
 - **fix:** map camera entity (Kamera) for snapshot capture (`e1556bc`)
