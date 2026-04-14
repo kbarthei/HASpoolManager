@@ -2,7 +2,8 @@ name: Changelog
 
 on:
   push:
-    branches: [main]
+    tags:
+      - "v*"
 
 permissions:
   contents: write
@@ -15,17 +16,11 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Generate CHANGELOG.md
+      - name: Generate changelog
+        id: changelog
         run: |
-          cat > CHANGELOG.md <<'HEADER'
-          # Changelog
-
-          All notable changes to HASpoolManager are documented here.
-          Generated automatically from [conventional commits](https://www.conventionalcommits.org/).
-
-          HEADER
-          # Remove leading spaces from heredoc
-          sed -i 's/^          //' CHANGELOG.md
+          echo "# Changelog" > /tmp/CHANGELOG.md
+          echo "" >> /tmp/CHANGELOG.md
 
           current_month=""
           git log --format="%H|%ad|%s" --date=format:"%Y-%m" --no-merges | \
@@ -33,9 +28,9 @@ jobs:
             if [[ "$date" != "$current_month" ]]; then
               current_month="$date"
               month_label=$(date -d "${date}-01" "+%B %Y")
-              echo "" >> CHANGELOG.md
-              echo "## $month_label" >> CHANGELOG.md
-              echo "" >> CHANGELOG.md
+              echo "" >> /tmp/CHANGELOG.md
+              echo "## $month_label" >> /tmp/CHANGELOG.md
+              echo "" >> /tmp/CHANGELOG.md
             fi
             short="${hash:0:7}"
             msg=$(echo "$subject" | sed -E 's/^(feat|fix|docs|chore|test)(\([^)]*\))?: //')
@@ -47,14 +42,15 @@ jobs:
               test:*|test\(*) prefix="**test:**" ;;
               *)              prefix="-" ;;
             esac
-            echo "- ${prefix} ${msg} (\`${short}\`)" >> CHANGELOG.md
+            echo "- ${prefix} ${msg} (\`${short}\`)" >> /tmp/CHANGELOG.md
           done
 
-      - name: Commit if changed
+      - name: Update release with changelog
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add CHANGELOG.md
-          git diff --cached --quiet && echo "No changes" && exit 0
-          git commit -m "docs: regenerate CHANGELOG.md [skip ci]"
-          git push
+          # Append changelog to the existing release body
+          gh release view "$TAG" --json body -q .body > /tmp/existing_body.txt 2>/dev/null || true
+          cat /tmp/existing_body.txt /tmp/CHANGELOG.md > /tmp/combined.md
+          gh release edit "$TAG" --notes-file /tmp/combined.md || true

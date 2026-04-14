@@ -31,6 +31,17 @@
     ]
   },
   "hooks": {
+    "UserPromptSubmit": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "FAILS=$(gh run list --limit 8 --json status,conclusion,name,workflowName 2>/dev/null | python3 -c \"import json,sys; runs=json.load(sys.stdin); fails=[r for r in runs if r.get('conclusion')=='failure']; print(f'CI/CD WARNING: {len(fails)} failed workflow(s): ' + ', '.join(set(r['workflowName'] for r in fails))) if fails else None\" 2>/dev/null); [ -n \"$FAILS\" ] && echo \"{\\\"message\\\": \\\"$FAILS. Check with: gh run list --limit 5\\\"}\" || true"
+          }
+        ]
+      }
+    ],
     "PreToolUse": [
       {
         "matcher": "Bash",

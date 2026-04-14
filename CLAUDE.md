@@ -102,7 +102,10 @@ E2e tests run against the real HA addon stack: `npm run build` with `HA_ADDON=tr
 
 - **Always** (PR + push): lint + typecheck + unit tests + integration tests
 - **Main push only**: e2e tests (Docker nginx + Playwright)
+- **Weekly**: security scan (npm audit + static analysis)
 - No external secrets needed — everything runs against local SQLite
+- **CI must be green after every push.** Check `gh run list --limit 5` after pushing. If any workflow fails, fix it before moving on. Never leave CI red.
+- A `UserPromptSubmit` hook in `.claude/settings.json` checks CI status at the start of every conversation and warns about failures.
 
 ## Conventions
 
