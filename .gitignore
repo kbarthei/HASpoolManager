@@ -45,8 +45,8 @@ next-env.d.ts
 .superpowers/
 .vscode/
 
-# implementation plans (internal working docs)
-docs/superpowers/
+# local working directory (plans, temp files, notes — never committed)
+/workdir/
 
 # test
 /test-results/
