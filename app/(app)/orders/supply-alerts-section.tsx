@@ -7,7 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SpoolColorDot } from "@/components/spool/spool-color-dot";
 import { cn } from "@/lib/utils";
-import { AlertTriangle, ShoppingCart, X, TrendingUp } from "lucide-react";
+import { AlertTriangle, X, TrendingUp } from "lucide-react";
+import { AddToListButton } from "@/components/supply/add-to-list-button";
 import { toast } from "sonner";
 
 interface Alert {
@@ -17,7 +18,9 @@ interface Alert {
   title: string;
   message: string | null;
   data: string | null;
+  filamentId: string;
   filament: {
+    id: string;
     name: string;
     material: string;
     colorHex: string | null;
@@ -104,6 +107,11 @@ export function SupplyAlertsSection({ alerts }: { alerts: Alert[] }) {
                 </p>
               </div>
               <div className="flex items-center gap-1 shrink-0">
+                <AddToListButton
+                  filamentId={alert.filamentId}
+                  filamentName={`${vendor} ${alert.filament.name}`}
+                  qty={parsed.recommendedQty || 1}
+                />
                 <Button
                   variant="ghost"
                   size="sm"
