@@ -47,10 +47,10 @@ export function SupplyStatusWidget({ statuses }: { statuses: SupplyStatusEntry[]
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm font-semibold">Supply Status</CardTitle>
           <Link
-            href="/orders"
+            href="/supply"
             className="text-xs text-muted-foreground hover:text-foreground transition-colors"
           >
-            Orders &rarr;
+            All &rarr;
           </Link>
         </div>
         {(criticalCount > 0 || warningCount > 0) && (
