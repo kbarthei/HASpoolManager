@@ -45,6 +45,9 @@ next-env.d.ts
 .superpowers/
 .vscode/
 
+# implementation plans (internal working docs)
+docs/superpowers/
+
 # test
 /test-results/
 /playwright-report/
