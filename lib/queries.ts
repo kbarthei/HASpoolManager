@@ -849,3 +849,24 @@ export async function getDashboardChartData(): Promise<{
     printCostPerMonth, hmsErrorsPerMonth, hmsErrorsByModule,
   };
 }
+
+export async function getSupplyStatus() {
+  const { runSupplyAnalysis } = await import("./supply-engine-db");
+  const statuses = await runSupplyAnalysis();
+
+  const enriched = await Promise.all(statuses.map(async (s) => {
+    const filament = await db.query.filaments.findFirst({
+      where: eq(schema.filaments.id, s.filamentId),
+      with: { vendor: true },
+    });
+    return {
+      ...s,
+      filamentName: filament?.name ?? "Unknown",
+      material: filament?.material ?? "",
+      vendor: filament?.vendor?.name ?? "",
+      colorHex: filament?.colorHex ?? "888888",
+    };
+  }));
+
+  return enriched;
+}

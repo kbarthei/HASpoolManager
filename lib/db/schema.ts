@@ -91,7 +91,6 @@ export const filamentsRelations = relations(filaments, ({ one, many }) => ({
   }),
   spools: many(spools),
   orderItems: many(orderItems),
-  reorderRules: many(reorderRules),
   shopListings: many(shopListings),
   shoppingListItems: many(shoppingListItems),
 }));
@@ -323,7 +322,7 @@ export const orders = sqliteTable("orders", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   vendorId: text("vendor_id").references(() => vendors.id),
   shopId: text("shop_id").references(() => shops.id, { onDelete: "set null" }),
-  autoSupplyLogId: text("auto_supply_log_id"),
+
   orderNumber: text("order_number"),
   orderDate: text("order_date").notNull().default(sql`(date('now'))`),
   expectedDelivery: text("expected_delivery"),
@@ -394,28 +393,6 @@ export const apiKeys = sqliteTable("api_keys", {
   createdAt: tsCol("created_at").notNull().default(sql`(datetime('now'))`),
 });
 
-// ─── Reorder Rules ──────────────────────────────────────────────────────────
-
-export const reorderRules = sqliteTable("reorder_rules", {
-  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
-  filamentId: text("filament_id")
-    .notNull()
-    .references(() => filaments.id, { onDelete: "cascade" }),
-  minSpools: integer("min_spools").notNull().default(1),
-  minWeight: integer("min_weight").notNull().default(200),
-  autoNotify: integer("auto_notify", { mode: "boolean" }).default(true),
-  autoOrder: integer("auto_order", { mode: "boolean" }).default(false),
-  createdAt: tsCol("created_at").notNull().default(sql`(datetime('now'))`),
-});
-
-export const reorderRulesRelations = relations(reorderRules, ({ one, many }) => ({
-  filament: one(filaments, {
-    fields: [reorderRules.filamentId],
-    references: [filaments.id],
-  }),
-  autoSupplyLogs: many(autoSupplyLog),
-}));
-
 // ─── Shops ──────────────────────────────────────────────────────────────────
 
 export const shops = sqliteTable("shops", {
@@ -426,6 +403,10 @@ export const shops = sqliteTable("shops", {
   currency: text("currency").default("EUR"),
   notes: text("notes"),
   isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+  freeShippingThreshold: real("free_shipping_threshold"),
+  shippingCost: real("shipping_cost"),
+  bulkDiscountRules: text("bulk_discount_rules"), // JSON: [{minQty, discountPercent}]
+  avgDeliveryDays: real("avg_delivery_days"),
   createdAt: tsCol("created_at").notNull().default(sql`(datetime('now'))`),
   updatedAt: tsCol("updated_at").notNull().default(sql`(datetime('now'))`),
 });
@@ -433,7 +414,6 @@ export const shops = sqliteTable("shops", {
 export const shopsRelations = relations(shops, ({ many }) => ({
   listings: many(shopListings),
   orders: many(orders),
-  autoSupplyRules: many(autoSupplyRules),
 }));
 
 // ─── Shop Listings ──────────────────────────────────────────────────────────
@@ -506,97 +486,6 @@ export const shopListingPriceHistoryRelations = relations(shopListingPriceHistor
   listing: one(shopListings, {
     fields: [shopListingPriceHistory.listingId],
     references: [shopListings.id],
-  }),
-}));
-
-// ─── Auto Supply Rules ──────────────────────────────────────────────────────
-
-export const autoSupplyRules = sqliteTable(
-  "auto_supply_rules",
-  {
-    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
-    name: text("name").notNull(),
-    isEnabled: integer("is_enabled", { mode: "boolean" }).notNull().default(true),
-    shopId: text("shop_id").references(() => shops.id, { onDelete: "cascade" }),
-    filamentId: text("filament_id").references(() => filaments.id, { onDelete: "cascade" }),
-    material: text("material"),
-    maxPricePerSpool: real("max_price_per_spool"),
-    currency: text("currency").default("EUR"),
-    maxMonthlySpend: real("max_monthly_spend"),
-    budgetPeriodStart: integer("budget_period_start").default(1),
-    preferStrategy: text("prefer_strategy").notNull().default("cheapest"),
-    autoExecute: integer("auto_execute", { mode: "boolean" }).notNull().default(false),
-    priority: integer("priority").notNull().default(100),
-    createdAt: tsCol("created_at").notNull().default(sql`(datetime('now'))`),
-    updatedAt: tsCol("updated_at").notNull().default(sql`(datetime('now'))`),
-  },
-  (table) => [
-    index("idx_asr_shop").on(table.shopId),
-    index("idx_asr_filament").on(table.filamentId),
-    index("idx_asr_enabled").on(table.isEnabled),
-    // chk_prefer_strategy: enforce in app code ('cheapest','fastest','preferred_shop','manual')
-  ]
-);
-
-export const autoSupplyRulesRelations = relations(autoSupplyRules, ({ one, many }) => ({
-  shop: one(shops, {
-    fields: [autoSupplyRules.shopId],
-    references: [shops.id],
-  }),
-  filament: one(filaments, {
-    fields: [autoSupplyRules.filamentId],
-    references: [filaments.id],
-  }),
-  logs: many(autoSupplyLog),
-}));
-
-// ─── Auto Supply Log ────────────────────────────────────────────────────────
-
-export const autoSupplyLog = sqliteTable(
-  "auto_supply_log",
-  {
-    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
-    reorderRuleId: text("reorder_rule_id")
-      .notNull()
-      .references(() => reorderRules.id, { onDelete: "cascade" }),
-    supplyRuleId: text("supply_rule_id").references(() => autoSupplyRules.id, {
-      onDelete: "set null",
-    }),
-    listingId: text("listing_id").references(() => shopListings.id, { onDelete: "set null" }),
-    orderId: text("order_id").references(() => orders.id, { onDelete: "set null" }),
-    triggerReason: text("trigger_reason").notNull(),
-    actionTaken: text("action_taken").notNull(),
-    evaluatedPrice: real("evaluated_price"),
-    currency: text("currency").default("EUR"),
-    monthlySpendAtTime: real("monthly_spend_at_time"),
-    agentSessionId: text("agent_session_id"),
-    details: text("details", { mode: "json" }),
-    createdAt: tsCol("created_at").notNull().default(sql`(datetime('now'))`),
-  },
-  (table) => [
-    index("idx_asl_created").on(table.createdAt),
-    index("idx_asl_action").on(table.actionTaken),
-    index("idx_asl_reorder_rule").on(table.reorderRuleId),
-    // chk_action_taken: enforce in app code
-  ]
-);
-
-export const autoSupplyLogRelations = relations(autoSupplyLog, ({ one }) => ({
-  reorderRule: one(reorderRules, {
-    fields: [autoSupplyLog.reorderRuleId],
-    references: [reorderRules.id],
-  }),
-  supplyRule: one(autoSupplyRules, {
-    fields: [autoSupplyLog.supplyRuleId],
-    references: [autoSupplyRules.id],
-  }),
-  listing: one(shopListings, {
-    fields: [autoSupplyLog.listingId],
-    references: [shopListings.id],
-  }),
-  order: one(orders, {
-    fields: [autoSupplyLog.orderId],
-    references: [orders.id],
   }),
 }));
 
@@ -704,3 +593,124 @@ export const hmsEventsRelations = relations(hmsEvents, ({ one }) => ({
     references: [filaments.id],
   }),
 }));
+
+// ─── Consumption Stats ────────────────────────────────────────────────────────
+
+export const consumptionStats = sqliteTable(
+  "consumption_stats",
+  {
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    filamentId: text("filament_id")
+      .notNull()
+      .references(() => filaments.id, { onDelete: "cascade" }),
+    date: text("date").notNull(), // YYYY-MM-DD
+    weightGrams: real("weight_grams").notNull().default(0),
+    printCount: integer("print_count").notNull().default(0),
+  },
+  (table) => [
+    index("idx_consumption_filament").on(table.filamentId),
+    index("idx_consumption_date").on(table.date),
+  ]
+);
+
+export const consumptionStatsRelations = relations(consumptionStats, ({ one }) => ({
+  filament: one(filaments, {
+    fields: [consumptionStats.filamentId],
+    references: [filaments.id],
+  }),
+}));
+
+// ─── Supply Rules ─────────────────────────────────────────────────────────────
+
+export const supplyRules = sqliteTable(
+  "supply_rules",
+  {
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    filamentId: text("filament_id").references(() => filaments.id, { onDelete: "cascade" }),
+    material: text("material"),
+    vendorId: text("vendor_id").references(() => vendors.id, { onDelete: "cascade" }),
+    source: text("source").notNull().default("manual"), // 'manual' | 'auto_learned' | 'auto_suggested'
+    isConfirmed: integer("is_confirmed", { mode: "boolean" }).notNull().default(false),
+    minSpools: integer("min_spools").notNull().default(1),
+    maxStockSpools: integer("max_stock_spools").notNull().default(5),
+    preferredShopId: text("preferred_shop_id").references(() => shops.id, { onDelete: "set null" }),
+    maxPricePerSpool: real("max_price_per_spool"),
+    isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+    createdAt: tsCol("created_at").notNull().default(sql`(datetime('now'))`),
+    updatedAt: tsCol("updated_at").notNull().default(sql`(datetime('now'))`),
+  },
+  (table) => [
+    index("idx_supply_rules_filament").on(table.filamentId),
+  ]
+);
+
+export const supplyRulesRelations = relations(supplyRules, ({ one }) => ({
+  filament: one(filaments, {
+    fields: [supplyRules.filamentId],
+    references: [filaments.id],
+  }),
+  vendor: one(vendors, {
+    fields: [supplyRules.vendorId],
+    references: [vendors.id],
+  }),
+  preferredShop: one(shops, {
+    fields: [supplyRules.preferredShopId],
+    references: [shops.id],
+  }),
+}));
+
+// ─── Supply Alerts ────────────────────────────────────────────────────────────
+
+export const supplyAlerts = sqliteTable(
+  "supply_alerts",
+  {
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    filamentId: text("filament_id")
+      .notNull()
+      .references(() => filaments.id, { onDelete: "cascade" }),
+    alertType: text("alert_type").notNull(), // 'low_stock' | 'trend_warning' | 'price_drop' | 'rule_violation'
+    severity: text("severity").notNull(), // 'critical' | 'warning' | 'info'
+    title: text("title").notNull(),
+    message: text("message"),
+    data: text("data"), // JSON: { days_remaining, recommended_qty, best_price, ... }
+    status: text("status").notNull().default("active"), // 'active' | 'dismissed' | 'resolved' | 'ordered'
+    autoAddedToList: integer("auto_added_to_list", { mode: "boolean" }).notNull().default(false),
+    createdAt: tsCol("created_at").notNull().default(sql`(datetime('now'))`),
+    resolvedAt: tsCol("resolved_at"),
+  },
+  (table) => [
+    index("idx_supply_alerts_status").on(table.status),
+    index("idx_supply_alerts_filament").on(table.filamentId),
+  ]
+);
+
+export const supplyAlertsRelations = relations(supplyAlerts, ({ one }) => ({
+  filament: one(filaments, {
+    fields: [supplyAlerts.filamentId],
+    references: [filaments.id],
+  }),
+}));
+
+// ─── Material Profiles ────────────────────────────────────────────────────────
+
+export const materialProfiles = sqliteTable("material_profiles", {
+  material: text("material").primaryKey(), // 'PLA', 'PETG', 'ABS', etc.
+  strength: integer("strength"), // 1-5
+  flexibility: integer("flexibility"),
+  heatResistance: integer("heat_resistance"),
+  uvResistance: integer("uv_resistance"),
+  printEase: integer("print_ease"),
+  humiditySensitivity: integer("humidity_sensitivity"),
+  needsEnclosure: integer("needs_enclosure", { mode: "boolean" }).notNull().default(false),
+  needsHardenedNozzle: integer("needs_hardened_nozzle", { mode: "boolean" }).notNull().default(false),
+  isAbrasive: integer("is_abrasive", { mode: "boolean" }).notNull().default(false),
+  glassTransitionC: integer("glass_transition_c"),
+  density: real("density"),
+  bestFor: text("best_for"), // JSON array
+  notFor: text("not_for"), // JSON array
+  substitutes: text("substitutes"), // JSON array
+  dryingTempC: integer("drying_temp_c"),
+  dryingHours: integer("drying_hours"),
+  description: text("description"), // AI-generated material profile (German)
+  updatedAt: tsCol("updated_at").notNull().default(sql`(datetime('now'))`),
+});

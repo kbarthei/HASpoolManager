@@ -2,12 +2,14 @@ export const dynamic = "force-dynamic";
 
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
-import { or, like, eq } from "drizzle-orm";
+import { or, like, eq, desc } from "drizzle-orm";
 import { getOrders, getShoppingListWithPrices } from "@/lib/queries";
 import { OrdersClient } from "./orders-client";
+import { SupplyAlertsSection } from "./supply-alerts-section";
+import { SupplyRules } from "@/components/orders/supply-rules";
 
 export default async function OrdersPage() {
-  const [orders, rackSpools, orderedSpools, shoppingList, allFilaments] = await Promise.all([
+  const [orders, rackSpools, orderedSpools, shoppingList, allFilaments, supplyAlerts, supplyRulesList] = await Promise.all([
     getOrders(),
     db.query.spools.findMany({
       where: or(like(schema.spools.location, "rack:%")),
@@ -20,6 +22,19 @@ export default async function OrdersPage() {
     db.query.filaments.findMany({
       with: { vendor: true },
       orderBy: (f, { asc }) => [asc(f.name)],
+    }),
+    db.query.supplyAlerts.findMany({
+      where: eq(schema.supplyAlerts.status, "active"),
+      orderBy: [desc(schema.supplyAlerts.createdAt)],
+      with: { filament: { with: { vendor: true } } },
+    }),
+    db.query.supplyRules.findMany({
+      orderBy: [desc(schema.supplyRules.createdAt)],
+      with: {
+        filament: { with: { vendor: true } },
+        vendor: true,
+        preferredShop: true,
+      },
     }),
   ]);
 
@@ -67,18 +82,34 @@ export default async function OrdersPage() {
 
   const rack = { rows: 4, cols: 8, occupiedPositions };
 
+  const filamentList = allFilaments.map(f => ({
+    id: f.id,
+    name: f.name,
+    material: f.material,
+    colorHex: f.colorHex,
+    vendor: { name: f.vendor.name },
+  }));
+
   return (
-    <OrdersClient
-      orders={JSON.parse(JSON.stringify(enrichedOrders))}
-      rack={rack}
-      shoppingList={JSON.parse(JSON.stringify(shoppingList))}
-      allFilaments={JSON.parse(JSON.stringify(allFilaments.map(f => ({
-        id: f.id,
-        name: f.name,
-        material: f.material,
-        colorHex: f.colorHex,
-        vendor: { name: f.vendor.name },
-      }))))}
-    />
+    <div className="max-w-3xl mx-auto px-4 py-6 space-y-4">
+      {/* Supply Alerts */}
+      {supplyAlerts.length > 0 && (
+        <SupplyAlertsSection alerts={JSON.parse(JSON.stringify(supplyAlerts))} />
+      )}
+
+      {/* Orders + Shopping List (existing) */}
+      <OrdersClient
+        orders={JSON.parse(JSON.stringify(enrichedOrders))}
+        rack={rack}
+        shoppingList={JSON.parse(JSON.stringify(shoppingList))}
+        allFilaments={JSON.parse(JSON.stringify(filamentList))}
+      />
+
+      {/* Supply Rules (collapsible) */}
+      <SupplyRules
+        rules={JSON.parse(JSON.stringify(supplyRulesList))}
+        filaments={JSON.parse(JSON.stringify(filamentList))}
+      />
+    </div>
   );
 }

@@ -1,9 +1,9 @@
 export const dynamic = "force-dynamic";
 
-import { getDashboardStats, getAmsSlots, getLowStockSpools, getRecentPrints, getPrinterStatus, getFilamentSummary, getDashboardChartData } from "@/lib/queries";
+import { getDashboardStats, getAmsSlots, getSupplyStatus, getRecentPrints, getPrinterStatus, getFilamentSummary, getDashboardChartData } from "@/lib/queries";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { AmsMiniView } from "@/components/dashboard/ams-mini-view";
-import { LowStockList } from "@/components/dashboard/low-stock-list";
+import { SupplyStatusWidget } from "@/components/dashboard/supply-status-widget";
 import { RecentPrints } from "@/components/dashboard/recent-prints";
 import { FilamentSummary } from "@/components/dashboard/filament-summary";
 import { MonthlySpendChart } from "@/components/dashboard/monthly-spend-chart";
@@ -28,10 +28,10 @@ import { AnalyticsSection } from "@/components/dashboard/analytics-section";
 import Link from "next/link";
 
 export default async function Dashboard() {
-  const [stats, slots, lowStock, prints, printerStatus, filamentSummary, chartData] = await Promise.all([
+  const [stats, slots, supplyStatus, prints, printerStatus, filamentSummary, chartData] = await Promise.all([
     getDashboardStats(),
     getAmsSlots(),
-    getLowStockSpools(),
+    getSupplyStatus(),
     getRecentPrints(),
     getPrinterStatus(),
     getFilamentSummary(),
@@ -112,7 +112,7 @@ export default async function Dashboard() {
       {/* AMS + Low Stock + Filaments in Stock */}
       <div data-testid="dashboard-ams" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
         <AmsMiniView slots={slots} />
-        <LowStockList spools={lowStock} />
+        <SupplyStatusWidget statuses={supplyStatus} />
         <FilamentSummary summary={filamentSummary} />
       </div>
 
