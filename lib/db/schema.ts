@@ -34,6 +34,7 @@ export const vendors = sqliteTable("vendors", {
   country: text("country"),
   logoUrl: text("logo_url"),
   bambuPrefix: text("bambu_prefix"),
+  defaultSpoolWeight: integer("default_spool_weight"), // empty spool tare weight in grams (for scale-based remaining calculation)
   notes: text("notes"),
   createdAt: tsCol("created_at").notNull().default(sql`(datetime('now'))`),
   updatedAt: tsCol("updated_at").notNull().default(sql`(datetime('now'))`),

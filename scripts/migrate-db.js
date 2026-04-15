@@ -158,6 +158,20 @@ const migrations = [
       db.exec("CREATE INDEX idx_hms_created ON hms_events(created_at)");
     },
   },
+  {
+    name: "vendors.default_spool_weight column",
+    check: () => {
+      const cols = db.pragma("table_info(vendors)");
+      return cols.some((c) => c.name === "default_spool_weight");
+    },
+    apply: () => {
+      db.exec("ALTER TABLE vendors ADD COLUMN default_spool_weight INTEGER");
+      // Seed known spool weights (empty spool, grams)
+      db.exec("UPDATE vendors SET default_spool_weight = 250 WHERE LOWER(name) = 'bambu lab'");
+      db.exec("UPDATE vendors SET default_spool_weight = 140 WHERE LOWER(name) = 'polymaker'");
+      db.exec("UPDATE vendors SET default_spool_weight = 170 WHERE LOWER(name) = 'esun'");
+    },
+  },
 ];
 
 // ── Run migrations ──────────────────────────────────────────────────────────
