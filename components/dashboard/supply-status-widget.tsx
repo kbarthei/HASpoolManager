@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { SpoolColorDot } from "@/components/spool/spool-color-dot";
+import { AddToListButton } from "@/components/supply/add-to-list-button";
 import type { getSupplyStatus } from "@/lib/queries";
 
 type SupplyStatusEntry = Awaited<ReturnType<typeof getSupplyStatus>>[number];
@@ -102,6 +103,13 @@ export function SupplyStatusWidget({ statuses }: { statuses: SupplyStatusEntry[]
                   <span className="w-5 text-center shrink-0">
                     {urgencyIcon(entry.urgency)}
                   </span>
+                  {(entry.urgency === "critical" || entry.urgency === "warning") && (
+                    <AddToListButton
+                      filamentId={entry.filamentId}
+                      filamentName={`${entry.vendor} ${entry.filamentName}`}
+                      qty={entry.recommendedQty || 1}
+                    />
+                  )}
                 </div>
               );
             })}

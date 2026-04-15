@@ -8,6 +8,7 @@ import { SpoolMaterialBadge } from "@/components/spool/spool-material-badge";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { TrendingUp, TrendingDown, Minus, ArrowRight } from "lucide-react";
+import { AddToListButton } from "@/components/supply/add-to-list-button";
 
 function daysLabel(days: number): string {
   if (days === Infinity || days > 999) return "999+";
@@ -136,6 +137,11 @@ export default async function SupplyPage() {
                     )}>
                       {daysLabel(entry.daysRemaining)}d
                     </span>
+                    <AddToListButton
+                      filamentId={entry.filamentId}
+                      filamentName={`${entry.vendor} ${entry.filamentName}`}
+                      qty={entry.recommendedQty || 1}
+                    />
                   </div>
                 </div>
               </Card>
