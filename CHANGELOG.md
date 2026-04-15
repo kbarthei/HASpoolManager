@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- **chore:** remove implementation plans from git, add to .gitignore (`f314ae6`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`4948b45`)
 - **fix:** restore changelog push-to-main (branch protection now allows it) (`9263b09`)
 - **fix:** changelog workflow triggers on tags only (no push to main) (`178a7ea`)
 - **chore:** add MIT license (`9373372`)
