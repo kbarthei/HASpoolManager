@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- **chore:** add workdir/ for local working files (plans, notes, temp) (`0771b9e`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`82395f1`)
 - **chore:** remove implementation plans from git, add to .gitignore (`f314ae6`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`4948b45`)
 - **fix:** restore changelog push-to-main (branch protection now allows it) (`9263b09`)
