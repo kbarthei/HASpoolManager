@@ -59,6 +59,9 @@ const ENTITY_NAME_MAP: Record<string, string> = {
   "Verbleibende Zeit": "print_remaining_time",
   "Aktiver Slot": "active_slot",
   "Externe Spule": "slot_ext",
+  // HMS errors (binary_sensor)
+  "HMS Errors": "hms_errors",
+  "HMS-Fehler": "hms_errors",
 };
 
 // Tray entities: original_name is "Tray N" (English) or "Slot N" (German)

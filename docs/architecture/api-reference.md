@@ -812,3 +812,106 @@ curl -X POST /api/v1/prices/refresh \
   -H "Content-Type: application/json" \
   -d '{"filamentId":"<uuid>"}'
 ```
+
+---
+
+## 6. Settings
+
+### `GET /api/v1/settings/energy`
+
+Returns energy tracking configuration.
+
+- **Auth:** `optionalAuth`
+
+**Response**
+```json
+{
+  "energy_sensor_entity_id": "sensor.printer_plug_energy",
+  "electricity_price_per_kwh": 0.32
+}
+```
+
+### `PUT /api/v1/settings/energy`
+
+Update energy tracking settings. Both fields are optional.
+
+- **Auth:** `requireAuth`
+
+**Request body**
+```json
+{
+  "energy_sensor_entity_id": "sensor.printer_plug_energy",
+  "electricity_price_per_kwh": 0.32
+}
+```
+
+**Response**
+```json
+{ "ok": true }
+```
+
+**Notes:**
+- Set `energy_sensor_entity_id` to `null` or `""` to disable energy tracking
+- The sync worker reads these settings at startup. Changes take effect on next sync worker restart.
+- `electricity_price_per_kwh` is in EUR. A typical German household rate is 0.30-0.35 EUR/kWh.
+
+---
+
+## 7. HMS Error Tracking
+
+### `POST /api/v1/events/hms`
+
+Store HMS (Health Management System) error events from the sync worker.
+
+- **Auth:** `requireAuth`
+
+**Request body**
+```json
+{
+  "printer_id": "<uuid>",
+  "events": [
+    {
+      "code": "0700_2000_0002_0001",
+      "message": "AMS1 Slot2 filament has run out",
+      "severity": "common",
+      "wiki_url": "https://wiki.bambulab.com/en/h2/troubleshooting/hmscode/0700_2000_0002_0001"
+    }
+  ]
+}
+```
+
+**Response**
+```json
+{ "stored": 1, "ids": ["<uuid>"] }
+```
+
+**Notes:**
+- Auto-resolves spool/filament from AMS slot mapping when the code contains slot info
+- Links to currently running print (if any)
+- Deduplicates: same code for same printer within 60s is skipped
+- Accepts multiple events per request
+
+### `GET /api/v1/events/hms`
+
+Query stored HMS events.
+
+- **Auth:** `optionalAuth`
+- **Query params:** `limit` (default 50, max 200)
+
+**Response**
+```json
+{
+  "data": [
+    {
+      "id": "<uuid>",
+      "hmsCode": "0700_2000_0002_0001",
+      "module": "ams",
+      "severity": "common",
+      "message": "AMS1 Slot2 filament has run out",
+      "wikiUrl": "https://wiki.bambulab.com/...",
+      "spool": { "filament": { "name": "PLA", "vendor": { "name": "Bambu Lab" } } },
+      "print": { "id": "<uuid>", "name": "bracket.3mf" },
+      "createdAt": "2026-04-15T12:00:00.000Z"
+    }
+  ]
+}

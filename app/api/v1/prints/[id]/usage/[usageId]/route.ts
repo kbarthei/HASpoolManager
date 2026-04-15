@@ -51,15 +51,26 @@ export async function PATCH(
     await db.update(printUsage).set({ cost: null }).where(eq(printUsage.id, usageId));
   }
 
-  // Recalculate total cost on the print
+  // Recalculate filament cost on the print, then recompute totalCost
   const [{ total }] = await db
     .select({ total: sqlCoalesceSumCost() })
     .from(printUsage)
     .where(eq(printUsage.printId, printId));
 
+  const currentPrint = await db.query.prints.findFirst({
+    where: eq(prints.id, printId),
+    columns: { energyCost: true },
+  });
+  const energyCost = currentPrint?.energyCost ?? 0;
+  const filamentCost = total ?? 0;
+
   await db
     .update(prints)
-    .set({ totalCost: total, updatedAt: new Date() })
+    .set({
+      filamentCost,
+      totalCost: Math.round((filamentCost + energyCost) * 100) / 100,
+      updatedAt: new Date(),
+    })
     .where(eq(prints.id, printId));
 
   // Also adjust spool remaining weight — not done here intentionally:

@@ -6,8 +6,10 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SpoolColorDot } from "@/components/spool/spool-color-dot";
 import { UsageWeightAdjuster } from "@/components/prints/usage-weight-adjuster";
-import { CheckCircle2, XCircle } from "lucide-react";
+import { CheckCircle2, XCircle, Zap } from "lucide-react";
 import { formatDateTime, formatDateLong, formatDateShort } from "@/lib/date";
+import { costTooltip } from "@/lib/format-cost";
+import { CostTooltip } from "@/components/prints/cost-tooltip";
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -46,10 +48,14 @@ export default async function PrintHistoryPage() {
     return sum + w;
   }, 0);
 
-  const totalCost = allPrints.reduce((sum, p) => {
-    const c = Number(p.totalCost ?? 0);
-    return sum + c;
-  }, 0);
+  const totalCost = allPrints.reduce((sum, p) => sum + Number(p.totalCost ?? 0), 0);
+  const totalFilamentCost = allPrints.reduce((sum, p) => sum + Number(p.filamentCost ?? 0), 0);
+  const totalEnergyCost = allPrints.reduce((sum, p) => sum + Number(p.energyCost ?? 0), 0);
+  const totalKwh = allPrints.reduce((sum, p) => sum + Number(p.energyKwh ?? 0), 0);
+
+  const headerCostTooltip = totalEnergyCost > 0
+    ? `Filament: €${totalFilamentCost.toFixed(2)} · Electricity: €${totalEnergyCost.toFixed(2)} (${totalKwh.toFixed(2)} kWh) · Total: €${totalCost.toFixed(2)}`
+    : undefined;
 
   const grouped = groupByDate(completedPrints);
 
@@ -60,7 +66,12 @@ export default async function PrintHistoryPage() {
         <h1 className="text-xl font-semibold">Print History</h1>
         <p className="text-xs text-muted-foreground mt-1">
           {allPrints.length} prints &middot;{" "}
-          {totalWeight.toFixed(1)}g used &middot; &euro;{totalCost.toFixed(2)} total
+          {totalWeight.toFixed(1)}g used &middot;{" "}
+          <CostTooltip text={headerCostTooltip}>
+            <span className={headerCostTooltip ? "cursor-help underline decoration-dotted" : undefined}>
+              &euro;{totalCost.toFixed(2)} total
+            </span>
+          </CostTooltip>
         </p>
       </div>
 
@@ -146,6 +157,7 @@ export default async function PrintHistoryPage() {
               const failed = print.status === "failed" || print.status === "cancelled";
               const printWeight = print.usage.reduce((s, u) => s + u.weightUsed, 0);
               const printCost = Number(print.totalCost ?? 0);
+              const printCostTip = costTooltip(print);
 
               return (
                 <Card key={print.id} className="px-4 py-3">
@@ -191,15 +203,22 @@ export default async function PrintHistoryPage() {
                         >
                           {print.name ?? print.gcodeFile ?? "Unnamed Print"}
                         </span>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <span className="font-mono text-xs text-muted-foreground">
-                            {printWeight.toFixed(1)}g
-                          </span>
-                          {printCost > 0 && (
-                            <span className="font-mono text-xs text-muted-foreground">
-                              &euro;{printCost.toFixed(2)}
-                            </span>
-                          )}
+                        <div className="flex items-center gap-2 shrink-0 font-mono text-xs text-muted-foreground">
+                          <span>{printWeight.toFixed(1)}g</span>
+                          {printCost > 0 && print.energyCost ? (
+                            <CostTooltip text={printCostTip}>
+                              <span className="flex items-center gap-1 cursor-help underline decoration-dotted">
+                                &euro;{Number(print.filamentCost ?? 0).toFixed(2)}
+                                <span className="text-muted-foreground/40">+</span>
+                                <Zap className="w-3 h-3 text-amber-500" />
+                                &euro;{Number(print.energyCost).toFixed(2)}
+                                <span className="text-muted-foreground/40">=</span>
+                                <span className="font-semibold">&euro;{printCost.toFixed(2)}</span>
+                              </span>
+                            </CostTooltip>
+                          ) : printCost > 0 ? (
+                            <span>&euro;{printCost.toFixed(2)}</span>
+                          ) : null}
                         </div>
                       </div>
 

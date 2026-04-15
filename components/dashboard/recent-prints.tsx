@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { costTooltip } from "@/lib/format-cost";
+import { CostTooltip } from "@/components/prints/cost-tooltip";
 import type { getRecentPrints } from "@/lib/queries";
 
 type PrintData = Awaited<ReturnType<typeof getRecentPrints>>[number];
@@ -76,9 +78,16 @@ export function RecentPrints({ prints }: { prints: PrintData[] }) {
                     {Math.round(totalWeight)}g
                   </span>
                   {totalCost > 0 && (
-                    <span className="text-sm font-mono shrink-0 text-muted-foreground">
-                      {totalCost.toFixed(2)}€
-                    </span>
+                    <CostTooltip text={costTooltip(print)}>
+                      <span
+                        className={cn(
+                          "text-sm font-mono shrink-0 text-muted-foreground",
+                          costTooltip(print) && "cursor-help underline decoration-dotted"
+                        )}
+                      >
+                        {totalCost.toFixed(2)}€
+                      </span>
+                    </CostTooltip>
                   )}
 
                   {/* Time ago */}

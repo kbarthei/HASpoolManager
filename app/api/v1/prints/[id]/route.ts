@@ -62,6 +62,8 @@ export async function PUT(
       totalLayers,
       printWeight,
       printLength,
+      filamentCost,
+      energyCost,
       totalCost,
       notes,
     } = body;
@@ -77,6 +79,8 @@ export async function PUT(
         totalLayers,
         printWeight,
         printLength,
+        filamentCost,
+        energyCost,
         totalCost,
         notes,
         updatedAt: new Date(),

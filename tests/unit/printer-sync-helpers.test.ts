@@ -10,6 +10,10 @@ import {
   bambuColorName,
   bambuFilamentName,
   calculateWeightSync,
+  calculateEnergyCost,
+  parseHmsCode,
+  parseHmsCodeString,
+  HMS_MODULES,
 } from "@/lib/printer-sync-helpers";
 import { normalizeColor } from "@/lib/matching";
 
@@ -589,5 +593,176 @@ describe("normalizeColor()", () => {
 
   it("strips # and alpha together", () => {
     expect(normalizeColor("#FF000080")).toBe("FF0000");
+  });
+});
+
+// ── calculateEnergyCost() ──────────────────────────────────────────────────
+
+describe("calculateEnergyCost()", () => {
+  it("calculates energy cost correctly", () => {
+    const result = calculateEnergyCost(1234.56, 1234.78, 0.32);
+    expect(result).not.toBeNull();
+    expect(result!.energyKwh).toBe(0.22);
+    expect(result!.energyCost).toBe(0.07);
+  });
+
+  it("handles zero consumption", () => {
+    const result = calculateEnergyCost(100.0, 100.0, 0.32);
+    expect(result).not.toBeNull();
+    expect(result!.energyKwh).toBe(0);
+    expect(result!.energyCost).toBe(0);
+  });
+
+  it("handles large consumption", () => {
+    const result = calculateEnergyCost(1000.0, 1002.5, 0.32);
+    expect(result).not.toBeNull();
+    expect(result!.energyKwh).toBe(2.5);
+    expect(result!.energyCost).toBe(0.8);
+  });
+
+  it("returns null when startKwh is null", () => {
+    expect(calculateEnergyCost(null, 1234.78, 0.32)).toBeNull();
+  });
+
+  it("returns null when endKwh is null", () => {
+    expect(calculateEnergyCost(1234.56, null, 0.32)).toBeNull();
+  });
+
+  it("returns null when both are null", () => {
+    expect(calculateEnergyCost(null, null, 0.32)).toBeNull();
+  });
+
+  it("returns null when endKwh < startKwh (plug reset)", () => {
+    expect(calculateEnergyCost(1234.78, 100.0, 0.32)).toBeNull();
+  });
+
+  it("returns null when startKwh is undefined", () => {
+    expect(calculateEnergyCost(undefined, 1234.78, 0.32)).toBeNull();
+  });
+
+  it("rounds kWh to 3 decimal places", () => {
+    const result = calculateEnergyCost(0.0, 0.1234567, 1.0);
+    expect(result).not.toBeNull();
+    expect(result!.energyKwh).toBe(0.123);
+  });
+
+  it("rounds cost to 2 decimal places", () => {
+    const result = calculateEnergyCost(0.0, 1.0, 0.333);
+    expect(result).not.toBeNull();
+    expect(result!.energyCost).toBe(0.33);
+  });
+
+  it("handles zero price", () => {
+    const result = calculateEnergyCost(0.0, 1.0, 0);
+    expect(result).not.toBeNull();
+    expect(result!.energyKwh).toBe(1.0);
+    expect(result!.energyCost).toBe(0);
+  });
+});
+
+// ── parseHmsCode() ──────────────────────────────────────────────────────────
+
+describe("parseHmsCode()", () => {
+  it("parses AMS filament runout code", () => {
+    // 0700_2000_0002_0001 = AMS-A Slot2 filament run out
+    const attr = 0x07002000;
+    const code = 0x00020001;
+    const result = parseHmsCode(attr, code);
+    expect(result.fullCode).toBe("0700_2000_0002_0001");
+    expect(result.module).toBe("ams");
+    expect(result.moduleId).toBe(0x07);
+    expect(result.amsUnit).toBe(0);
+    expect(result.slotIndex).toBe(2);
+    expect(result.slotKey).toBe("slot_2");
+  });
+
+  it("parses motion controller error", () => {
+    // 0300_0100_0001_0007 = heatbed temperature abnormal
+    const attr = 0x03000100;
+    const code = 0x00010007;
+    const result = parseHmsCode(attr, code);
+    expect(result.fullCode).toBe("0300_0100_0001_0007");
+    expect(result.module).toBe("mc");
+    expect(result.slotKey).toBeNull();
+  });
+
+  it("parses toolhead error", () => {
+    const attr = 0x08001000;
+    const code = 0x00010001;
+    const result = parseHmsCode(attr, code);
+    expect(result.module).toBe("toolhead");
+  });
+
+  it("parses xcam error", () => {
+    const attr = 0x0C001000;
+    const code = 0x00010001;
+    const result = parseHmsCode(attr, code);
+    expect(result.module).toBe("xcam");
+  });
+
+  it("returns unknown for unrecognized module", () => {
+    const attr = 0xFF001000;
+    const code = 0x00010001;
+    const result = parseHmsCode(attr, code);
+    expect(result.module).toBe("unknown");
+  });
+
+  it("formats code as uppercase hex", () => {
+    const result = parseHmsCode(0x0700abcd, 0x00ef1234);
+    expect(result.fullCode).toBe("0700_ABCD_00EF_1234");
+  });
+
+  it("handles AMS slot 1", () => {
+    const result = parseHmsCode(0x07006000, 0x00010001);
+    expect(result.slotIndex).toBe(1);
+    expect(result.slotKey).toBe("slot_1");
+  });
+
+  it("handles AMS slot 4", () => {
+    const result = parseHmsCode(0x07006000, 0x00040001);
+    expect(result.slotIndex).toBe(4);
+    expect(result.slotKey).toBe("slot_4");
+  });
+
+  it("returns null slot for non-AMS module", () => {
+    const result = parseHmsCode(0x05001000, 0x00020001);
+    expect(result.module).toBe("mainboard");
+    expect(result.slotKey).toBeNull();
+    expect(result.slotIndex).toBeNull();
+  });
+});
+
+// ── parseHmsCodeString() ────────────────────────────────────────────────────
+
+describe("parseHmsCodeString()", () => {
+  it("parses formatted HMS code string", () => {
+    const result = parseHmsCodeString("0700_2000_0002_0001");
+    expect(result).not.toBeNull();
+    expect(result!.module).toBe("ams");
+    expect(result!.slotIndex).toBe(2);
+  });
+
+  it("strips HMS_ prefix", () => {
+    const result = parseHmsCodeString("HMS_0700_2000_0002_0001");
+    expect(result).not.toBeNull();
+    expect(result!.module).toBe("ams");
+  });
+
+  it("returns null for invalid format", () => {
+    expect(parseHmsCodeString("invalid")).toBeNull();
+    expect(parseHmsCodeString("0700_2000")).toBeNull();
+    expect(parseHmsCodeString("")).toBeNull();
+  });
+});
+
+// ── HMS_MODULES ─────────────────────────────────────────────────────────────
+
+describe("HMS_MODULES", () => {
+  it("maps known module IDs", () => {
+    expect(HMS_MODULES[0x07]).toBe("ams");
+    expect(HMS_MODULES[0x03]).toBe("mc");
+    expect(HMS_MODULES[0x08]).toBe("toolhead");
+    expect(HMS_MODULES[0x05]).toBe("mainboard");
+    expect(HMS_MODULES[0x0C]).toBe("xcam");
   });
 });
