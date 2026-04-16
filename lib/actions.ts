@@ -153,16 +153,11 @@ export async function createOrderFromParsed(data: {
     matchedFilamentId: string | null;
   }>;
 }) {
-  // Find or create shop
+  // Find or create shop (fuzzy match to prevent duplicates)
   let shopId: string | null = null;
   if (data.shop) {
-    let shop = await db.query.shops.findFirst({
-      where: eq(shops.name, data.shop),
-    });
-    if (!shop) {
-      [shop] = await db.insert(shops).values({ name: data.shop }).returning();
-    }
-    shopId = shop.id;
+    const { findOrCreateShop } = await import("./shop-lookup");
+    shopId = await findOrCreateShop(data.shop);
   }
 
   // Calculate total cost
@@ -697,13 +692,8 @@ export async function importHistoricalOrder(data: {
   // 1. Find or create shop
   let shopId: string | null = null;
   if (data.shopName?.trim()) {
-    let shop = await db.query.shops.findFirst({
-      where: eq(shops.name, data.shopName.trim()),
-    });
-    if (!shop) {
-      [shop] = await db.insert(shops).values({ name: data.shopName.trim() }).returning();
-    }
-    shopId = shop.id;
+    const { findOrCreateShop } = await import("./shop-lookup");
+    shopId = await findOrCreateShop(data.shopName.trim());
   }
 
   // 2. Calculate total cost
@@ -796,13 +786,8 @@ export async function importBatchOrders(batchOrders: Array<{
     // Find or create shop
     let shopId: string | null = null;
     if (order.shopName?.trim()) {
-      let shop = await db.query.shops.findFirst({
-        where: eq(shops.name, order.shopName.trim()),
-      });
-      if (!shop) {
-        [shop] = await db.insert(shops).values({ name: order.shopName.trim() }).returning();
-      }
-      shopId = shop.id;
+      const { findOrCreateShop } = await import("./shop-lookup");
+      shopId = await findOrCreateShop(order.shopName.trim());
     }
 
     // Calculate total cost
