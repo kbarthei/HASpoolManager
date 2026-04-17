@@ -58,3 +58,16 @@ ha-addon/haspoolmanager/app/
 
 # local test data (user-private CSVs, sample invoices, etc.)
 /testdata/
+
+# iCloud sync duplicates (same content, " 2" suffix)
+* 2.ts
+* 2.tsx
+* 2.js
+* 2.jsx
+* 2.json
+* 2.md
+* 2.yml
+* 2.yaml
+* 2.sh
+* 2.css
+* 2.sql

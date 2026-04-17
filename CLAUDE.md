@@ -36,9 +36,9 @@ Read these before starting any implementation:
 ```bash
 npm run dev                # Start dev server (Turbopack)
 npm run build              # Production build
-npm run test:unit          # Unit tests (419 tests, no DB needed)
-npm run test:integration   # Integration tests (75 tests, per-worker SQLite harness)
-npm run test:e2e           # E2e tests (25 tests, Docker nginx + ingress simulator)
+npm run test:unit          # Unit tests (479 tests, no DB needed)
+npm run test:integration   # Integration tests (87 tests, per-worker SQLite harness)
+npm run test:e2e           # E2e tests (35 tests, Docker nginx + ingress simulator)
 npm run db:push            # Push schema to local SQLite
 npm run db:studio          # Open Drizzle Studio
 ./ha-addon/deploy.sh       # Build + deploy addon to HA (bump version, scp, install)

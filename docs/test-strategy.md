@@ -19,11 +19,11 @@ This rewrite:
 ┌──────────────────────────────────────────────┐
 │ E2e (Playwright + Docker nginx + ingress)    │  35 tests (13 specs)
 ├──────────────────────────────────────────────┤
-│ Integration (Vitest + SQLite file DB)        │  75 tests (7 files)
+│ Integration (Vitest + SQLite file DB)        │  87 tests (8 files)
 ├──────────────────────────────────────────────┤
-│ Unit (Vitest, no DB)                         │  419 tests (10 files)
+│ Unit (Vitest, no DB)                         │  479 tests (12 files)
 └──────────────────────────────────────────────┘
-Total: 529 tests — CI runs all three layers, ~2 min total.
+Total: 601 tests — CI runs all three layers, ~2 min total.
 ```
 
 ### Layer responsibilities
@@ -68,7 +68,7 @@ Before rewriting tests, the codebase must lose its dual-driver baggage:
 
 | Layer | Files | Status |
 |-------|-------|--------|
-| `tests/unit/` (10 files, 443 tests) | color, date, matching-scoring, order-parsing, price-crawler, printer-sync-helpers (incl. calculateEnergyCost, parseHmsCode), storage-moves, theme, validations, weight-adjustment | ✅ All import real code, no DB |
+| `tests/unit/` (12 files, 479 tests) | color, date, matching-scoring, order-parsing, price-crawler, printer-sync-helpers (incl. calculateEnergyCost, parseHmsCode), storage-moves, theme, validations, weight-adjustment, color-lookup, supply-engine | ✅ All import real code, no DB |
 | `tests/integration/` (8 files, 87 tests) | api-health, api-crud, api-match, api-events, api-admin-sync-log, printer-sync (incl. energy tracking), hms-events, + 1 more | ✅ All use per-worker SQLite harness + direct route handler calls |
 | `tests/e2e/` (13 specs, 35 tests) | 01-smoke through 13-mobile-viewport | ✅ Run against addon stack (Docker nginx + ingress simulator) |
 | `tests/fixtures/seed.ts` | Factory functions (makeVendor, makeFilament, makeSpool, makePrinter, makeAmsSlot, makeTagMapping) | ✅ Uses `@/lib/db` singleton (lazy, binds to harness DB) |
