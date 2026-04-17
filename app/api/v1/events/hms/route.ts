@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
 
       // Parse the code to extract module, severity, slot info
       const parsed = parseHmsCodeString(hmsCode);
-      const module = parsed?.module ?? "unknown";
+      const moduleName = parsed?.module ?? "unknown";
       const severity = evt.severity ?? parsed?.severity ?? "unknown";
       const slotKey = parsed?.slotKey ?? null;
 
@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
         spoolId,
         filamentId,
         hmsCode,
-        module,
+        module: moduleName,
         severity,
         message: evt.message ?? null,
         wikiUrl: evt.wiki_url ?? null,

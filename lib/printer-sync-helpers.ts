@@ -272,7 +272,7 @@ export function parseHmsCode(attr: number, code: number): ParsedHmsCode {
 
   // Module: high byte of attr
   const moduleId = (a >>> 24) & 0xFF;
-  const module = HMS_MODULES[moduleId] ?? "unknown";
+  const moduleName = HMS_MODULES[moduleId] ?? "unknown";
 
   // AMS unit: second nibble of first byte (0x07 = AMS-A unit 0, 0x17 = AMS-B unit 1)
   const amsUnit = (a >>> 28) & 0x0F;
@@ -284,7 +284,7 @@ export function parseHmsCode(attr: number, code: number): ParsedHmsCode {
   // Slot index: for AMS module, the CCCC segment encodes the slot (1-based)
   let slotKey: string | null = null;
   let slotIndex: number | null = null;
-  if (module === "ams") {
+  if (moduleName === "ams") {
     // CCCC is the slot/instance number (1-based for severity lookup,
     // but actual slot is also encoded). The slot is in CCCC.
     // Common pattern: 0001=slot1, 0002=slot2, 0003=slot3, 0004=slot4
@@ -299,7 +299,7 @@ export function parseHmsCode(attr: number, code: number): ParsedHmsCode {
     }
   }
 
-  return { fullCode, module, moduleId, amsUnit, severity, slotKey, slotIndex };
+  return { fullCode, module: moduleName, moduleId, amsUnit, severity, slotKey, slotIndex };
 }
 
 /**
