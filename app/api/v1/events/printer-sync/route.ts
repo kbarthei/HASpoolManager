@@ -131,8 +131,10 @@ async function autoCreateDraftSpool(
   slotDef: (typeof SLOT_DEFS)[number],
 ): Promise<string | null> {
   try {
-    // Guard: check if a spool (draft or active) is already assigned to this slot
-    // This prevents creating 100+ duplicate drafts on every 60s sync
+    // Guard: if the slot already has a spool AND the physical filament is
+    // unchanged (same bambu_type + bambu_color), reuse it. Prevents creating
+    // duplicate drafts on every 60s sync. If the filament has actually been
+    // swapped, fall through and create a fresh draft.
     const existingSlot = await db.query.amsSlots.findFirst({
       where: and(
         eq(amsSlots.slotType, slotDef.slotType),
@@ -140,7 +142,13 @@ async function autoCreateDraftSpool(
         eq(amsSlots.trayIndex, slotDef.trayIndex),
       ),
     });
-    if (existingSlot?.spoolId) return existingSlot.spoolId;
+    const newColor = trayColor.slice(0, 6).toUpperCase();
+    const existingColor = (existingSlot?.bambuColor ?? "").slice(0, 6).toUpperCase();
+    const filamentUnchanged =
+      existingSlot?.spoolId != null &&
+      existingSlot.bambuType === trayType &&
+      existingColor === newColor;
+    if (filamentUnchanged) return existingSlot.spoolId;
 
     // 1. Find or create "Unknown" vendor
     let unknownVendor = await db.query.vendors.findFirst({
@@ -749,6 +757,31 @@ export async function POST(request: NextRequest) {
           eq(amsSlots.trayIndex, def.trayIndex)
         ),
       });
+
+      // Detect a physical filament swap BEFORE matching, so we don't let
+      // matchSpool's location bonus re-bind a stale draft spool to the slot
+      // when the user has actually swapped the filament.
+      const prevColor6 = (existingSlot?.bambuColor ?? "").slice(0, 6).toUpperCase();
+      const newColor6 = trayColor.slice(0, 6).toUpperCase();
+      const prevType = existingSlot?.bambuType ?? "";
+      const filamentSwapped =
+        !isEmpty &&
+        existingSlot?.spoolId != null &&
+        ((prevType && trayType && prevType !== trayType) ||
+          (prevColor6 && newColor6 && prevColor6 !== newColor6));
+
+      if (filamentSwapped && existingSlot?.spoolId) {
+        // Move the old spool off the slot up-front so matchSpool below
+        // can't pick it up again by location proximity.
+        await db.update(spools).set({
+          location: "workbench",
+          updatedAt: new Date(),
+        }).where(eq(spools.id, existingSlot.spoolId));
+        await db.update(amsSlots).set({
+          spoolId: null,
+          updatedAt: new Date(),
+        }).where(eq(amsSlots.id, existingSlot.id));
+      }
 
       // Match spool when slot is occupied
       let matchedSpoolId: string | null = null;

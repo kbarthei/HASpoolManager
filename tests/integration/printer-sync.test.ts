@@ -932,6 +932,61 @@ describe("printer-sync integration", () => {
       expect(oldSpool!.location).toBe("workbench");
     });
 
+    it("J6b: draft-spool swap (no-RFID filament change) creates new draft instead of reusing old spool", async () => {
+      const { db } = await import("@/lib/db");
+      const { spools: spoolsTable, amsSlots } = await import("@/lib/db/schema");
+      const { eq, and } = await import("drizzle-orm");
+
+      // First sync: unknown-vendor black PLA in slot 4 (auto-creates a draft)
+      await sync({
+        print_state: "idle",
+        slot_4_type: "PLA",
+        slot_4_color: "000000FF",
+        slot_4_tag: "0000000000000000",
+        slot_4_remain: 80,
+        slot_4_empty: false,
+      });
+
+      const slotAfterFirst = await db.query.amsSlots.findFirst({
+        where: and(
+          eq(amsSlots.printerId, testPrinterId),
+          eq(amsSlots.slotType, "ams"),
+          eq(amsSlots.amsIndex, 0),
+          eq(amsSlots.trayIndex, 3)
+        ),
+      });
+      const firstSpoolId = slotAfterFirst?.spoolId;
+      expect(firstSpoolId).toBeTruthy();
+
+      // Second sync: filament SWAPPED — same type, different color (green)
+      await sync({
+        print_state: "idle",
+        slot_4_type: "PLA",
+        slot_4_color: "0ACC38FF",
+        slot_4_tag: "0000000000000000",
+        slot_4_remain: 100,
+        slot_4_empty: false,
+      });
+
+      const slotAfterSwap = await db.query.amsSlots.findFirst({
+        where: and(
+          eq(amsSlots.printerId, testPrinterId),
+          eq(amsSlots.slotType, "ams"),
+          eq(amsSlots.amsIndex, 0),
+          eq(amsSlots.trayIndex, 3)
+        ),
+      });
+
+      // The slot should reference a DIFFERENT spool now
+      expect(slotAfterSwap?.spoolId).toBeTruthy();
+      expect(slotAfterSwap?.spoolId).not.toBe(firstSpoolId);
+      expect(slotAfterSwap?.bambuColor).toBe("0ACC38FF");
+
+      // The old spool should have been moved out of the slot
+      const oldSpool = await db.query.spools.findFirst({ where: eq(spoolsTable.id, firstSpoolId!) });
+      expect(oldSpool?.location).toBe("workbench");
+    });
+
     it("J7: activeSpoolIds accumulates across spool changes mid-print", async () => {
       const { db } = await import("@/lib/db");
       const { prints } = await import("@/lib/db/schema");
