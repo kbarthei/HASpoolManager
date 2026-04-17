@@ -44,6 +44,7 @@ next-env.d.ts
 # brainstorming visual companion
 .superpowers/
 .vscode/
+.claude/scheduled_tasks.lock
 
 # local working directory (plans, temp files, notes — never committed)
 /workdir/

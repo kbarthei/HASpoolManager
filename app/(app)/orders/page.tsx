@@ -7,6 +7,8 @@ import { getOrders, getShoppingListWithPrices } from "@/lib/queries";
 import { OrdersClient } from "./orders-client";
 import { SupplyAlertsSection } from "./supply-alerts-section";
 import { SupplyRules } from "@/components/orders/supply-rules";
+import { OptimizedCart } from "@/components/orders/optimized-cart";
+import { BudgetCard } from "@/components/budget/budget-card";
 
 export default async function OrdersPage() {
   const [orders, rackSpools, orderedSpools, shoppingList, allFilaments, supplyAlerts, supplyRulesList] = await Promise.all([
@@ -92,10 +94,16 @@ export default async function OrdersPage() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-6 space-y-4">
+      {/* Budget */}
+      <BudgetCard />
+
       {/* Supply Alerts */}
       {supplyAlerts.length > 0 && (
         <SupplyAlertsSection alerts={JSON.parse(JSON.stringify(supplyAlerts))} />
       )}
+
+      {/* Optimized cart (from supply analysis) */}
+      <OptimizedCart />
 
       {/* Orders + Shopping List (existing) */}
       <OrdersClient

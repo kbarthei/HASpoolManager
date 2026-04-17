@@ -4,6 +4,7 @@ import { getDashboardStats, getAmsSlots, getSupplyStatus, getRecentPrints, getPr
 import { StatCard } from "@/components/dashboard/stat-card";
 import { AmsMiniView } from "@/components/dashboard/ams-mini-view";
 import { SupplyStatusWidget } from "@/components/dashboard/supply-status-widget";
+import { BudgetCard } from "@/components/budget/budget-card";
 import { RecentPrints } from "@/components/dashboard/recent-prints";
 import { FilamentSummary } from "@/components/dashboard/filament-summary";
 import { MonthlySpendChart } from "@/components/dashboard/monthly-spend-chart";
@@ -115,6 +116,9 @@ export default async function Dashboard() {
         <SupplyStatusWidget statuses={supplyStatus} />
         <FilamentSummary summary={filamentSummary} />
       </div>
+
+      {/* Budget */}
+      <BudgetCard />
 
       {/* Recent Prints */}
       <RecentPrints prints={prints} />

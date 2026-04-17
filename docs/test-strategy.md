@@ -19,11 +19,11 @@ This rewrite:
 ┌──────────────────────────────────────────────┐
 │ E2e (Playwright + Docker nginx + ingress)    │  35 tests (13 specs)
 ├──────────────────────────────────────────────┤
-│ Integration (Vitest + SQLite file DB)        │  90 tests (9 files)
+│ Integration (Vitest + SQLite file DB)        │  92 tests (9 files)
 ├──────────────────────────────────────────────┤
-│ Unit (Vitest, no DB)                         │  490 tests (14 files)
+│ Unit (Vitest, no DB)                         │  503 tests (16 files)
 └──────────────────────────────────────────────┘
-Total: 615 tests — CI runs all three layers, ~2 min total.
+Total: 630 tests — CI runs all three layers, ~2 min total.
 ```
 
 ### Layer responsibilities
