@@ -6,6 +6,9 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- - refactor: use perceptual color distance (ΔE) for AMS swap detection (`dd67b86`)
+- **fix:** skip fuzzy matching after swap when there's no RFID (`26dc6c5`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`72001b8`)
 - **fix:** compare swap against linked spool's filament color, not slot's bambu_color (`3cf7aad`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`05fa098`)
 - **fix:** detect AMS filament swap and unbind stale draft spool (`8c6586c`)
