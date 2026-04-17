@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- - refactor: group admin page into 5 zones by adjustment frequency (`a370eb6`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`265391a`)
 - **chore:** bump addon version to 1.0.75 (`639e71d`)
 - **feat:** Supply Manager Phase 2 — budget tracking, shop config, order optimizer (`46456c5`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`0b5aa5e`)
