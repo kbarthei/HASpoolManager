@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- **fix:** compare swap against linked spool's filament color, not slot's bambu_color (`3cf7aad`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`05fa098`)
 - **fix:** detect AMS filament swap and unbind stale draft spool (`8c6586c`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`cf80e3b`)
 - **feat:** admin Data Quality card + unified cleanup script (`72a7e30`)
