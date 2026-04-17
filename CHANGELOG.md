@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- **chore:** bump addon version to 1.0.67 (`b2ef173`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`be45cb6`)
 - **docs:** bump test counts (490 unit / 90 integration) (`28592a0`)
 - **feat:** data-quality backbone — triggers, health-check, quality log table (`2833a30`)
 - **feat:** vendor aliases + name normalization for entity writes (`bd80fe9`)
