@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- **fix:** rename shadowed 'module' variable to pass Next.js lint (`2ce962f`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`a9b3358`)
 - **chore:** bump addon version to 1.0.66 (`c9d40df`)
 - **feat:** backfill historical energy costs with per-material model (`b399aa2`)
 - - refactor: move energy settings save to Server Action (`3fca08f`)
