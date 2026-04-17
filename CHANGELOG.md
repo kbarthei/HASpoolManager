@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- **feat:** admin Data Quality card + unified cleanup script (`72a7e30`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`b445d3a`)
 - **chore:** bump addon version to 1.0.67 (`b2ef173`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`be45cb6`)
 - **docs:** bump test counts (490 unit / 90 integration) (`28592a0`)
