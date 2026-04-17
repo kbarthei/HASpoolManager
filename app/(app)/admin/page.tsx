@@ -122,6 +122,13 @@ export default async function AdminPage() {
         <p className="text-xs text-muted-foreground mt-1">System overview and diagnostics</p>
       </div>
 
+      {/* ═══ STATUS ═══════════════════════════════════════════════════════ */}
+      <div className="pt-2 first:pt-0">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+          Status
+        </p>
+      </div>
+
       {/* ── System Overview ──────────────────────────────────────────────── */}
       <Card className="p-4 space-y-4">
         <h2 className="text-sm font-semibold">System Overview</h2>
@@ -178,8 +185,42 @@ export default async function AdminPage() {
         </div>
       </Card>
 
-      {/* ── Printer Discovery & Entity Mappings ─────────────────────────── */}
-      <PrinterMappings />
+      {/* ── Data Quality ──────────────────────────────────────────────── */}
+      <DataQualityCard />
+
+      {/* ── HMS Error Log ──────────────────────────────────────────────── */}
+      <HmsErrorLog />
+
+      {/* ═══ SUPPLY & BUDGET ═════════════════════════════════════════════ */}
+      <div className="pt-4">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+          Supply &amp; Budget
+        </p>
+      </div>
+
+      {/* ── Budget ────────────────────────────────────────────────────── */}
+      <Card className="p-4 space-y-3">
+        <div>
+          <h2 className="text-sm font-semibold">Monthly Filament Budget</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Spend cap for filament orders. Used by the supply optimizer to prioritise critical reorders.
+          </p>
+        </div>
+        <BudgetSettings
+          initialBudget={budgetRow?.value ?? ""}
+          initialStartDay={budgetStartRow?.value ?? "1"}
+        />
+      </Card>
+
+      {/* ── Shop Configuration ───────────────────────────────────────── */}
+      <ShopConfigList />
+
+      {/* ═══ OPERATIONS ══════════════════════════════════════════════════ */}
+      <div className="pt-4">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+          Operations
+        </p>
+      </div>
 
       {/* ── Manual Actions ───────────────────────────────────────────────── */}
       <Card className="p-4 space-y-3">
@@ -200,10 +241,44 @@ export default async function AdminPage() {
       {/* ── Import Historical Orders ──────────────────────────────────── */}
       <ImportOrdersCard allSpools={JSON.parse(JSON.stringify(allSpools))} />
 
-      {/* ── Build & Cache ─────────────────────────────────────────────── */}
+      {/* ── Sync Log ─────────────────────────────────────────────────────── */}
+      <Card className="p-4">
+        <SyncLogTable />
+      </Card>
+
+      {/* ═══ ONE-TIME SETUP ══════════════════════════════════════════════ */}
+      <div className="pt-4">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+          One-time Setup
+        </p>
+      </div>
+
+      {/* ── Printer Discovery & Entity Mappings ─────────────────────────── */}
+      <PrinterMappings />
+
+      {/* ── Rack Configuration ──────────────────────────────────────────── */}
       <Card className="p-4 space-y-3">
-        <h2 className="text-sm font-semibold">Build & Cache</h2>
-        <AdminTools buildInfo={buildInfo} />
+        <div>
+          <h2 className="text-sm font-semibold">Rack Configuration</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Currently {rackConfig.rows} rows × {rackConfig.columns} columns · R1 is the bottom-left shelf
+          </p>
+        </div>
+        <RackSettings initialRows={rackConfig.rows} initialColumns={rackConfig.columns} />
+      </Card>
+
+      {/* ── Energy Tracking ───────────────────────────────────────────────── */}
+      <Card className="p-4 space-y-3">
+        <div>
+          <h2 className="text-sm font-semibold">Energy Tracking</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Track electricity costs per print via a smart plug energy sensor
+          </p>
+        </div>
+        <EnergySettings
+          initialEntityId={energyEntityRow?.value ?? ""}
+          initialPricePerKwh={energyPriceRow?.value ?? ""}
+        />
       </Card>
 
       {/* ── Configuration Details ────────────────────────────────────────── */}
@@ -352,57 +427,17 @@ export default async function AdminPage() {
         </div>
       </Card>
 
-      {/* ── Rack Configuration ──────────────────────────────────────────── */}
+      {/* ═══ DEV / BUILD ═════════════════════════════════════════════════ */}
+      <div className="pt-4">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+          Dev &amp; Build
+        </p>
+      </div>
+
+      {/* ── Build & Cache ─────────────────────────────────────────────── */}
       <Card className="p-4 space-y-3">
-        <div>
-          <h2 className="text-sm font-semibold">Rack Configuration</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Currently {rackConfig.rows} rows × {rackConfig.columns} columns · R1 is the bottom-left shelf
-          </p>
-        </div>
-        <RackSettings initialRows={rackConfig.rows} initialColumns={rackConfig.columns} />
-      </Card>
-
-      {/* ── Energy Tracking ───────────────────────────────────────────────── */}
-      <Card className="p-4 space-y-3">
-        <div>
-          <h2 className="text-sm font-semibold">Energy Tracking</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Track electricity costs per print via a smart plug energy sensor
-          </p>
-        </div>
-        <EnergySettings
-          initialEntityId={energyEntityRow?.value ?? ""}
-          initialPricePerKwh={energyPriceRow?.value ?? ""}
-        />
-      </Card>
-
-      {/* ── Budget ────────────────────────────────────────────────────── */}
-      <Card className="p-4 space-y-3">
-        <div>
-          <h2 className="text-sm font-semibold">Monthly Filament Budget</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Spend cap for filament orders. Used by the supply optimizer to prioritise critical reorders.
-          </p>
-        </div>
-        <BudgetSettings
-          initialBudget={budgetRow?.value ?? ""}
-          initialStartDay={budgetStartRow?.value ?? "1"}
-        />
-      </Card>
-
-      {/* ── Shop Configuration ───────────────────────────────────────── */}
-      <ShopConfigList />
-
-      {/* ── Data Quality ──────────────────────────────────────────────── */}
-      <DataQualityCard />
-
-      {/* ── HMS Error Log ──────────────────────────────────────────────── */}
-      <HmsErrorLog />
-
-      {/* ── Sync Log ─────────────────────────────────────────────────────── */}
-      <Card className="p-4">
-        <SyncLogTable />
+        <h2 className="text-sm font-semibold">Build &amp; Cache</h2>
+        <AdminTools buildInfo={buildInfo} />
       </Card>
     </div>
   );
