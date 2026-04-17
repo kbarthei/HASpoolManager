@@ -758,17 +758,25 @@ export async function POST(request: NextRequest) {
         ),
       });
 
-      // Detect a physical filament swap BEFORE matching, so we don't let
-      // matchSpool's location bonus re-bind a stale draft spool to the slot
-      // when the user has actually swapped the filament.
-      const prevColor6 = (existingSlot?.bambuColor ?? "").slice(0, 6).toUpperCase();
-      const newColor6 = trayColor.slice(0, 6).toUpperCase();
-      const prevType = existingSlot?.bambuType ?? "";
-      const filamentSwapped =
-        !isEmpty &&
-        existingSlot?.spoolId != null &&
-        ((prevType && trayType && prevType !== trayType) ||
-          (prevColor6 && newColor6 && prevColor6 !== newColor6));
+      // Detect a physical filament swap BEFORE matching, so matchSpool's
+      // location bonus cannot re-bind a stale spool to the slot. We compare
+      // the incoming tray_color against the LINKED SPOOL's filament color
+      // (not the slot's stored bambu_color — that field is updated every
+      // sync regardless of spool_id, so comparing it is a no-op once the
+      // two have desynced). Color is reliable; Bambu type strings don't map
+      // 1:1 to filament.material, so we don't compare material.
+      let filamentSwapped = false;
+      if (!isEmpty && existingSlot?.spoolId) {
+        const linked = await db.query.spools.findFirst({
+          where: eq(spools.id, existingSlot.spoolId),
+          with: { filament: true },
+        });
+        const linkedColor6 = (linked?.filament?.colorHex ?? "").slice(0, 6).toUpperCase();
+        const newColor6 = trayColor.slice(0, 6).toUpperCase();
+        if (linkedColor6 && newColor6 && linkedColor6 !== newColor6) {
+          filamentSwapped = true;
+        }
+      }
 
       if (filamentSwapped && existingSlot?.spoolId) {
         // Move the old spool off the slot up-front so matchSpool below
