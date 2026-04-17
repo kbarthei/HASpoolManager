@@ -17,6 +17,7 @@ import { AdminTools } from "./admin-tools";
 import { RefreshPricesButton } from "./refresh-prices-button";
 import { PrinterMappings } from "./printer-mappings";
 import { EnergySettings } from "./energy-settings";
+import { DataQualityCard } from "./data-quality-card";
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -371,6 +372,9 @@ export default async function AdminPage() {
           initialPricePerKwh={energyPriceRow?.value ?? ""}
         />
       </Card>
+
+      {/* ── Data Quality ──────────────────────────────────────────────── */}
+      <DataQualityCard />
 
       {/* ── HMS Error Log ──────────────────────────────────────────────── */}
       <HmsErrorLog />
