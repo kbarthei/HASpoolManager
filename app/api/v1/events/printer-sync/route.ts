@@ -5,6 +5,7 @@ import { prints, amsSlots, spools, syncLog, printUsage, vendors, filaments, tagM
 import { eq, and, sql, lt } from "drizzle-orm";
 import { requireAuth } from "@/lib/auth";
 import { matchSpool } from "@/lib/matching";
+import { deltaEHex } from "@/lib/color";
 import {
   num, bool, str,
   classifyGcodeState, isCalibrationJob,
@@ -131,10 +132,11 @@ async function autoCreateDraftSpool(
   slotDef: (typeof SLOT_DEFS)[number],
 ): Promise<string | null> {
   try {
-    // Guard: if the slot already has a spool AND the physical filament is
-    // unchanged (same bambu_type + bambu_color), reuse it. Prevents creating
-    // duplicate drafts on every 60s sync. If the filament has actually been
-    // swapped, fall through and create a fresh draft.
+    // Guard: if the slot already has a spool AND the linked spool's filament
+    // colour is visibly close to the sync colour (ΔE < 10), reuse it.
+    // Prevents creating duplicate drafts on every 60s sync, while still
+    // falling through to a fresh draft when the physical filament has been
+    // swapped (handled in the main sync handler via the same ΔE threshold).
     const existingSlot = await db.query.amsSlots.findFirst({
       where: and(
         eq(amsSlots.slotType, slotDef.slotType),
@@ -142,13 +144,18 @@ async function autoCreateDraftSpool(
         eq(amsSlots.trayIndex, slotDef.trayIndex),
       ),
     });
-    const newColor = trayColor.slice(0, 6).toUpperCase();
-    const existingColor = (existingSlot?.bambuColor ?? "").slice(0, 6).toUpperCase();
-    const filamentUnchanged =
-      existingSlot?.spoolId != null &&
-      existingSlot.bambuType === trayType &&
-      existingColor === newColor;
-    if (filamentUnchanged) return existingSlot.spoolId;
+    if (existingSlot?.spoolId) {
+      const linked = await db.query.spools.findFirst({
+        where: eq(spools.id, existingSlot.spoolId),
+        with: { filament: true },
+      });
+      const linkedColor6 = (linked?.filament?.colorHex ?? "").slice(0, 6).toUpperCase();
+      const newColor6 = trayColor.slice(0, 6).toUpperCase();
+      if (linkedColor6 && newColor6) {
+        const de = deltaEHex(linkedColor6, newColor6);
+        if (de <= 10) return existingSlot.spoolId;
+      }
+    }
 
     // 1. Find or create "Unknown" vendor
     let unknownVendor = await db.query.vendors.findFirst({
@@ -763,8 +770,12 @@ export async function POST(request: NextRequest) {
       // the incoming tray_color against the LINKED SPOOL's filament color
       // (not the slot's stored bambu_color — that field is updated every
       // sync regardless of spool_id, so comparing it is a no-op once the
-      // two have desynced). Color is reliable; Bambu type strings don't map
-      // 1:1 to filament.material, so we don't compare material.
+      // two have desynced). We use perceptual color distance (ΔE) rather
+      // than strict hex equality: small differences (colour-profile drift,
+      // alpha rounding) shouldn't trigger a swap; only a visibly different
+      // colour (ΔE > 10, "clearly perceptible") should. Bambu type strings
+      // don't map 1:1 to filament.material, so we don't compare material.
+      const SWAP_DELTA_E_THRESHOLD = 10;
       let filamentSwapped = false;
       if (!isEmpty && existingSlot?.spoolId) {
         const linked = await db.query.spools.findFirst({
@@ -773,20 +784,17 @@ export async function POST(request: NextRequest) {
         });
         const linkedColor6 = (linked?.filament?.colorHex ?? "").slice(0, 6).toUpperCase();
         const newColor6 = trayColor.slice(0, 6).toUpperCase();
-        if (linkedColor6 && newColor6 && linkedColor6 !== newColor6) {
-          filamentSwapped = true;
+        if (linkedColor6 && newColor6) {
+          const de = deltaEHex(linkedColor6, newColor6);
+          if (de > SWAP_DELTA_E_THRESHOLD) {
+            filamentSwapped = true;
+          }
         }
-        console.log(
-          `[printer-sync] swap-check ${def.key}: linked=${linkedColor6 || "?"} new=${newColor6 || "?"} swapped=${filamentSwapped}`
-        );
       }
 
       if (filamentSwapped && existingSlot?.spoolId) {
         // Move the old spool off the slot up-front so matchSpool below
         // can't pick it up again by location proximity.
-        console.log(
-          `[printer-sync] SWAP-DETECTED ${def.key}: unbinding old spool ${existingSlot.spoolId.slice(0, 8)}`
-        );
         await db.update(spools).set({
           location: "workbench",
           updatedAt: new Date(),
