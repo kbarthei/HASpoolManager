@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- - refactor: move Clear Stale to Prints page, Refresh Prices to Shop Configuration (`42d1962`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`dd59309`)
 - - refactor: group admin page into 5 zones by adjustment frequency (`a370eb6`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`265391a`)
 - **chore:** bump addon version to 1.0.75 (`639e71d`)
