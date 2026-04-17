@@ -10,6 +10,7 @@ import { CheckCircle2, XCircle, Zap } from "lucide-react";
 import { formatDateTime, formatDateLong, formatDateShort } from "@/lib/date";
 import { costTooltip } from "@/lib/format-cost";
 import { CostTooltip } from "@/components/prints/cost-tooltip";
+import { ClearStaleButton } from "@/components/prints/clear-stale-button";
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -78,13 +79,19 @@ export default async function PrintHistoryPage() {
       {/* Currently Printing */}
       {runningPrints.length > 0 && (
         <div className="mb-4">
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-2">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
-            </span>
-            Currently Printing
-          </h3>
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-2">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+              </span>
+              Currently Printing
+            </h3>
+            <ClearStaleButton runningCount={runningPrints.length} />
+          </div>
+          <p className="text-[10px] text-muted-foreground mb-2">
+            Stuck at &ldquo;running&rdquo;? Clear stale to mark failed and unblock future tracking (auto after 24h).
+          </p>
           <div className="space-y-2">
             {runningPrints.map((print) => (
               <Card key={print.id} className="p-3 rounded-xl border-l-[3px] border-l-primary">

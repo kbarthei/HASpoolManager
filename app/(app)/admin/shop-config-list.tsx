@@ -4,6 +4,7 @@ import { desc, sql } from "drizzle-orm";
 import { Card } from "@/components/ui/card";
 import { Store } from "lucide-react";
 import { ShopConfigRow } from "./shop-config-row";
+import { RefreshPricesButton } from "./refresh-prices-button";
 
 interface ShopWithStats {
   id: string;
@@ -57,6 +58,15 @@ export async function ShopConfigList() {
             avgDeliveryDays={row.avgDeliveryDays}
           />
         ))}
+      </div>
+      <div className="flex items-center justify-between pt-2 border-t border-border gap-3">
+        <div>
+          <p className="text-xs font-medium">Refresh shop prices</p>
+          <p className="text-[10px] text-muted-foreground">
+            Fetch current prices from all active shop listings
+          </p>
+        </div>
+        <RefreshPricesButton />
       </div>
     </Card>
   );
