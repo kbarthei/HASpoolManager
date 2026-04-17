@@ -37,6 +37,11 @@ if [ -f /app/migrate-db.js ]; then
   node /app/migrate-db.js
 fi
 
+# Run data-quality health check (auto-fixes known issues, logs to data_quality_log)
+if [ -f /app/health-check.js ]; then
+  node /app/health-check.js
+fi
+
 echo "==> HASpoolManager starting"
 echo "    DB: $SQLITE_PATH"
 echo "    SUPERVISOR_TOKEN=${SUPERVISOR_TOKEN:+set (${#SUPERVISOR_TOKEN} chars)}"

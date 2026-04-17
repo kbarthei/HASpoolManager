@@ -540,6 +540,56 @@ const migrations = [
       db.exec("ALTER TABLE shops ADD COLUMN avg_delivery_days REAL");
     },
   },
+  {
+    name: "data_quality_log table",
+    check: () => {
+      const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='data_quality_log'").all();
+      return tables.length > 0;
+    },
+    apply: () => {
+      db.exec(`
+        CREATE TABLE data_quality_log (
+          id TEXT PRIMARY KEY,
+          run_at TEXT NOT NULL,
+          rule_id TEXT NOT NULL,
+          severity TEXT NOT NULL,
+          entity_type TEXT,
+          entity_id TEXT,
+          action TEXT NOT NULL,
+          details TEXT,
+          created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        )
+      `);
+      db.exec("CREATE INDEX idx_quality_log_run_at ON data_quality_log(run_at)");
+      db.exec("CREATE INDEX idx_quality_log_rule ON data_quality_log(rule_id)");
+    },
+  },
+  {
+    name: "spool weight clamp triggers",
+    check: () => {
+      const triggers = db.prepare("SELECT name FROM sqlite_master WHERE type='trigger' AND name='chk_spool_weight_negative'").all();
+      return triggers.length > 0;
+    },
+    apply: () => {
+      // AFTER UPDATE triggers that clamp weights back into valid range.
+      // Relies on recursive_triggers=OFF (SQLite default) so the inner
+      // UPDATE does not re-fire the trigger.
+      db.exec(`
+        CREATE TRIGGER chk_spool_weight_negative AFTER UPDATE OF remaining_weight ON spools
+          WHEN NEW.remaining_weight < 0
+          BEGIN
+            UPDATE spools SET remaining_weight = 0 WHERE id = NEW.id;
+          END;
+      `);
+      db.exec(`
+        CREATE TRIGGER chk_spool_weight_max AFTER UPDATE OF remaining_weight ON spools
+          WHEN NEW.remaining_weight > NEW.initial_weight AND NEW.initial_weight > 0
+          BEGIN
+            UPDATE spools SET remaining_weight = NEW.initial_weight WHERE id = NEW.id;
+          END;
+      `);
+    },
+  },
 ];
 
 // ── Run migrations ──────────────────────────────────────────────────────────
