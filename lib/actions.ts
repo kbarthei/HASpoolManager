@@ -5,6 +5,8 @@ import { amsSlots, spools, shops, orders, orderItems, filaments, vendors, shoppi
 import { eq, and, like, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { getRackConfig } from "@/lib/queries";
+import { resolveVendorName } from "@/lib/vendor-aliases";
+import { normalizeName } from "@/lib/name-normalize";
 
 export async function moveSpoolInRack(
   spoolId: string,
@@ -184,14 +186,15 @@ export async function createOrderFromParsed(data: {
     let filamentId = item.matchedFilamentId;
 
     if (!filamentId) {
-      // Find or create vendor
+      // Find or create vendor — resolve alias + normalize whitespace
+      const vendorName = resolveVendorName(item.vendor) || "Unknown";
       let vendor = await db.query.vendors.findFirst({
-        where: eq(vendors.name, item.vendor),
+        where: eq(vendors.name, vendorName),
       });
       if (!vendor) {
         [vendor] = await db
           .insert(vendors)
-          .values({ name: item.vendor })
+          .values({ name: vendorName })
           .returning();
       }
 
@@ -527,8 +530,8 @@ export async function confirmDraftSpool(
   let targetFilamentId = data.filamentId;
 
   if (!targetFilamentId && data.filamentName && data.material) {
-    // Find or create vendor
-    const vendorName = data.vendorName?.trim() || "Unknown";
+    // Find or create vendor — resolve alias + normalize whitespace
+    const vendorName = resolveVendorName(data.vendorName) || "Unknown";
     let vendor = await db.query.vendors.findFirst({ where: eq(vendors.name, vendorName) });
     if (!vendor) {
       [vendor] = await db.insert(vendors).values({ name: vendorName }).returning();
@@ -539,14 +542,14 @@ export async function confirmDraftSpool(
     let filament = await db.query.filaments.findFirst({
       where: and(
         eq(filaments.vendorId, vendor.id),
-        eq(filaments.name, data.filamentName),
+        eq(filaments.name, normalizeName(data.filamentName)),
         eq(filaments.colorHex, colorHex),
       ),
     });
     if (!filament) {
       [filament] = await db.insert(filaments).values({
         vendorId: vendor.id,
-        name: data.filamentName,
+        name: normalizeName(data.filamentName),
         material: data.material,
         colorHex,
         colorName: data.colorName ?? null,
@@ -629,8 +632,8 @@ export async function createSpoolFromScan(data: {
   nozzleTempMin?: number | null;
   nozzleTempMax?: number | null;
 }) {
-  // Find or create vendor
-  const vendorName = data.vendorName.trim() || "Unknown";
+  // Find or create vendor — resolve alias + normalize whitespace
+  const vendorName = resolveVendorName(data.vendorName) || "Unknown";
   let vendor = await db.query.vendors.findFirst({ where: eq(vendors.name, vendorName) });
   if (!vendor) {
     [vendor] = await db.insert(vendors).values({ name: vendorName }).returning();
@@ -647,14 +650,14 @@ export async function createSpoolFromScan(data: {
   let filament = await db.query.filaments.findFirst({
     where: and(
       eq(filaments.vendorId, vendor.id),
-      eq(filaments.name, data.filamentName),
+      eq(filaments.name, normalizeName(data.filamentName)),
       eq(filaments.colorHex, colorHex),
     ),
   });
   if (!filament) {
     [filament] = await db.insert(filaments).values({
       vendorId: vendor.id,
-      name: data.filamentName,
+      name: normalizeName(data.filamentName),
       material: data.material,
       colorHex,
       colorName: data.colorName ?? null,

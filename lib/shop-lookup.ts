@@ -1,5 +1,6 @@
 import { db } from "./db";
 import { shops } from "./db/schema";
+import { normalizeName } from "./name-normalize";
 
 /**
  * Find an existing shop by name, using fuzzy matching.
@@ -15,7 +16,8 @@ export async function findOrCreateShop(
   url?: string | null
 ): Promise<string> {
   const allShops = await db.query.shops.findMany();
-  const nameLower = name.toLowerCase().trim();
+  const canonical = normalizeName(name);
+  const nameLower = canonical.toLowerCase();
 
   // 1. Exact match (case-insensitive)
   const exact = allShops.find(
@@ -45,11 +47,11 @@ export async function findOrCreateShop(
     }
   }
 
-  // No match — create new shop
+  // No match — create new shop (store canonical normalized name)
   const [newShop] = await db
     .insert(shops)
     .values({
-      name,
+      name: canonical,
       website: url ?? null,
     })
     .returning();
