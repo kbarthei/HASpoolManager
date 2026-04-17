@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- **chore:** housekeeping — audit fix (hono), test counts, ignore iCloud dupes (`aef014f`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`ac250b3`)
 - **fix:** rename shadowed 'module' variable to pass Next.js lint (`2ce962f`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`a9b3358`)
 - **chore:** bump addon version to 1.0.66 (`c9d40df`)
