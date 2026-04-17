@@ -153,16 +153,11 @@ export async function createOrderFromParsed(data: {
     matchedFilamentId: string | null;
   }>;
 }) {
-  // Find or create shop
+  // Find or create shop (fuzzy match to prevent duplicates)
   let shopId: string | null = null;
   if (data.shop) {
-    let shop = await db.query.shops.findFirst({
-      where: eq(shops.name, data.shop),
-    });
-    if (!shop) {
-      [shop] = await db.insert(shops).values({ name: data.shop }).returning();
-    }
-    shopId = shop.id;
+    const { findOrCreateShop } = await import("./shop-lookup");
+    shopId = await findOrCreateShop(data.shop);
   }
 
   // Calculate total cost
@@ -697,13 +692,8 @@ export async function importHistoricalOrder(data: {
   // 1. Find or create shop
   let shopId: string | null = null;
   if (data.shopName?.trim()) {
-    let shop = await db.query.shops.findFirst({
-      where: eq(shops.name, data.shopName.trim()),
-    });
-    if (!shop) {
-      [shop] = await db.insert(shops).values({ name: data.shopName.trim() }).returning();
-    }
-    shopId = shop.id;
+    const { findOrCreateShop } = await import("./shop-lookup");
+    shopId = await findOrCreateShop(data.shopName.trim());
   }
 
   // 2. Calculate total cost
@@ -796,13 +786,8 @@ export async function importBatchOrders(batchOrders: Array<{
     // Find or create shop
     let shopId: string | null = null;
     if (order.shopName?.trim()) {
-      let shop = await db.query.shops.findFirst({
-        where: eq(shops.name, order.shopName.trim()),
-      });
-      if (!shop) {
-        [shop] = await db.insert(shops).values({ name: order.shopName.trim() }).returning();
-      }
-      shopId = shop.id;
+      const { findOrCreateShop } = await import("./shop-lookup");
+      shopId = await findOrCreateShop(order.shopName.trim());
     }
 
     // Calculate total cost
@@ -903,4 +888,31 @@ export async function purgeAllCaches() {
   revalidatePath("/history");
   revalidatePath("/admin");
   return true;
+}
+
+export async function updateEnergySettings(data: {
+  energySensorEntityId: string | null;
+  electricityPricePerKwh: number | null;
+}) {
+  const upsert = async (key: string, value: string | null) => {
+    if (value === null || value === "") {
+      await db.delete(settings).where(eq(settings.key, key));
+      return;
+    }
+    const existing = await db.query.settings.findFirst({ where: eq(settings.key, key) });
+    if (existing) {
+      await db.update(settings).set({ value, updatedAt: new Date() }).where(eq(settings.key, key));
+    } else {
+      await db.insert(settings).values({ key, value });
+    }
+  };
+
+  await upsert("energy_sensor_entity_id", data.energySensorEntityId);
+  await upsert(
+    "electricity_price_per_kwh",
+    data.electricityPricePerKwh != null ? String(data.electricityPricePerKwh) : null
+  );
+
+  revalidatePath("/admin");
+  return { ok: true };
 }

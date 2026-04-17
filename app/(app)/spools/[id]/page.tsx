@@ -13,6 +13,7 @@ import { WeightAdjuster } from "@/components/spool/weight-adjuster";
 import { ArchiveButton } from "@/components/spool/archive-button";
 import { AddToShoppingListButton } from "@/components/spool/add-to-shopping-list-button";
 import { SpoolManageSection } from "@/components/spool/spool-manage-section";
+import { MaterialProfileCard } from "@/components/spool/material-profile-card";
 import { and, ne, sql } from "drizzle-orm";
 
 export default async function SpoolDetailPage({
@@ -92,6 +93,10 @@ export default async function SpoolDetailPage({
     orderLinked: s.orderItems.length > 0,
     tagCount: s.tagMappings.length,
   }));
+
+  const materialProfile = await db.query.materialProfiles.findFirst({
+    where: eq(schema.materialProfiles.material, spool.filament.material),
+  });
 
   const usedWeight = spool.initialWeight - spool.remainingWeight;
   const costPerGram = spool.purchasePrice
@@ -222,6 +227,9 @@ export default async function SpoolDetailPage({
           <ArchiveButton spoolId={spool.id} spoolName={`${spool.filament.vendor.name} ${spool.filament.name}`} />
         </div>
       </div>
+
+      {/* Material Profile */}
+      <MaterialProfileCard profile={materialProfile ?? null} />
 
       {/* Usage History */}
       <Card className="p-3 rounded-xl">

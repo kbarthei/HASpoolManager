@@ -694,6 +694,33 @@ export async function POST(request: NextRequest) {
     }
     // runningPrint && isIdle && printError → keep running (waiting for spool swap)
 
+    // ── Supply engine: update consumption + check supply after print ends ──
+    if ((printTransition === "finished" || printTransition === "failed") && affectedPrintId) {
+      try {
+        const { recordConsumption, analyzeFilamentSupply, updateSupplyAlerts } = await import("@/lib/supply-engine-db");
+        const usageRecords = await db.query.printUsage.findMany({
+          where: eq(printUsage.printId, affectedPrintId),
+          with: { spool: { columns: { filamentId: true } } },
+        });
+        const filamentIds = new Set<string>();
+        for (const u of usageRecords) {
+          if (u.spool?.filamentId) {
+            filamentIds.add(u.spool.filamentId);
+            await recordConsumption(u.spool.filamentId, u.weightUsed);
+          }
+        }
+        const statuses = [];
+        for (const fid of filamentIds) {
+          statuses.push(await analyzeFilamentSupply(fid));
+        }
+        if (statuses.length > 0) {
+          await updateSupplyAlerts(statuses);
+        }
+      } catch (error) {
+        console.error("[printer-sync] supply engine error:", error);
+      }
+    }
+
     // ── 2. Update AMS slots (flat key-value) ──────────────────────────────
 
     let slotsUpdated = 0;
