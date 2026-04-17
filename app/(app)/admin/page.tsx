@@ -18,6 +18,8 @@ import { RefreshPricesButton } from "./refresh-prices-button";
 import { PrinterMappings } from "./printer-mappings";
 import { EnergySettings } from "./energy-settings";
 import { DataQualityCard } from "./data-quality-card";
+import { BudgetSettings } from "./budget-settings";
+import { ShopConfigList } from "./shop-config-list";
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -55,7 +57,7 @@ export default async function AdminPage() {
     nodeEnv: process.env.NODE_ENV,
   };
 
-  const [stats, [lastSyncEntry], printerStatus, rackConfig, activePrinter, energyEntityRow, energyPriceRow] = await Promise.all([
+  const [stats, [lastSyncEntry], printerStatus, rackConfig, activePrinter, energyEntityRow, energyPriceRow, budgetRow, budgetStartRow] = await Promise.all([
     getSystemStats(),
     db.select().from(syncLog).orderBy(desc(syncLog.createdAt)).limit(1),
     getPrinterStatus(),
@@ -63,6 +65,8 @@ export default async function AdminPage() {
     db.query.printers.findFirst({ where: eq(printersTable.isActive, true) }),
     db.query.settings.findFirst({ where: eq(settings.key, "energy_sensor_entity_id") }),
     db.query.settings.findFirst({ where: eq(settings.key, "electricity_price_per_kwh") }),
+    db.query.settings.findFirst({ where: eq(settings.key, "monthly_filament_budget") }),
+    db.query.settings.findFirst({ where: eq(settings.key, "budget_period_start_day") }),
   ]);
 
   // ── Config details ────────────────────────────────────────────────────────
@@ -372,6 +376,23 @@ export default async function AdminPage() {
           initialPricePerKwh={energyPriceRow?.value ?? ""}
         />
       </Card>
+
+      {/* ── Budget ────────────────────────────────────────────────────── */}
+      <Card className="p-4 space-y-3">
+        <div>
+          <h2 className="text-sm font-semibold">Monthly Filament Budget</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Spend cap for filament orders. Used by the supply optimizer to prioritise critical reorders.
+          </p>
+        </div>
+        <BudgetSettings
+          initialBudget={budgetRow?.value ?? ""}
+          initialStartDay={budgetStartRow?.value ?? "1"}
+        />
+      </Card>
+
+      {/* ── Shop Configuration ───────────────────────────────────────── */}
+      <ShopConfigList />
 
       {/* ── Data Quality ──────────────────────────────────────────────── */}
       <DataQualityCard />

@@ -919,3 +919,57 @@ export async function updateEnergySettings(data: {
   revalidatePath("/admin");
   return { ok: true };
 }
+
+async function upsertSetting(key: string, value: string | null) {
+  if (value === null || value === "") {
+    await db.delete(settings).where(eq(settings.key, key));
+    return;
+  }
+  const existing = await db.query.settings.findFirst({ where: eq(settings.key, key) });
+  if (existing) {
+    await db.update(settings).set({ value, updatedAt: new Date() }).where(eq(settings.key, key));
+  } else {
+    await db.insert(settings).values({ key, value });
+  }
+}
+
+export async function updateBudgetSettings(data: {
+  monthlyFilamentBudget: number | null;
+  budgetPeriodStartDay: number | null;
+}) {
+  await upsertSetting(
+    "monthly_filament_budget",
+    data.monthlyFilamentBudget != null && data.monthlyFilamentBudget > 0
+      ? String(data.monthlyFilamentBudget)
+      : null
+  );
+  await upsertSetting(
+    "budget_period_start_day",
+    data.budgetPeriodStartDay != null
+      ? String(Math.min(Math.max(1, Math.floor(data.budgetPeriodStartDay)), 28))
+      : null
+  );
+
+  revalidatePath("/admin");
+  revalidatePath("/");
+  revalidatePath("/orders");
+  return { ok: true };
+}
+
+export async function updateShopConfig(data: {
+  shopId: string;
+  freeShippingThreshold: number | null;
+  shippingCost: number | null;
+  bulkDiscountRules: string | null; // JSON string: [{minQty, discountPercent}]
+}) {
+  await db.update(shops).set({
+    freeShippingThreshold: data.freeShippingThreshold,
+    shippingCost: data.shippingCost,
+    bulkDiscountRules: data.bulkDiscountRules,
+    updatedAt: new Date(),
+  }).where(eq(shops.id, data.shopId));
+
+  revalidatePath("/admin");
+  revalidatePath("/orders");
+  return { ok: true };
+}
