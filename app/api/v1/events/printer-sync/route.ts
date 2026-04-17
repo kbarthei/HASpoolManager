@@ -776,11 +776,17 @@ export async function POST(request: NextRequest) {
         if (linkedColor6 && newColor6 && linkedColor6 !== newColor6) {
           filamentSwapped = true;
         }
+        console.log(
+          `[printer-sync] swap-check ${def.key}: linked=${linkedColor6 || "?"} new=${newColor6 || "?"} swapped=${filamentSwapped}`
+        );
       }
 
       if (filamentSwapped && existingSlot?.spoolId) {
         // Move the old spool off the slot up-front so matchSpool below
         // can't pick it up again by location proximity.
+        console.log(
+          `[printer-sync] SWAP-DETECTED ${def.key}: unbinding old spool ${existingSlot.spoolId.slice(0, 8)}`
+        );
         await db.update(spools).set({
           location: "workbench",
           updatedAt: new Date(),
@@ -791,9 +797,14 @@ export async function POST(request: NextRequest) {
         }).where(eq(amsSlots.id, existingSlot.id));
       }
 
-      // Match spool when slot is occupied
+      // Match spool when slot is occupied. Skip fuzzy matching if we just
+      // detected a swap with no RFID — otherwise matchSpool could re-bind the
+      // same stale spool via weak material-only matching. If the new filament
+      // has an RFID, we still want matchSpool to find the tagged spool.
       let matchedSpoolId: string | null = null;
-      if (!isEmpty && trayType) {
+      const skipMatchAfterSwap =
+        filamentSwapped && (!tagUid || tagUid === "0000000000000000");
+      if (!isEmpty && trayType && !skipMatchAfterSwap) {
         const matchResult = await matchSpool({
           tag_uid: tagUid || undefined,
           tray_info_idx: filamentId || undefined,
