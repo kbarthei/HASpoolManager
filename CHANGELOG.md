@@ -6,6 +6,9 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- **chore:** bump addon version to 1.0.75 (`639e71d`)
+- **feat:** Supply Manager Phase 2 — budget tracking, shop config, order optimizer (`46456c5`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`0b5aa5e`)
 - - refactor: use perceptual color distance (ΔE) for AMS swap detection (`dd67b86`)
 - **fix:** skip fuzzy matching after swap when there's no RFID (`26dc6c5`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`72001b8`)
