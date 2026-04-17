@@ -9,7 +9,7 @@
  */
 
 import { HAWebSocketClient } from "./ha-websocket";
-import { getEntityStates } from "./ha-api";
+import { getEntityState, getEntityStates } from "./ha-api";
 import { discoverPrinters, buildFieldToEntityMap, buildEntityToFieldMap, type DiscoveredPrinter, type EntityMapping } from "./ha-discovery";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -57,6 +57,43 @@ function parseRunoutError(errorCode: number): { amsUnit: number; trayIndex: numb
 const printers = new Map<string, PrinterSyncState>(); // deviceId → state
 let wsClient: HAWebSocketClient | null = null;
 let watchdogTimer: ReturnType<typeof setInterval> | null = null;
+
+// ── Energy tracking cache ───────────────────────────────────────────────────
+let energySensorEntityId: string | null = null;
+
+/** Load energy tracking settings from the internal API. */
+async function loadEnergySettings(): Promise<void> {
+  try {
+    const apiKey = process.env.API_SECRET_KEY || "";
+    const port = process.env.PORT || "3002";
+    const basePath = process.env.HA_ADDON === "true" ? "/ingress" : "";
+    const res = await fetch(`http://127.0.0.1:${port}${basePath}/api/v1/settings/energy`, {
+      headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : {},
+    });
+    if (res.ok) {
+      const data = await res.json();
+      energySensorEntityId = data.energy_sensor_entity_id || null;
+      console.log(`[sync-worker] energy sensor: ${energySensorEntityId || "not configured"}`);
+    }
+  } catch {
+    console.log("[sync-worker] energy settings not available (API not ready yet)");
+  }
+}
+
+/** Read current kWh value from the energy sensor. Returns null if unavailable. */
+async function readEnergySensorKwh(): Promise<number | null> {
+  if (!energySensorEntityId) return null;
+  try {
+    const state = await getEntityState(energySensorEntityId);
+    const value = parseFloat(state?.state ?? "");
+    if (isNaN(value) || state?.state === "unavailable" || state?.state === "unknown") {
+      return null;
+    }
+    return value;
+  } catch {
+    return null;
+  }
+}
 
 // ── Sync payload builder ────────────────────────────────────────────────────
 
@@ -141,6 +178,64 @@ async function callSyncEngine(payload: Record<string, unknown>): Promise<void> {
   }
 }
 
+/**
+ * Process HMS error attributes from binary_sensor.*_hms_errors.
+ * HA exposes errors as numbered attributes:
+ *   1-Code: "HMS_0700_2000_0002_0001"
+ *   1-Error: "AMS1 Slot1 filament has run out."
+ *   1-Severity: "common"
+ *   1-Wiki: "https://wiki.bambulab.com/..."
+ *   Count: 2
+ */
+async function processHmsErrors(
+  printer: PrinterSyncState,
+  attrs: Record<string, unknown>,
+): Promise<void> {
+  const count = Number(attrs.Count ?? attrs.count ?? 0);
+  if (count <= 0) return;
+
+  const events: Array<{
+    code: string;
+    message: string;
+    severity: string;
+    wiki_url: string;
+  }> = [];
+
+  for (let i = 1; i <= count; i++) {
+    const code = String(attrs[`${i}-Code`] ?? "");
+    const message = String(attrs[`${i}-Error`] ?? attrs[`${i}-Message`] ?? "");
+    const severity = String(attrs[`${i}-Severity`] ?? "unknown");
+    const wikiUrl = String(attrs[`${i}-Wiki`] ?? "");
+
+    if (!code) continue;
+    events.push({ code, message, severity, wiki_url: wikiUrl });
+  }
+
+  if (events.length === 0) return;
+
+  console.log(`[sync-worker] HMS: ${events.length} error(s) — ${events.map(e => e.code).join(", ")}`);
+
+  try {
+    const apiKey = process.env.API_SECRET_KEY || "";
+    const port = process.env.PORT || "3002";
+    const basePath = process.env.HA_ADDON === "true" ? "/ingress" : "";
+
+    await fetch(`http://127.0.0.1:${port}${basePath}/api/v1/events/hms`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
+      },
+      body: JSON.stringify({
+        printer_id: printer.printerId,
+        events,
+      }),
+    });
+  } catch (error) {
+    console.error("[sync-worker] HMS event POST failed:", error);
+  }
+}
+
 // ── Event handlers ──────────────────────────────────────────────────────────
 
 async function handleBambuEvent(event: Record<string, unknown>) {
@@ -199,6 +294,22 @@ async function handleBambuEvent(event: Record<string, unknown>) {
   if (printer.pendingSwaps.length > 0) {
     payload.spool_swaps = printer.pendingSwaps;
   }
+
+  // Energy tracking: read kWh sensor at print start and end
+  if (eventType === "event_print_started") {
+    const kwh = await readEnergySensorKwh();
+    if (kwh !== null) {
+      payload.energy_start_kwh = kwh;
+      console.log(`[sync-worker] energy at start: ${kwh} kWh`);
+    }
+  } else if (["event_print_finished", "event_print_canceled", "event_print_failed"].includes(eventType)) {
+    const kwh = await readEnergySensorKwh();
+    if (kwh !== null) {
+      payload.energy_end_kwh = kwh;
+      console.log(`[sync-worker] energy at end: ${kwh} kWh`);
+    }
+  }
+
   await callSyncEngine(payload);
 
   // Capture cover image at print start
@@ -352,6 +463,13 @@ async function handleStateChanged(event: Record<string, unknown>) {
         if (attrs.empty === false || attrs.empty === "False") {
           console.log(`[sync-worker] tray refilled: ${field} tag=${attrs.tag_uid ?? "?"}`);
         }
+      }
+
+      // ── HMS error tracking ──────────────────────────────────────────
+      if (field === "hms_errors" && newState === "on") {
+        await processHmsErrors(printer, attrs);
+        // Don't trigger a full sync for HMS — it's tracked separately
+        return;
       }
 
       // Only trigger full sync on important state changes
@@ -555,6 +673,9 @@ export async function startSyncWorker(): Promise<void> {
           await registerPrinter(p);
         }
         console.log(`[sync-worker] discovered ${discovered.length} printer(s)`);
+
+        // Load energy tracking settings
+        await loadEnergySettings();
 
         // Start watchdog
         startWatchdog();

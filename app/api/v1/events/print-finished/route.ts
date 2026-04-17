@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
       cost: number;
     }> = [];
     const warnings: string[] = [];
-    let totalCost = 0;
+    let filamentCostSum = 0;
 
     if (body.usage && body.usage.length > 0) {
       for (const entry of body.usage) {
@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
           ? spool.purchasePrice / spool.initialWeight
           : 0;
         const cost = Math.round(entry.weight_used * pricePerGram * 100) / 100;
-        totalCost += cost;
+        filamentCostSum += cost;
 
         // Deduct weight from spool
         await db
@@ -140,7 +140,8 @@ export async function POST(request: NextRequest) {
         finishedAt,
         durationSeconds,
         printWeight: body.print_weight || null,
-        totalCost,
+        filamentCost: filamentCostSum,
+        totalCost: filamentCostSum,
         updatedAt: new Date(),
       })
       .where(eq(prints.id, print.id));
@@ -149,7 +150,8 @@ export async function POST(request: NextRequest) {
       print_id: print.id,
       status: body.status || "finished",
       deductions,
-      total_cost: totalCost,
+      filament_cost: filamentCostSum,
+      total_cost: filamentCostSum,
       warnings,
     });
   } catch (error) {

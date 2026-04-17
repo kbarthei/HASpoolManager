@@ -1,0 +1,1 @@
+ALTER TABLE `vendors` ADD `default_spool_weight` integer;

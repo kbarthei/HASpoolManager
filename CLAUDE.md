@@ -257,3 +257,15 @@ Never edit a committed migration file — generate a follow-up migration instead
 - WRONG: `cd "/Users/kbarthei/Library/..." && npm run build`
 
 This applies to ALL agents, subagents, and sessions. The `cd` prefix breaks auto-approve permission rules and forces manual approval of every command.
+
+## CRITICAL: Prefer Dedicated Tools Over Bash
+
+**Always use dedicated tools (Read, Edit, Write, Glob, Grep) instead of Bash** when the task can be solved with them. Bash should only be used for actual shell operations (npm, git, npx, docker, etc.). This applies to ALL agents and subagents.
+
+- Read files: use `Read`, not `cat`/`head`/`tail`
+- Edit files: use `Edit`, not `sed`/`awk`
+- Create files: use `Write`, not `echo`/`cat <<EOF`
+- Search files: use `Glob`, not `find`/`ls`
+- Search content: use `Grep`, not `grep`/`rg`
+
+This avoids unnecessary permission prompts and gives the user better visibility into changes.

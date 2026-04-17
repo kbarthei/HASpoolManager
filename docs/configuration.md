@@ -61,7 +61,30 @@ Default grid is 4 rows x 8 columns (32 slots). Positions use the format `rack:R-
 - `rack:1-1` = Row 1, Column 1 (top-left)
 - `rack:4-8` = Row 4, Column 8 (bottom-right)
 
-## 7. Network Ports
+## 7. Energy Tracking
+
+Track electricity costs per print using a smart plug with energy monitoring.
+
+**Settings** (configured via Admin > Energy Tracking):
+
+| Setting | Description | Example |
+|---------|-------------|---------|
+| `energy_sensor_entity_id` | HA energy sensor entity (cumulative kWh) | `sensor.printer_plug_energy` |
+| `electricity_price_per_kwh` | Flat rate in EUR per kWh | `0.32` |
+
+**How it works:**
+1. At print start, the sync worker reads the smart plug's cumulative kWh value
+2. At print end, it reads again and calculates the difference
+3. The difference is multiplied by the configured EUR/kWh price
+4. Both filament cost and energy cost are stored on the print record
+5. `totalCost = filamentCost + energyCost`
+
+**Requirements:**
+- Smart plug with energy monitoring connected to HA (e.g., Shelly Plug S, Zigbee outlet)
+- The energy sensor must have `device_class: energy` and report cumulative kWh
+- Feature is opt-in — no sensor configured means no energy tracking
+
+## 8. Network Ports
 
 | Port | Purpose | Auth |
 |------|---------|------|

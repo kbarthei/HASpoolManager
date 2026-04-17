@@ -203,9 +203,34 @@ export async function getPrinterStatus() {
     }
   }
 
+  // Determine printer status from last sync log
+  let status: "printing" | "idle" | "offline" = "offline";
+  if (runningPrint) {
+    status = "printing";
+  } else {
+    const lastSync = await db.query.syncLog.findFirst({
+      orderBy: (log, { desc: d }) => [d(log.createdAt)],
+    });
+    if (lastSync) {
+      const normalizedState = (lastSync.normalizedState ?? "").toUpperCase();
+      const syncAgeMs = lastSync.createdAt ? Date.now() - new Date(lastSync.createdAt).getTime() : Infinity;
+      const STALE_THRESHOLD_MS = 10 * 60 * 1000; // 10 minutes
+
+      if (syncAgeMs > STALE_THRESHOLD_MS) {
+        // No sync in 10+ minutes → sync worker disconnected
+        status = "offline";
+      } else if (normalizedState === "OFFLINE" || normalizedState === "UNKNOWN") {
+        status = "offline";
+      } else {
+        status = "idle";
+      }
+    }
+    // No sync log at all → offline (never connected)
+  }
+
   return {
     name: printer.name,
-    status: runningPrint ? "printing" : "idle",
+    status,
     printName: runningPrint?.name || null,
     progress,
     remainingTime,
@@ -397,6 +422,9 @@ export type ColorDistribution = { colorHex: string; label: string; weight: numbe
 export type VendorQuality = { vendor: string; success: number; failed: number; total: number; rate: number };
 export type StockValuePoint = { month: string; value: number };
 export type SuccessRatePerMonth = { month: string; rate: number; total: number };
+export type PrintCostPerMonth = { month: string; filamentCost: number; energyCost: number; totalCost: number };
+export type HmsErrorsPerMonth = { month: string; count: number };
+export type HmsErrorsByModule = { module: string; count: number };
 
 export async function getDashboardChartData(): Promise<{
   monthlySpend: MonthlySpend[];
@@ -412,6 +440,9 @@ export async function getDashboardChartData(): Promise<{
   vendorQuality: VendorQuality[];
   stockValueHistory: StockValuePoint[];
   successRate: SuccessRatePerMonth[];
+  printCostPerMonth: PrintCostPerMonth[];
+  hmsErrorsPerMonth: HmsErrorsPerMonth[];
+  hmsErrorsByModule: HmsErrorsByModule[];
 }> {
   // German abbreviated month names
   const DE_MONTHS = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"];
@@ -741,9 +772,80 @@ export async function getDashboardChartData(): Promise<{
     };
   });
 
+  // 14. Print cost per month: filament cost + energy cost breakdown
+  const printCostRows = await db.select({
+    year: sqlExtractYear(schema.prints.startedAt),
+    month: sqlExtractMonth(schema.prints.startedAt),
+    filamentCost: sqlCoalesceSum(schema.prints.filamentCost),
+    energyCost: sqlCoalesceSum(schema.prints.energyCost),
+  })
+    .from(schema.prints)
+    .where(sqlSixMonthsAgo(schema.prints.startedAt))
+    .groupBy(
+      sqlGroupByYear(schema.prints.startedAt),
+      sqlGroupByMonth(schema.prints.startedAt),
+    );
+
+  const printCostMap = new Map(printCostRows.map(r => [
+    `${r.year}-${r.month}`,
+    { filamentCost: r.filamentCost ?? 0, energyCost: r.energyCost ?? 0 },
+  ]));
+  const printCostPerMonth: PrintCostPerMonth[] = months.map(m => {
+    const costs = printCostMap.get(`${m.year}-${m.month}`) ?? { filamentCost: 0, energyCost: 0 };
+    const filament = Math.round(costs.filamentCost * 100) / 100;
+    const energy = Math.round(costs.energyCost * 100) / 100;
+    return {
+      month: m.label,
+      filamentCost: filament,
+      energyCost: energy,
+      totalCost: Math.round((filament + energy) * 100) / 100,
+    };
+  });
+
+  // 15. HMS errors per month
+  const hmsMonthRows = await db.select({
+    year: sqlExtractYear(schema.hmsEvents.createdAt),
+    month: sqlExtractMonth(schema.hmsEvents.createdAt),
+    count: sqlCount(),
+  })
+    .from(schema.hmsEvents)
+    .where(sqlSixMonthsAgo(schema.hmsEvents.createdAt))
+    .groupBy(
+      sqlGroupByYear(schema.hmsEvents.createdAt),
+      sqlGroupByMonth(schema.hmsEvents.createdAt),
+    );
+
+  const hmsMonthMap = new Map(hmsMonthRows.map(r => [`${r.year}-${r.month}`, r.count]));
+  const hmsErrorsPerMonth: HmsErrorsPerMonth[] = months.map(m => ({
+    month: m.label,
+    count: hmsMonthMap.get(`${m.year}-${m.month}`) ?? 0,
+  }));
+
+  // 16. HMS errors by module
+  const hmsModuleRows = await db.select({
+    module: schema.hmsEvents.module,
+    count: sqlCount(),
+  })
+    .from(schema.hmsEvents)
+    .groupBy(schema.hmsEvents.module);
+
+  const moduleLabels: Record<string, string> = {
+    ams: "AMS",
+    mc: "Motion",
+    toolhead: "Toolhead",
+    mainboard: "Mainboard",
+    xcam: "Camera",
+    unknown: "Other",
+  };
+  const hmsErrorsByModule: HmsErrorsByModule[] = hmsModuleRows.map(r => ({
+    module: moduleLabels[r.module ?? "unknown"] ?? r.module ?? "Other",
+    count: r.count,
+  }));
+
   return {
     monthlySpend, inventory, printsPerMonth, spendByVendor, filamentConsumed,
     spoolLifecycle, materialUsage,
     avgDuration, wastePerMonth, colorDistribution, vendorQuality, stockValueHistory, successRate,
+    printCostPerMonth, hmsErrorsPerMonth, hmsErrorsByModule,
   };
 }

@@ -68,8 +68,8 @@ Before rewriting tests, the codebase must lose its dual-driver baggage:
 
 | Layer | Files | Status |
 |-------|-------|--------|
-| `tests/unit/` (10 files, 419 tests) | color, date, matching-scoring, order-parsing, price-crawler, printer-sync-helpers, storage-moves, theme, validations, weight-adjustment | ✅ All import real code, no DB |
-| `tests/integration/` (7 files, 75 tests) | api-health, api-crud, api-match, api-events, api-admin-sync-log, printer-sync, + 1 more | ✅ All use per-worker SQLite harness + direct route handler calls |
+| `tests/unit/` (10 files, 443 tests) | color, date, matching-scoring, order-parsing, price-crawler, printer-sync-helpers (incl. calculateEnergyCost, parseHmsCode), storage-moves, theme, validations, weight-adjustment | ✅ All import real code, no DB |
+| `tests/integration/` (8 files, 87 tests) | api-health, api-crud, api-match, api-events, api-admin-sync-log, printer-sync (incl. energy tracking), hms-events, + 1 more | ✅ All use per-worker SQLite harness + direct route handler calls |
 | `tests/e2e/` (13 specs, 35 tests) | 01-smoke through 13-mobile-viewport | ✅ Run against addon stack (Docker nginx + ingress simulator) |
 | `tests/fixtures/seed.ts` | Factory functions (makeVendor, makeFilament, makeSpool, makePrinter, makeAmsSlot, makeTagMapping) | ✅ Uses `@/lib/db` singleton (lazy, binds to harness DB) |
 | `tests/harness/` | sqlite-db.ts, request.ts, addon-stack.ts, ingress-simulator.ts | ✅ Complete harness infrastructure |

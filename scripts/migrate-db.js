@@ -65,12 +65,113 @@ const migrations = [
       db.exec("ALTER TABLE prints ADD COLUMN snapshot_path TEXT");
     },
   },
-  // Add future migrations here:
-  // {
-  //   name: "table.column_name",
-  //   check: () => { const cols = db.pragma("table_info(table)"); return cols.some(c => c.name === "column_name"); },
-  //   apply: () => { db.exec("ALTER TABLE table ADD COLUMN column_name TEXT"); },
-  // },
+  {
+    name: "prints: rename total_cost to filament_cost",
+    check: () => {
+      const cols = db.pragma("table_info(prints)");
+      return cols.some((c) => c.name === "filament_cost");
+    },
+    apply: () => {
+      db.exec("ALTER TABLE prints RENAME COLUMN total_cost TO filament_cost");
+    },
+  },
+  {
+    name: "prints.energy_cost column",
+    check: () => {
+      const cols = db.pragma("table_info(prints)");
+      return cols.some((c) => c.name === "energy_cost");
+    },
+    apply: () => {
+      db.exec("ALTER TABLE prints ADD COLUMN energy_cost REAL");
+    },
+  },
+  {
+    name: "prints.energy_kwh column",
+    check: () => {
+      const cols = db.pragma("table_info(prints)");
+      return cols.some((c) => c.name === "energy_kwh");
+    },
+    apply: () => {
+      db.exec("ALTER TABLE prints ADD COLUMN energy_kwh REAL");
+    },
+  },
+  {
+    name: "prints.energy_start_kwh column",
+    check: () => {
+      const cols = db.pragma("table_info(prints)");
+      return cols.some((c) => c.name === "energy_start_kwh");
+    },
+    apply: () => {
+      db.exec("ALTER TABLE prints ADD COLUMN energy_start_kwh REAL");
+    },
+  },
+  {
+    name: "prints.energy_end_kwh column",
+    check: () => {
+      const cols = db.pragma("table_info(prints)");
+      return cols.some((c) => c.name === "energy_end_kwh");
+    },
+    apply: () => {
+      db.exec("ALTER TABLE prints ADD COLUMN energy_end_kwh REAL");
+    },
+  },
+  {
+    name: "prints.total_cost column (filament + energy)",
+    check: () => {
+      const cols = db.pragma("table_info(prints)");
+      // total_cost column must exist AND filament_cost must also exist
+      // (if filament_cost doesn't exist, total_cost is the old un-renamed column)
+      return cols.some((c) => c.name === "total_cost") && cols.some((c) => c.name === "filament_cost");
+    },
+    apply: () => {
+      db.exec("ALTER TABLE prints ADD COLUMN total_cost REAL");
+      db.exec("UPDATE prints SET total_cost = filament_cost WHERE filament_cost IS NOT NULL");
+    },
+  },
+  {
+    name: "hms_events table",
+    check: () => {
+      const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='hms_events'").all();
+      return tables.length > 0;
+    },
+    apply: () => {
+      db.exec(`
+        CREATE TABLE hms_events (
+          id TEXT PRIMARY KEY,
+          printer_id TEXT NOT NULL REFERENCES printers(id) ON DELETE CASCADE,
+          print_id TEXT REFERENCES prints(id) ON DELETE SET NULL,
+          spool_id TEXT REFERENCES spools(id) ON DELETE SET NULL,
+          filament_id TEXT REFERENCES filaments(id) ON DELETE SET NULL,
+          hms_code TEXT NOT NULL,
+          module TEXT,
+          severity TEXT,
+          message TEXT,
+          wiki_url TEXT,
+          slot_key TEXT,
+          raw_attr INTEGER,
+          raw_code INTEGER,
+          created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        )
+      `);
+      db.exec("CREATE INDEX idx_hms_printer ON hms_events(printer_id)");
+      db.exec("CREATE INDEX idx_hms_filament ON hms_events(filament_id)");
+      db.exec("CREATE INDEX idx_hms_created ON hms_events(created_at)");
+    },
+  },
+  {
+    name: "vendors.default_spool_weight column",
+    check: () => {
+      const cols = db.pragma("table_info(vendors)");
+      return cols.some((c) => c.name === "default_spool_weight");
+    },
+    apply: () => {
+      db.exec("ALTER TABLE vendors ADD COLUMN default_spool_weight INTEGER");
+      // Seed known spool weights (empty spool, grams)
+      db.exec("UPDATE vendors SET default_spool_weight = 250 WHERE LOWER(name) = 'bambu lab'");
+      db.exec("UPDATE vendors SET default_spool_weight = 140 WHERE LOWER(name) = 'polymaker'");
+      db.exec("UPDATE vendors SET default_spool_weight = 170 WHERE LOWER(name) = 'esun'");
+    },
+  },
 ];
 
 // ── Run migrations ──────────────────────────────────────────────────────────

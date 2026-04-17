@@ -7,6 +7,9 @@ import { LowStockList } from "@/components/dashboard/low-stock-list";
 import { RecentPrints } from "@/components/dashboard/recent-prints";
 import { FilamentSummary } from "@/components/dashboard/filament-summary";
 import { MonthlySpendChart } from "@/components/dashboard/monthly-spend-chart";
+import { PrintCostChart } from "@/components/dashboard/print-cost-chart";
+import { HmsErrorsChart } from "@/components/dashboard/hms-errors-chart";
+import { HmsByModuleChart } from "@/components/dashboard/hms-by-module-chart";
 import { InventoryChart } from "@/components/dashboard/inventory-chart";
 import { PrintsChart } from "@/components/dashboard/prints-chart";
 import { SpendByVendorChart } from "@/components/dashboard/spend-by-vendor-chart";
@@ -117,8 +120,11 @@ export default async function Dashboard() {
       <RecentPrints prints={prints} />
 
       {/* Key charts (always visible) */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
         <MonthlySpendChart data={chartData.monthlySpend} />
+        <PrintCostChart data={chartData.printCostPerMonth} />
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
         <InventoryChart data={chartData.inventory} />
         <PrintsChart data={chartData.printsPerMonth} />
       </div>
@@ -142,6 +148,10 @@ export default async function Dashboard() {
           <ColorDistributionChart data={chartData.colorDistribution} />
           <VendorQualityChart data={chartData.vendorQuality} />
           <StockValueChart data={chartData.stockValueHistory} />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+          <HmsErrorsChart data={chartData.hmsErrorsPerMonth} />
+          <HmsByModuleChart data={chartData.hmsErrorsByModule} />
         </div>
       </AnalyticsSection>
     </div>

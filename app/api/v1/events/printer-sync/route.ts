@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { prints, amsSlots, spools, syncLog, printUsage, vendors, filaments, tagMappings } from "@/lib/db/schema";
+import { prints, amsSlots, spools, syncLog, printUsage, vendors, filaments, tagMappings, settings } from "@/lib/db/schema";
 import { eq, and, sql, lt } from "drizzle-orm";
 import { requireAuth } from "@/lib/auth";
 import { matchSpool } from "@/lib/matching";
@@ -9,6 +9,7 @@ import {
   num, bool, str,
   classifyGcodeState, isCalibrationJob,
   buildEventId, bambuColorName, bambuFilamentName, calculateWeightSync,
+  calculateEnergyCost,
 } from "@/lib/printer-sync-helpers";
 import { sqlCount, sqlNowMinusHours } from "@/lib/db/sql-helpers";
 
@@ -323,7 +324,7 @@ async function createPrintUsage(
       return totalWeight / spoolIds.length;
     };
 
-    let totalCost = 0;
+    let filamentCostSum = 0;
 
     for (const spoolId of spoolIds) {
       // Idempotency: skip if usage record already exists for this print+spool
@@ -345,7 +346,7 @@ async function createPrintUsage(
       if (spool.purchasePrice && spool.initialWeight > 0) {
         const pricePerGram = spool.purchasePrice / spool.initialWeight;
         cost = Math.round(pricePerGram * weightForSpool * 100) / 100;
-        totalCost += cost;
+        filamentCostSum += cost;
       }
 
       await db.insert(printUsage).values({
@@ -365,10 +366,18 @@ async function createPrintUsage(
       console.log(`[printer-sync] USAGE: spool=${spool.filament.name} weight=${weightForSpool.toFixed(1)}g cost=${cost}€ remaining=${newWeight}g`);
     }
 
-    // Update total cost on print
-    if (totalCost > 0) {
+    // Update filament cost on print, then compute totalCost (filament + energy)
+    if (filamentCostSum > 0) {
+      const filamentCost = Math.round(filamentCostSum * 100) / 100;
+      // Read current energyCost (may have been set earlier in this sync cycle)
+      const currentPrint = await db.query.prints.findFirst({
+        where: eq(prints.id, printId),
+        columns: { energyCost: true },
+      });
+      const energyCost = currentPrint?.energyCost ?? 0;
       await db.update(prints).set({
-        totalCost: Math.round(totalCost * 100) / 100,
+        filamentCost,
+        totalCost: Math.round((filamentCost + energyCost) * 100) / 100,
         updatedAt: new Date(),
       }).where(eq(prints.id, printId));
     }
@@ -500,6 +509,9 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      // Energy tracking: store start kWh if provided by sync worker
+      const energyStartKwh = body.energy_start_kwh != null ? num(body.energy_start_kwh) : null;
+
       const [newPrint] = await db
         .insert(prints)
         .values({
@@ -513,6 +525,7 @@ export async function POST(request: NextRequest) {
           activeSpoolIds: JSON.stringify(startIds),
           remainSnapshot: Object.keys(remainSnapshot).length > 0 ? JSON.stringify(remainSnapshot) : null,
           haEventId,
+          energyStartKwh: energyStartKwh || null,
         })
         .returning();
       affectedPrintId = newPrint.id;
@@ -521,6 +534,21 @@ export async function POST(request: NextRequest) {
     } else if (runningPrint && (isFinished || (isIdle && !printError))) {
       // Print completed (or idle = missed finish)
       const finalWeight = printWeight || runningPrint.printWeight;
+
+      // Energy tracking: calculate kWh and cost
+      const energyEndKwh = body.energy_end_kwh != null ? num(body.energy_end_kwh) : null;
+      let energyUpdate: Record<string, unknown> = {};
+      if (energyEndKwh != null) {
+        const priceRow = await db.query.settings.findFirst({ where: eq(settings.key, "electricity_price_per_kwh") });
+        const pricePerKwh = priceRow ? parseFloat(priceRow.value) : 0;
+        const result = calculateEnergyCost(runningPrint.energyStartKwh, energyEndKwh, pricePerKwh);
+        energyUpdate = {
+          energyEndKwh,
+          energyKwh: result?.energyKwh ?? null,
+          energyCost: result?.energyCost ?? null,
+        };
+      }
+
       await db.update(prints).set({
         status: "finished",
         finishedAt: new Date(),
@@ -528,6 +556,7 @@ export async function POST(request: NextRequest) {
           ? Math.floor((Date.now() - new Date(runningPrint.startedAt).getTime()) / 1000)
           : null,
         printWeight: finalWeight,
+        ...energyUpdate,
         updatedAt: new Date(),
       }).where(eq(prints.id, runningPrint.id));
       printTransition = "finished";
@@ -541,12 +570,28 @@ export async function POST(request: NextRequest) {
       }
 
       // Create print_usage record and deduct weight from active spool
+      // (also computes filamentCost and totalCost = filament + energy)
       await createPrintUsage(runningPrint.id, printer_id, finalWeight || 0, endRemainsFinish, trayWeights);
 
-      console.log(`[printer-sync] FINISHED: "${runningPrint.name}" weight=${finalWeight}g`);
+      console.log(`[printer-sync] FINISHED: "${runningPrint.name}" weight=${finalWeight}g energy=${energyUpdate.energyKwh ?? "n/a"}kWh`);
     } else if (runningPrint && isFailed) {
       // Print failed/cancelled — record partial usage scaled by progress
       const totalWeight = printWeight || runningPrint.printWeight;
+
+      // Energy tracking: calculate kWh and cost (energy is consumed regardless of success)
+      const energyEndKwhFail = body.energy_end_kwh != null ? num(body.energy_end_kwh) : null;
+      let energyUpdateFail: Record<string, unknown> = {};
+      if (energyEndKwhFail != null) {
+        const priceRow = await db.query.settings.findFirst({ where: eq(settings.key, "electricity_price_per_kwh") });
+        const pricePerKwh = priceRow ? parseFloat(priceRow.value) : 0;
+        const result = calculateEnergyCost(runningPrint.energyStartKwh, energyEndKwhFail, pricePerKwh);
+        energyUpdateFail = {
+          energyEndKwh: energyEndKwhFail,
+          energyKwh: result?.energyKwh ?? null,
+          energyCost: result?.energyCost ?? null,
+        };
+      }
+
       await db.update(prints).set({
         status: "failed",
         finishedAt: new Date(),
@@ -554,6 +599,7 @@ export async function POST(request: NextRequest) {
           ? Math.floor((Date.now() - new Date(runningPrint.startedAt).getTime()) / 1000)
           : null,
         printWeight: totalWeight,
+        ...energyUpdateFail,
         updatedAt: new Date(),
       }).where(eq(prints.id, runningPrint.id));
       printTransition = "failed";

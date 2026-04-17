@@ -211,6 +211,9 @@ export async function createOrderFromParsed(data: {
       if (nameMatch) {
         filamentId = nameMatch.id;
       } else {
+        // Use SpoolmanDB color lookup for exact hex if AI-estimated
+        const { lookupVendorColor } = await import("./color-lookup");
+        const vendorColorHex = lookupVendorColor(vendor.name, item.name);
         const [filament] = await db
           .insert(filaments)
           .values({
@@ -218,7 +221,7 @@ export async function createOrderFromParsed(data: {
             name: item.name,
             material: item.material,
             colorName: item.colorName,
-            colorHex: item.colorHex,
+            colorHex: vendorColorHex ?? item.colorHex,
             spoolWeight: item.weight || 1000,
           })
           .returning();
@@ -638,7 +641,11 @@ export async function createSpoolFromScan(data: {
     [vendor] = await db.insert(vendors).values({ name: vendorName }).returning();
   }
 
-  const colorHex = (data.colorHex ?? "888888").replace("#", "").slice(0, 6).toUpperCase();
+  // Use SpoolmanDB color lookup for exact hex, fall back to AI-estimated
+  const { lookupVendorColor } = await import("./color-lookup");
+  const aiColorHex = (data.colorHex ?? "888888").replace("#", "").slice(0, 6).toUpperCase();
+  const vendorColorHex = lookupVendorColor(vendorName, data.filamentName);
+  const colorHex = vendorColorHex ?? aiColorHex;
   const weight = data.weight ?? 1000;
 
   // Find existing filament by vendor + name + color, or create new

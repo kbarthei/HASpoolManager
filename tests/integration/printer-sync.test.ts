@@ -1125,4 +1125,117 @@ describe("printer-sync integration", () => {
       await sync({ gcode_state: "FINISH" });
     });
   });
+
+  // ── G. Energy Tracking ──────────────────────────────────────────────────────
+
+  describe("G. Energy Tracking", () => {
+    beforeAll(async () => {
+      // Seed electricity price setting
+      const { db } = await import("@/lib/db");
+      const { settings } = await import("@/lib/db/schema");
+      await db.insert(settings).values({
+        key: "electricity_price_per_kwh",
+        value: "0.32",
+      }).onConflictDoUpdate({
+        target: settings.key,
+        set: { value: "0.32" },
+      });
+    });
+
+    it("G1: stores energyStartKwh on print start", async () => {
+      const { db } = await import("@/lib/db");
+      const { prints } = await import("@/lib/db/schema");
+      const { eq } = await import("drizzle-orm");
+
+      const r = await sync({
+        gcode_state: "RUNNING",
+        print_name: "energy_test.3mf",
+        energy_start_kwh: 1234.56,
+      });
+      expect(r.status).toBe(200);
+      expect(r.body.print_transition).toBe("started");
+
+      const print = await db.query.prints.findFirst({
+        where: eq(prints.id, r.body.print_id as string),
+      });
+      expect(print).toBeDefined();
+      expect(print!.energyStartKwh).toBe(1234.56);
+      expect(print!.energyEndKwh).toBeNull();
+      expect(print!.energyCost).toBeNull();
+    });
+
+    it("G2: calculates energy cost on print finish", async () => {
+      const { db } = await import("@/lib/db");
+      const { prints } = await import("@/lib/db/schema");
+      const { eq } = await import("drizzle-orm");
+
+      const r = await sync({
+        gcode_state: "FINISH",
+        energy_end_kwh: 1234.78,
+      });
+      expect(r.status).toBe(200);
+      expect(r.body.print_transition).toBe("finished");
+
+      const print = await db.query.prints.findFirst({
+        where: eq(prints.id, r.body.print_id as string),
+      });
+      expect(print).toBeDefined();
+      expect(print!.energyStartKwh).toBe(1234.56);
+      expect(print!.energyEndKwh).toBe(1234.78);
+      expect(print!.energyKwh).toBe(0.22);
+      expect(print!.energyCost).toBe(0.07);
+    });
+
+    it("G3: handles missing energy data gracefully", async () => {
+      // Start a new print without energy data
+      const r1 = await sync({
+        gcode_state: "RUNNING",
+        print_name: "no_energy_test.3mf",
+      });
+      expect(r1.body.print_transition).toBe("started");
+
+      // Finish without energy data
+      const r2 = await sync({ gcode_state: "FINISH" });
+      expect(r2.body.print_transition).toBe("finished");
+
+      const { db } = await import("@/lib/db");
+      const { prints } = await import("@/lib/db/schema");
+      const { eq } = await import("drizzle-orm");
+
+      const print = await db.query.prints.findFirst({
+        where: eq(prints.id, r1.body.print_id as string),
+      });
+      expect(print!.energyStartKwh).toBeNull();
+      expect(print!.energyEndKwh).toBeNull();
+      expect(print!.energyKwh).toBeNull();
+      expect(print!.energyCost).toBeNull();
+    });
+
+    it("G4: calculates energy cost on failed print", async () => {
+      const { db } = await import("@/lib/db");
+      const { prints } = await import("@/lib/db/schema");
+      const { eq } = await import("drizzle-orm");
+
+      // Start print with energy
+      const r1 = await sync({
+        gcode_state: "RUNNING",
+        print_name: "failed_energy.3mf",
+        energy_start_kwh: 2000.0,
+      });
+      expect(r1.body.print_transition).toBe("started");
+
+      // Fail with energy (energy is consumed regardless)
+      const r2 = await sync({
+        gcode_state: "FAILED",
+        energy_end_kwh: 2000.5,
+      });
+      expect(r2.body.print_transition).toBe("failed");
+
+      const print = await db.query.prints.findFirst({
+        where: eq(prints.id, r1.body.print_id as string),
+      });
+      expect(print!.energyKwh).toBe(0.5);
+      expect(print!.energyCost).toBe(0.16);
+    });
+  });
 });

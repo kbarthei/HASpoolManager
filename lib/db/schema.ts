@@ -34,6 +34,7 @@ export const vendors = sqliteTable("vendors", {
   country: text("country"),
   logoUrl: text("logo_url"),
   bambuPrefix: text("bambu_prefix"),
+  defaultSpoolWeight: integer("default_spool_weight"), // empty spool tare weight in grams (for scale-based remaining calculation)
   notes: text("notes"),
   createdAt: tsCol("created_at").notNull().default(sql`(datetime('now'))`),
   updatedAt: tsCol("updated_at").notNull().default(sql`(datetime('now'))`),
@@ -244,6 +245,11 @@ export const prints = sqliteTable(
     totalLayers: integer("total_layers"),
     printWeight: real("print_weight"),
     printLength: real("print_length"),
+    filamentCost: real("filament_cost"),
+    energyCost: real("energy_cost"),
+    energyKwh: real("energy_kwh"),
+    energyStartKwh: real("energy_start_kwh"),
+    energyEndKwh: real("energy_end_kwh"),
     totalCost: real("total_cost"),
     activeSpoolId: text("active_spool_id").references(() => spools.id),
     activeSpoolIds: text("active_spool_ids"), // JSON array of all spool IDs seen during print
@@ -650,3 +656,51 @@ export const settings = sqliteTable("settings", {
   value: text("value").notNull(),
   updatedAt: tsCol("updated_at").notNull().default(sql`(datetime('now'))`),
 });
+
+// ─── HMS Events ──────────────────────────────────────────────────────────────
+
+export const hmsEvents = sqliteTable(
+  "hms_events",
+  {
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    printerId: text("printer_id")
+      .notNull()
+      .references(() => printers.id, { onDelete: "cascade" }),
+    printId: text("print_id").references(() => prints.id, { onDelete: "set null" }),
+    spoolId: text("spool_id").references(() => spools.id, { onDelete: "set null" }),
+    filamentId: text("filament_id").references(() => filaments.id, { onDelete: "set null" }),
+    hmsCode: text("hms_code").notNull(), // e.g. "0700_2000_0002_0001"
+    module: text("module"), // "ams", "mc", "toolhead", "mainboard", "xcam", "unknown"
+    severity: text("severity"), // "fatal", "serious", "common", "info"
+    message: text("message"), // human-readable error description
+    wikiUrl: text("wiki_url"), // Bambu Lab wiki troubleshooting link
+    slotKey: text("slot_key"), // "slot_1", "slot_2", "slot_ht" etc
+    rawAttr: integer("raw_attr"), // original attr value from MQTT
+    rawCode: integer("raw_code"), // original code value from MQTT
+    createdAt: tsCol("created_at").notNull().default(sql`(datetime('now'))`),
+  },
+  (table) => [
+    index("idx_hms_printer").on(table.printerId),
+    index("idx_hms_filament").on(table.filamentId),
+    index("idx_hms_created").on(table.createdAt),
+  ]
+);
+
+export const hmsEventsRelations = relations(hmsEvents, ({ one }) => ({
+  printer: one(printers, {
+    fields: [hmsEvents.printerId],
+    references: [printers.id],
+  }),
+  print: one(prints, {
+    fields: [hmsEvents.printId],
+    references: [prints.id],
+  }),
+  spool: one(spools, {
+    fields: [hmsEvents.spoolId],
+    references: [spools.id],
+  }),
+  filament: one(filaments, {
+    fields: [hmsEvents.filamentId],
+    references: [filaments.id],
+  }),
+}));

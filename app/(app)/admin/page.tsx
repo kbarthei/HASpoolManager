@@ -3,11 +3,12 @@ export const dynamic = "force-dynamic";
 import { getSystemStats, getPrinterStatus, getRackConfig } from "@/lib/queries";
 import { formatDateTime, formatDate } from "@/lib/date";
 import { db } from "@/lib/db";
-import { prints, spools, printers as printersTable, syncLog } from "@/lib/db/schema";
+import { prints, spools, printers as printersTable, syncLog, settings, hmsEvents } from "@/lib/db/schema";
 import { eq, sql, ne, desc } from "drizzle-orm";
 import { sqlCount } from "@/lib/db/sql-helpers";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 import { ClearStaleButton } from "./clear-stale-button";
 import { SyncLogTable } from "./sync-log-table";
 import { RackSettings } from "./rack-settings";
@@ -15,6 +16,7 @@ import { ImportOrdersCard } from "./import-orders-card";
 import { AdminTools } from "./admin-tools";
 import { RefreshPricesButton } from "./refresh-prices-button";
 import { PrinterMappings } from "./printer-mappings";
+import { EnergySettings } from "./energy-settings";
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -52,12 +54,14 @@ export default async function AdminPage() {
     nodeEnv: process.env.NODE_ENV,
   };
 
-  const [stats, [lastSyncEntry], printerStatus, rackConfig, activePrinter] = await Promise.all([
+  const [stats, [lastSyncEntry], printerStatus, rackConfig, activePrinter, energyEntityRow, energyPriceRow] = await Promise.all([
     getSystemStats(),
     db.select().from(syncLog).orderBy(desc(syncLog.createdAt)).limit(1),
     getPrinterStatus(),
     getRackConfig(),
     db.query.printers.findFirst({ where: eq(printersTable.isActive, true) }),
+    db.query.settings.findFirst({ where: eq(settings.key, "energy_sensor_entity_id") }),
+    db.query.settings.findFirst({ where: eq(settings.key, "electricity_price_per_kwh") }),
   ]);
 
   // ── Config details ────────────────────────────────────────────────────────
@@ -354,10 +358,100 @@ export default async function AdminPage() {
         <RackSettings initialRows={rackConfig.rows} initialColumns={rackConfig.columns} />
       </Card>
 
+      {/* ── Energy Tracking ───────────────────────────────────────────────── */}
+      <Card className="p-4 space-y-3">
+        <div>
+          <h2 className="text-sm font-semibold">Energy Tracking</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Track electricity costs per print via a smart plug energy sensor
+          </p>
+        </div>
+        <EnergySettings
+          initialEntityId={energyEntityRow?.value ?? ""}
+          initialPricePerKwh={energyPriceRow?.value ?? ""}
+        />
+      </Card>
+
+      {/* ── HMS Error Log ──────────────────────────────────────────────── */}
+      <HmsErrorLog />
+
       {/* ── Sync Log ─────────────────────────────────────────────────────── */}
       <Card className="p-4">
         <SyncLogTable />
       </Card>
     </div>
+  );
+}
+
+async function HmsErrorLog() {
+  const events = await db.query.hmsEvents.findMany({
+    orderBy: [desc(hmsEvents.createdAt)],
+    limit: 20,
+    with: {
+      spool: { with: { filament: { with: { vendor: true } } } },
+      print: { columns: { id: true, name: true } },
+    },
+  });
+
+  return (
+    <Card className="p-4 space-y-3">
+      <div>
+        <h2 className="text-sm font-semibold">HMS Error Log</h2>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          Recent printer health events (last 20)
+        </p>
+      </div>
+      {events.length === 0 ? (
+        <p className="text-xs text-muted-foreground py-2">No HMS events recorded yet</p>
+      ) : (
+        <div className="space-y-1">
+          {events.map((evt) => {
+            const filamentName = evt.spool?.filament
+              ? `${evt.spool.filament.vendor?.name ?? ""} ${evt.spool.filament.material}`.trim()
+              : null;
+
+            return (
+              <div
+                key={evt.id}
+                className="flex items-start gap-2 text-xs py-1.5 border-b border-border last:border-0"
+              >
+                <Badge
+                  className={cn(
+                    "text-[9px] h-4 px-1 shrink-0 mt-0.5",
+                    evt.severity === "fatal" ? "bg-red-500/15 text-red-600 border-red-500/30" :
+                    evt.severity === "serious" ? "bg-amber-500/15 text-amber-600 border-amber-500/30" :
+                    evt.severity === "common" ? "bg-blue-500/15 text-blue-600 border-blue-500/30" :
+                    "bg-muted text-muted-foreground"
+                  )}
+                >
+                  {evt.severity ?? "?"}
+                </Badge>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs truncate">{evt.message || evt.hmsCode}</p>
+                  <div className="flex items-center gap-2 mt-0.5 text-muted-foreground">
+                    <span className="font-mono">{evt.hmsCode}</span>
+                    {filamentName && <span>· {filamentName}</span>}
+                    {evt.print?.name && <span>· {evt.print.name}</span>}
+                  </div>
+                </div>
+                <span className="text-muted-foreground shrink-0">
+                  {evt.createdAt ? new Date(evt.createdAt).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : ""}
+                </span>
+                {evt.wikiUrl && (
+                  <a
+                    href={evt.wikiUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary hover:underline shrink-0"
+                  >
+                    Wiki
+                  </a>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </Card>
   );
 }
