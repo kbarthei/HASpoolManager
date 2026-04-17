@@ -889,3 +889,30 @@ export async function purgeAllCaches() {
   revalidatePath("/admin");
   return true;
 }
+
+export async function updateEnergySettings(data: {
+  energySensorEntityId: string | null;
+  electricityPricePerKwh: number | null;
+}) {
+  const upsert = async (key: string, value: string | null) => {
+    if (value === null || value === "") {
+      await db.delete(settings).where(eq(settings.key, key));
+      return;
+    }
+    const existing = await db.query.settings.findFirst({ where: eq(settings.key, key) });
+    if (existing) {
+      await db.update(settings).set({ value, updatedAt: new Date() }).where(eq(settings.key, key));
+    } else {
+      await db.insert(settings).values({ key, value });
+    }
+  };
+
+  await upsert("energy_sensor_entity_id", data.energySensorEntityId);
+  await upsert(
+    "electricity_price_per_kwh",
+    data.electricityPricePerKwh != null ? String(data.electricityPricePerKwh) : null
+  );
+
+  revalidatePath("/admin");
+  return { ok: true };
+}

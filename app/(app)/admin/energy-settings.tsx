@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Zap } from "lucide-react";
+import { updateEnergySettings } from "@/lib/actions";
 
 interface EnergySettingsProps {
   initialEntityId: string;
@@ -20,15 +21,10 @@ export function EnergySettings({ initialEntityId, initialPricePerKwh }: EnergySe
   function handleSave() {
     startTransition(async () => {
       try {
-        const res = await fetch("/api/v1/settings/energy", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            energy_sensor_entity_id: entityId || null,
-            electricity_price_per_kwh: pricePerKwh ? parseFloat(pricePerKwh) : null,
-          }),
+        await updateEnergySettings({
+          energySensorEntityId: entityId.trim() || null,
+          electricityPricePerKwh: pricePerKwh ? parseFloat(pricePerKwh) : null,
         });
-        if (!res.ok) throw new Error("Failed to save");
         toast.success("Energy tracking settings saved");
       } catch {
         toast.error("Failed to save energy settings");
