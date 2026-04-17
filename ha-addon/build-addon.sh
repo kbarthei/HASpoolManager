@@ -38,6 +38,8 @@ fi
 
 # Copy the DB migration script (plain JS, uses better-sqlite3 from standalone)
 cp scripts/migrate-db.js "$STAGE_DIR/haspoolmanager/app/migrate-db.js"
+# Copy the startup health-check (data-quality auto-fix + logging)
+cp scripts/health-check.js "$STAGE_DIR/haspoolmanager/app/health-check.js"
 
 # Bundle the sync worker (TypeScript → single JS file via esbuild)
 echo "==> Bundling sync worker..."

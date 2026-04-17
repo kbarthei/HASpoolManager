@@ -714,3 +714,24 @@ export const materialProfiles = sqliteTable("material_profiles", {
   description: text("description"), // AI-generated material profile (German)
   updatedAt: tsCol("updated_at").notNull().default(sql`(datetime('now'))`),
 });
+
+// ─── Data Quality Log ───────────────────────────────────────────────────────
+
+export const dataQualityLog = sqliteTable(
+  "data_quality_log",
+  {
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    runAt: tsCol("run_at").notNull(),
+    ruleId: text("rule_id").notNull(), // 'spool_weight_negative', 'orphan_print_usage', etc.
+    severity: text("severity").notNull(), // 'critical' | 'warning' | 'info'
+    entityType: text("entity_type"), // 'spool' | 'shop' | 'vendor' | 'filament' | null
+    entityId: text("entity_id"),
+    action: text("action").notNull(), // 'auto_fixed' | 'flagged' | 'info'
+    details: text("details"), // JSON: { before, after, message }
+    createdAt: tsCol("created_at").notNull().default(sql`(datetime('now'))`),
+  },
+  (table) => ({
+    runAtIdx: index("idx_quality_log_run_at").on(table.runAt),
+    ruleIdx: index("idx_quality_log_rule").on(table.ruleId),
+  })
+);
