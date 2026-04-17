@@ -6,6 +6,19 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- **chore:** bump addon version to 1.0.66 (`c9d40df`)
+- **feat:** backfill historical energy costs with per-material model (`b399aa2`)
+- - refactor: move energy settings save to Server Action (`3fca08f`)
+- **chore:** add shop deduplication script (`aeaa816`)
+- **fix:** fuzzy shop matching to prevent duplicate shop entries (`b21dba4`)
+- **feat:** add-to-shopping-list button on supply alerts (`be99d81`)
+- **feat:** add-to-shopping-list button on supply views (`59516cf`)
+- **feat:** add /supply page with full filament supply status list (`36d1986`)
+- **feat:** Supply Manager Phase 1 — consumption tracking, supply alerts, material profiles (`5e75438`)
+- **fix:** skip bare material names in color lookup + add correction preview script (`58edc09`)
+- **feat:** vendor color lookup + default spool tare weights (`3596c19`)
+- **feat:** electricity cost tracking + HMS error correlation (`a2bce51`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`26815b9`)
 - **chore:** add workdir/ for local working files (plans, notes, temp) (`0771b9e`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`82395f1`)
 - **chore:** remove implementation plans from git, add to .gitignore (`f314ae6`)
