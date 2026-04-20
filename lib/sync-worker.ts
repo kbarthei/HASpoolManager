@@ -607,19 +607,28 @@ async function registerPrinter(discovered: DiscoveredPrinter): Promise<PrinterSy
     ` (${discovered.unmappedEntities.length} other entities ignored)`,
   );
 
-  // Read initial state to detect if a print is already running (e.g., after restart)
+  // Read initial state + do an initial sync. Runs on every addon restart /
+  // reconnect, regardless of whether the printer is idle or active:
+  //   - Active: catches a print already in progress.
+  //   - Idle: refreshes AMS slot bindings from HA (HA may have reloaded the
+  //     Bambu integration, added/removed AMS devices, or changed tray state
+  //     while the addon was down). Without this, stale DB state persists
+  //     until the watchdog fires 5 min later, or until the next print event.
   const gcodeEntity = state.fieldToEntity.get("gcode_state");
   if (gcodeEntity) {
     try {
       const states = await getEntityStates([gcodeEntity]);
       const gcodeState = states.get(gcodeEntity)?.state?.toLowerCase() || "";
       state.isActive = ["running", "prepare", "pause", "slicing", "init"].includes(gcodeState);
-      if (state.isActive) {
-        console.log(`[sync-worker] printer is ACTIVE (${gcodeState}) — doing initial sync`);
-        const payload = await buildSyncPayload(state);
-        await callSyncEngine(payload);
-      }
     } catch { /* ignore */ }
+  }
+  try {
+    const label = state.isActive ? "ACTIVE" : "IDLE";
+    console.log(`[sync-worker] ${label} — doing initial sync for "${discovered.name}"`);
+    const payload = await buildSyncPayload(state);
+    await callSyncEngine(payload);
+  } catch (err) {
+    console.error(`[sync-worker] initial sync failed:`, (err as Error).message);
   }
 
   return state;
