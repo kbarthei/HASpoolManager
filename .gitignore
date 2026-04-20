@@ -49,6 +49,10 @@ next-env.d.ts
 # local working directory (plans, temp files, notes — never committed)
 /workdir/
 
+# design handoff package (reference components / screenshots — not part of app build)
+/handoff/
+app/globals.css.bak
+
 # test
 /test-results/
 /playwright-report/
