@@ -14,6 +14,7 @@ import {
   parseHmsCode,
   parseHmsCodeString,
   HMS_MODULES,
+  isHAEntityAvailable,
 } from "@/lib/printer-sync-helpers";
 import { normalizeColor } from "@/lib/matching";
 
@@ -764,5 +765,65 @@ describe("HMS_MODULES", () => {
     expect(HMS_MODULES[0x08]).toBe("toolhead");
     expect(HMS_MODULES[0x05]).toBe("mainboard");
     expect(HMS_MODULES[0x0C]).toBe("xcam");
+  });
+});
+
+// ── isHAEntityAvailable() ────────────────────────────────────────────────────
+// Regression guard: the sync worker must not emit payload fields from HA
+// entities in "unavailable"/"unknown" state. Including such fields would write
+// ghost values (e.g. `slot_N_empty=true`) to the DB and unbind real AMS→spool
+// mappings on a transient HA disconnect.
+
+describe("isHAEntityAvailable()", () => {
+  it("returns false for null", () => {
+    expect(isHAEntityAvailable(null)).toBe(false);
+  });
+
+  it("returns false for undefined", () => {
+    expect(isHAEntityAvailable(undefined)).toBe(false);
+  });
+
+  it("returns false for state 'unavailable'", () => {
+    expect(isHAEntityAvailable({ state: "unavailable", attributes: {} })).toBe(false);
+  });
+
+  it("returns false for state 'unknown'", () => {
+    expect(isHAEntityAvailable({ state: "unknown", attributes: {} })).toBe(false);
+  });
+
+  it("returns true for a loaded AMS slot state", () => {
+    expect(
+      isHAEntityAvailable({
+        state: "PLA",
+        attributes: { empty: false, color: "#FF0000FF", tag_uid: "ABCDEF" },
+      }),
+    ).toBe(true);
+  });
+
+  it("returns true for an empty AMS slot state (HA reports 'Empty' truthfully)", () => {
+    expect(
+      isHAEntityAvailable({ state: "Empty", attributes: { empty: true } }),
+    ).toBe(true);
+  });
+
+  it("returns true for an empty string state (legit for some sensors)", () => {
+    expect(isHAEntityAvailable({ state: "", attributes: {} })).toBe(true);
+  });
+
+  it("returns true for gcode_state sensor values", () => {
+    expect(isHAEntityAvailable({ state: "RUNNING", attributes: {} })).toBe(true);
+    expect(isHAEntityAvailable({ state: "IDLE", attributes: {} })).toBe(true);
+    expect(isHAEntityAvailable({ state: "FINISH", attributes: {} })).toBe(true);
+  });
+
+  it("narrows the type for callers (compiles with type guard)", () => {
+    const state: { state: string; attributes?: Record<string, unknown> } | undefined = {
+      state: "PLA",
+      attributes: { color: "#FF0000" },
+    };
+    if (isHAEntityAvailable(state)) {
+      // This access must type-check — proves the type guard narrows.
+      expect(state.state).toBe("PLA");
+    }
   });
 });

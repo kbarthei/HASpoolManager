@@ -11,6 +11,7 @@
 import { HAWebSocketClient } from "./ha-websocket";
 import { getEntityState, getEntityStates } from "./ha-api";
 import { discoverPrinters, buildFieldToEntityMap, buildEntityToFieldMap, type DiscoveredPrinter, type EntityMapping } from "./ha-discovery";
+import { isHAEntityAvailable } from "./printer-sync-helpers";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -111,7 +112,11 @@ async function buildSyncPayload(printer: PrinterSyncState): Promise<Record<strin
 
   for (const [field, entityId] of printer.fieldToEntity) {
     const state = states.get(entityId);
-    if (!state) continue;
+    // Skip entities HA reports as unavailable/unknown. Their `attributes` are
+    // empty, so `state.attributes.empty ?? true` would default to `true` and
+    // unbind real AMS→spool mappings on a transient HA disconnect. The route
+    // handler treats absent fields as "no change".
+    if (!isHAEntityAvailable(state)) continue;
 
     if (field === "active_slot") {
       // Active slot: state is the name, attributes have type/color/tag/filament_id

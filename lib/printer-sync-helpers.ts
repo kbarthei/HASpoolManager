@@ -66,6 +66,33 @@ export function isCalibrationJob(printName: string): boolean {
   return CALIBRATION_NAMES.some(c => lower.includes(c));
 }
 
+// ── HA entity availability ───────────────────────────────────────────────────
+
+/** Minimal shape of an HA entity state — just what we need to check availability. */
+export interface HAEntityStateLike {
+  state: string;
+  attributes?: Record<string, unknown>;
+}
+
+/**
+ * Whether an HA entity is reporting real data.
+ *
+ * HA keeps a state row for disconnected entities with `state: "unavailable"`
+ * or `"unknown"` and an empty `attributes` object. The sync worker must NOT
+ * emit payload fields from such entities — doing so would write ghost values
+ * to the DB. In particular, `attributes.empty ?? true` would default to
+ * `true` for an unavailable AMS slot entity, causing the printer-sync route
+ * handler to null out the slot's `spool_id` and move the previously-linked
+ * spool to `surplus`. A transient disconnect would then permanently destroy
+ * the AMS→spool bindings.
+ */
+export function isHAEntityAvailable<T extends HAEntityStateLike>(
+  state: T | null | undefined,
+): state is T {
+  if (!state) return false;
+  return state.state !== "unavailable" && state.state !== "unknown";
+}
+
 // ── Value parsers ────────────────────────────────────────────────────────────
 
 /** Parse a string to number, returning the default for any non-numeric value */
