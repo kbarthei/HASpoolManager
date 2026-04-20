@@ -6,6 +6,10 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- **chore:** bump addon version to 1.0.80 (`dfece84`)
+- **chore:** ignore /handoff reference package from build + git (`8548c19`)
+- **fix:** always run initial sync on startup, not only when active (`d128a89`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`29bdfd6`)
 - **chore:** bump addon version to 1.0.78 (`9442f2d`)
 - **fix:** don't unbind AMS slots when HA entities go unavailable (`1e68f99`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`94b25d0`)
