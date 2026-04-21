@@ -1,20 +1,62 @@
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and, ne } from "drizzle-orm";
 import { notFound } from "next/navigation";
-import { formatDate } from "@/lib/date";
 import Link from "next/link";
-import { Card } from "@/components/ui/card";
-import { SpoolColorDot } from "@/components/spool/spool-color-dot";
-import { SpoolMaterialBadge } from "@/components/spool/spool-material-badge";
-import { SpoolProgressBar } from "@/components/spool/spool-progress-bar";
-import { ExternalLink } from "lucide-react";
-import { WeightAdjuster } from "@/components/spool/weight-adjuster";
+import { ChevronLeft } from "lucide-react";
+import { SpoolHero } from "@/components/spool/spool-hero";
+import { SpoolRemainingCardEditable } from "@/components/spool/spool-remaining-card-editable";
+import { SpoolStatsRow } from "@/components/spool/spool-stats-row";
+import {
+  DetailSection,
+  KvRow,
+  UsageHistoryRow,
+} from "@/components/spool/spool-detail-sections";
 import { ArchiveButton } from "@/components/spool/archive-button";
 import { AddToShoppingListButton } from "@/components/spool/add-to-shopping-list-button";
 import { SpoolManageSection } from "@/components/spool/spool-manage-section";
 import { MaterialProfileCard } from "@/components/spool/material-profile-card";
-import { and, ne, sql } from "drizzle-orm";
+
+function describeLocation(location: string | null): {
+  label: string;
+  state: string | null;
+} {
+  if (!location) return { label: "Unknown", state: null };
+  if (location === "workbench") return { label: "Workbench", state: null };
+  if (location === "surplus") return { label: "Surplus", state: null };
+  if (location === "ams") return { label: "AMS", state: "loaded" };
+  if (location === "ams-ht") return { label: "AMS HT", state: "loaded" };
+  if (location === "external") return { label: "External spool", state: null };
+  if (location === "ordered") return { label: "Ordered", state: null };
+  const m = location.match(/^rack:(\d+)-(\d+)$/);
+  if (m) return { label: `Rack · R${m[1]}·${m[2]}`, state: null };
+  return { label: location, state: null };
+}
+
+function formatDate(d: string | Date | null | undefined): string {
+  if (!d) return "—";
+  const dt = typeof d === "string" ? new Date(d) : d;
+  if (Number.isNaN(dt.getTime())) return "—";
+  return dt.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function relativeDate(d: string | Date | null | undefined): string {
+  if (!d) return "—";
+  const dt = typeof d === "string" ? new Date(d) : d;
+  if (Number.isNaN(dt.getTime())) return "—";
+  const diff = Date.now() - dt.getTime();
+  if (diff < 0) return formatDate(dt);
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  if (days < 1) return "today";
+  if (days === 1) return "yesterday";
+  if (days < 7) return `${days}d ago`;
+  if (days < 30) return `${Math.floor(days / 7)}w ago`;
+  return formatDate(dt);
+}
 
 export default async function SpoolDetailPage({
   params,
@@ -37,50 +79,38 @@ export default async function SpoolDetailPage({
 
   if (!spool) notFound();
 
-  // Find order for this spool
   const orderItem = await db.query.orderItems.findFirst({
     where: eq(schema.orderItems.spoolId, id),
     with: {
-      order: {
-        with: { shop: true, vendor: true },
-      },
+      order: { with: { shop: true, vendor: true } },
     },
   });
 
-  // ── Candidates for "Link to Order" ──
-  // Order items for the same filament that are either unlinked or linked to a different spool
   const orderItemCandidates = !orderItem
-    ? await db.query.orderItems.findMany({
-        where: eq(schema.orderItems.filamentId, spool.filamentId),
-        with: {
-          order: { with: { shop: true } },
-        },
-      }).then((items) => items.map((oi) => ({
-        id: oi.id,
-        unitPrice: oi.unitPrice,
-        quantity: oi.quantity,
-        order: {
-          id: oi.order.id,
-          orderNumber: oi.order.orderNumber,
-          orderDate: oi.order.orderDate,
-          shop: oi.order.shop,
-        },
-        currentSpoolId: oi.spoolId,
-      })))
+    ? await db.query.orderItems
+        .findMany({
+          where: eq(schema.orderItems.filamentId, spool.filamentId),
+          with: { order: { with: { shop: true } } },
+        })
+        .then((items) =>
+          items.map((oi) => ({
+            id: oi.id,
+            unitPrice: oi.unitPrice,
+            quantity: oi.quantity,
+            order: {
+              id: oi.order.id,
+              orderNumber: oi.order.orderNumber,
+              orderDate: oi.order.orderDate,
+              shop: oi.order.shop,
+            },
+            currentSpoolId: oi.spoolId,
+          })),
+        )
     : [];
 
-  // ── Candidates for "Merge Spool" ──
-  // Other spools of the same filament (exclude self)
   const mergeCandidatesRaw = await db.query.spools.findMany({
-    where: and(
-      eq(schema.spools.filamentId, spool.filamentId),
-      ne(schema.spools.id, id),
-    ),
-    with: {
-      printUsage: true,
-      tagMappings: true,
-      orderItems: true,
-    },
+    where: and(eq(schema.spools.filamentId, spool.filamentId), ne(schema.spools.id, id)),
+    with: { printUsage: true, tagMappings: true, orderItems: true },
   });
   const mergeCandidates = mergeCandidatesRaw.map((s) => ({
     id: s.id,
@@ -98,116 +128,130 @@ export default async function SpoolDetailPage({
     where: eq(schema.materialProfiles.material, spool.filament.material),
   });
 
-  const usedWeight = spool.initialWeight - spool.remainingWeight;
-  const costPerGram = spool.purchasePrice
-    ? spool.purchasePrice / spool.initialWeight
-    : 0;
+  // ── Derived values ───────────────────────────────────────────────────────
+  const { label: locationLabel, state: locationState } = describeLocation(
+    spool.location,
+  );
+  const usedG = Math.max(0, spool.initialWeight - spool.remainingWeight);
+  const purchasePrice = spool.purchasePrice ?? null;
+  const costPerG =
+    purchasePrice && spool.initialWeight > 0
+      ? purchasePrice / spool.initialWeight
+      : null;
+  const usedCost = costPerG != null ? usedG * costPerG : null;
+  const rfidTag = spool.tagMappings[0]?.tagUid ?? null;
+  const pct =
+    spool.initialWeight > 0
+      ? (spool.remainingWeight / spool.initialWeight) * 100
+      : 0;
 
-  const hex = spool.filament.colorHex || "888888";
+  const filamentDisplayName = `${spool.filament.vendor.name} ${spool.filament.name}`.trim();
 
   return (
-    <div data-testid="page-spool-detail" className="space-y-3 max-w-2xl">
-      {/* Hero with color accent */}
-      <div
-        className="rounded-xl p-4 relative overflow-hidden"
-        style={{
-          background: `linear-gradient(135deg, #${hex}15 0%, transparent 60%)`,
-        }}
+    <div data-testid="page-spool-detail" className="max-w-2xl mx-auto space-y-5">
+      {/* Back link */}
+      <Link
+        href="/inventory"
+        className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
       >
-        <div
-          className="absolute top-0 left-0 right-0 h-1 rounded-t-xl"
-          style={{ backgroundColor: `#${hex}` }}
+        <ChevronLeft className="w-3.5 h-3.5" />
+        Inventory
+      </Link>
+
+      {/* Hero — shared with Spool Inspector */}
+      <SpoolHero
+        colorHex={spool.filament.colorHex}
+        filamentName={spool.filament.name}
+        vendorName={spool.filament.vendor.name}
+        material={spool.filament.material}
+        diameterMm={spool.filament.diameter}
+        initialWeightG={spool.initialWeight}
+        remainingPct={pct}
+        locationLabel={locationLabel}
+        locationState={locationState}
+        idSource={rfidTag ? "RFID" : null}
+      />
+
+      {/* Remaining — editable slider */}
+      <SpoolRemainingCardEditable
+        spoolId={spool.id}
+        remainingG={spool.remainingWeight}
+        initialG={spool.initialWeight}
+      />
+
+      {/* 3-up stats */}
+      {purchasePrice != null && (
+        <SpoolStatsRow
+          used={{
+            label: "Used",
+            value: `${usedG.toFixed(0)}g`,
+            sub: usedCost != null ? `€${usedCost.toFixed(2)}` : null,
+          }}
+          costPerG={{
+            label: "Cost / g",
+            value: costPerG != null ? `€${costPerG.toFixed(3)}` : "—",
+            sub: "base",
+          }}
+          paid={{
+            label: "Paid",
+            value: `€${purchasePrice.toFixed(2)}`,
+            sub: spool.purchaseDate ? formatDate(spool.purchaseDate) : null,
+          }}
         />
-        <div className="flex items-start gap-4 pt-1">
-          <SpoolColorDot hex={hex} size="lg" />
-          <div>
-            <h1 className="text-xl font-bold">{spool.filament.name}</h1>
-            <p className="text-sm text-muted-foreground">{spool.filament.vendor.name}</p>
-            <div className="flex items-center gap-2 mt-1">
-              <SpoolMaterialBadge material={spool.filament.material} />
-              <span className="text-xs text-muted-foreground font-mono">
-                #{hex}
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Stats row */}
-      <div className="grid grid-cols-3 gap-2">
-        <Card className="p-3 rounded-xl">
-          <div className="text-xs text-muted-foreground">Remaining</div>
-          <WeightAdjuster
-            spoolId={spool.id}
-            currentWeight={spool.remainingWeight}
-            initialWeight={spool.initialWeight}
-          />
-          <SpoolProgressBar
-            remaining={spool.remainingWeight}
-            initial={spool.initialWeight}
-            className="mt-1"
-          />
-        </Card>
-        <Card className="p-3 rounded-xl">
-          <div className="text-xs text-muted-foreground">Used</div>
-          <div className="text-lg font-bold font-mono">{usedWeight}g</div>
-        </Card>
-        <Card className="p-3 rounded-xl">
-          <div className="text-xs text-muted-foreground">Cost/g</div>
-          <div className="text-lg font-bold font-mono">{costPerGram.toFixed(3)}€</div>
-        </Card>
-      </div>
-
-      {/* Location + Tag */}
-      <Card className="p-3 rounded-xl">
-        <div className="flex justify-between items-center">
-          <div>
-            <div className="text-xs text-muted-foreground">Location</div>
-            <div className="text-sm font-medium">{spool.location}</div>
-          </div>
-          {spool.tagMappings.length > 0 && (
-            <div className="text-right">
-              <div className="text-xs text-muted-foreground">RFID Tag</div>
-              <div className="text-xs font-mono">{spool.tagMappings[0].tagUid}</div>
-            </div>
-          )}
-        </div>
-      </Card>
-
-      {/* Purchase Info */}
-      {orderItem?.order && (
-        <Link href="/orders">
-        <Card className="p-3 rounded-xl hover:bg-accent/50 transition-colors cursor-pointer">
-          <div className="flex justify-between items-start">
-            <div>
-              <div className="text-xs text-muted-foreground">Purchased from</div>
-              <div className="text-sm font-medium">
-                {orderItem.order.shop?.name || orderItem.order.vendor?.name || "Unknown"}
-              </div>
-              {orderItem.order.orderDate && (
-                <div className="text-xs text-muted-foreground mt-0.5">
-                  {formatDate(orderItem.order.orderDate)}
-                  {orderItem.order.orderNumber && ` · #${orderItem.order.orderNumber}`}
-                </div>
-              )}
-            </div>
-            {orderItem.order.sourceUrl && (
-              <a
-                href={orderItem.order.sourceUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-primary hover:underline flex items-center gap-1"
-              >
-                <ExternalLink className="h-3 w-3" />
-                Shop
-              </a>
-            )}
-          </div>
-        </Card>
-        </Link>
       )}
 
-      {/* Manage: Link to Order / Merge Duplicate */}
+      {/* Identification */}
+      <DetailSection title="Identification">
+        <KvRow
+          label="Type"
+          value={`${spool.filament.material} · ${spool.filament.vendor.name}`}
+        />
+        <KvRow
+          label="Diameter"
+          value={`${spool.filament.diameter.toFixed(2)} mm`}
+        />
+        {spool.filament.colorHex && (
+          <KvRow
+            label="Color"
+            value={
+              spool.filament.colorName
+                ? `#${spool.filament.colorHex} · ${spool.filament.colorName}`
+                : `#${spool.filament.colorHex}`
+            }
+            mono
+            isLast={!rfidTag}
+          />
+        )}
+        {rfidTag && <KvRow label="RFID tag" value={rfidTag} mono isLast />}
+      </DetailSection>
+
+      {/* Order — only if the spool is linked to one */}
+      {orderItem?.order && (
+        <DetailSection title="Order">
+          <KvRow
+            label="Supplier"
+            value={orderItem.order.shop?.name || orderItem.order.vendor?.name || "Unknown"}
+            chevron={!!orderItem.order.sourceUrl}
+            href={orderItem.order.sourceUrl ?? undefined}
+          />
+          {orderItem.order.orderNumber && (
+            <KvRow label="Order #" value={orderItem.order.orderNumber} mono />
+          )}
+          {orderItem.order.orderDate && (
+            <KvRow label="Ordered" value={formatDate(orderItem.order.orderDate)} />
+          )}
+          {orderItem.unitPrice != null && (
+            <KvRow
+              label="Paid"
+              value={`€${Number(orderItem.unitPrice).toFixed(2)}`}
+              mono
+              isLast
+            />
+          )}
+        </DetailSection>
+      )}
+
+      {/* Manage (link-to-order / merge duplicate) */}
       <SpoolManageSection
         spoolId={spool.id}
         filamentName={spool.filament.name}
@@ -217,47 +261,45 @@ export default async function SpoolDetailPage({
         mergeCandidates={mergeCandidates}
       />
 
-      {/* Shopping list + Archive actions */}
-      <div className="flex flex-col gap-2">
-        <AddToShoppingListButton
-          filamentId={spool.filament.id}
-          filamentName={`${spool.filament.vendor.name} ${spool.filament.name}`}
-        />
-        <div className="flex justify-end">
-          <ArchiveButton spoolId={spool.id} spoolName={`${spool.filament.vendor.name} ${spool.filament.name}`} />
-        </div>
-      </div>
-
       {/* Material Profile */}
       <MaterialProfileCard profile={materialProfile ?? null} />
 
-      {/* Usage History */}
-      <Card className="p-3 rounded-xl">
-        <h3 className="text-sm font-medium mb-2">Usage History</h3>
+      {/* Usage history */}
+      <DetailSection title="Usage history">
         {spool.printUsage.length === 0 ? (
-          <p className="text-xs text-muted-foreground">No usage recorded yet.</p>
+          <p className="text-sm text-muted-foreground py-4 text-center">
+            No prints recorded yet.
+          </p>
         ) : (
-          <div className="space-y-1">
-            {spool.printUsage.map((usage) => (
-              <div
-                key={usage.id}
-                className="flex items-center justify-between text-xs py-1 border-b border-border last:border-0"
-              >
-                <div>
-                  <span className="font-medium">{usage.print?.name || "Unknown print"}</span>
-                  <span className="text-muted-foreground ml-2">
-                    {usage.createdAt ? formatDate(usage.createdAt) : ""}
-                  </span>
-                </div>
-                <div className="font-mono">
-                  {usage.weightUsed}g ·{" "}
-                  {usage.cost != null ? `${usage.cost.toFixed(2)}€` : "-"}
-                </div>
-              </div>
-            ))}
-          </div>
+          spool.printUsage.slice(0, 20).map((u, i, arr) => (
+            <UsageHistoryRow
+              key={u.id}
+              printName={u.print?.name ?? "Unknown print"}
+              grams={u.weightUsed ?? 0}
+              cost={u.cost != null ? Number(u.cost) : null}
+              dateLabel={
+                u.print?.startedAt
+                  ? relativeDate(u.print.startedAt)
+                  : u.createdAt
+                  ? relativeDate(u.createdAt)
+                  : "—"
+              }
+              isLast={i === arr.length - 1}
+            />
+          ))
         )}
-      </Card>
+      </DetailSection>
+
+      {/* Action bar */}
+      <div className="flex items-center gap-2 pt-2">
+        <AddToShoppingListButton
+          filamentId={spool.filament.id}
+          filamentName={filamentDisplayName}
+        />
+        <div className="ml-auto">
+          <ArchiveButton spoolId={spool.id} spoolName={filamentDisplayName} />
+        </div>
+      </div>
     </div>
   );
 }
