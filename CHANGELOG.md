@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- **chore:** bump addon version to 1.0.83 (`2e6c1f5`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`6a54dc5`)
 - **feat:** /spools uses the Inspector panel; widen /admin + /history on desktop (`2557e4f`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`2746bac`)
 - **chore:** bump addon version to 1.0.82 (`ebd3b78`)
