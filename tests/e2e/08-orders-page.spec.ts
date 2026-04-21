@@ -60,4 +60,25 @@ test.describe("orders page", () => {
     await page.goto("ingress/orders");
     await expect(page.getByTestId("page-orders")).toBeVisible();
   });
+
+  test("orders page shows moved-from-admin sections (Monthly Budget + Shop Config)", async ({ page }) => {
+    await page.goto("ingress/orders");
+    await expect(page.getByTestId("page-orders")).toBeVisible({ timeout: 15_000 });
+    // Budget settings card (previously on /admin, now in the left column)
+    await expect(page.getByText("Monthly Filament Budget")).toBeVisible();
+    // Add Order button in header
+    await expect(page.getByTestId("btn-add-order")).toBeVisible();
+  });
+
+  test("diagnostics issue filter shows banner", async ({ page }) => {
+    await page.goto("ingress/orders?issue=stuck");
+    await expect(page.getByTestId("page-orders")).toBeVisible({ timeout: 15_000 });
+    // Banner appears and has a Clear link back to /orders
+    const banner = page.getByTestId("issue-banner");
+    await expect(banner).toBeVisible();
+    await expect(banner.getByRole("link", { name: "Clear" })).toHaveAttribute(
+      "href",
+      /\/orders$/,
+    );
+  });
 });

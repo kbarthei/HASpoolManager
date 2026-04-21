@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 
 interface SpoolRemainingCardProps {
@@ -38,10 +38,15 @@ export function SpoolRemainingCard({
 }: SpoolRemainingCardProps) {
   const editable = typeof onAdjust === "function";
 
+  // React's recommended pattern for "reset local state when a prop changes":
+  // track the previous prop value and update during render. Replaces the
+  // effect-based reset that the react-hooks/set-state-in-effect rule flags.
   const [draftG, setDraftG] = useState(remainingG);
-  // Keep the local draft in sync when the parent prop changes (e.g. after a
-  // successful save, or when switching to a different spool).
-  useEffect(() => setDraftG(remainingG), [remainingG]);
+  const [prevRemainingG, setPrevRemainingG] = useState(remainingG);
+  if (remainingG !== prevRemainingG) {
+    setPrevRemainingG(remainingG);
+    setDraftG(remainingG);
+  }
 
   const effectiveG = editable ? draftG : remainingG;
   const clampedRemaining = Math.max(0, effectiveG);

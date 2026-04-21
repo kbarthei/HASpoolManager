@@ -32,13 +32,16 @@ describe("calculateConsumptionRate()", () => {
   });
 
   it("detects rising trend", () => {
+    // Use dates relative to now so the window filter (last `windowDays`) keeps them.
+    const now = new Date();
     const stats: DailyConsumption[] = [];
-    // Week 1: 10g/day, Week 2: 20g/day, Week 3: 40g/day, Week 4: 80g/day
+    // Week 1 (oldest): 10g/day, Week 2: 20g/day, Week 3: 40g/day, Week 4 (newest): 80g/day
     for (let w = 0; w < 4; w++) {
       for (let d = 0; d < 7; d++) {
-        const day = w * 7 + d + 1;
+        const date = new Date(now);
+        date.setDate(date.getDate() - (27 - (w * 7 + d)));
         stats.push({
-          date: `2026-03-${String(day).padStart(2, "0")}`,
+          date: date.toISOString().slice(0, 10),
           weightGrams: 10 * Math.pow(2, w),
           printCount: 1,
         });
@@ -50,13 +53,15 @@ describe("calculateConsumptionRate()", () => {
   });
 
   it("detects falling trend", () => {
+    const now = new Date();
     const stats: DailyConsumption[] = [];
-    // Week 1: 80g/day, Week 2: 40g/day, Week 3: 20g/day, Week 4: 10g/day
+    // Week 1 (oldest): 80g/day, Week 2: 40g/day, Week 3: 20g/day, Week 4 (newest): 10g/day
     for (let w = 0; w < 4; w++) {
       for (let d = 0; d < 7; d++) {
-        const day = w * 7 + d + 1;
+        const date = new Date(now);
+        date.setDate(date.getDate() - (27 - (w * 7 + d)));
         stats.push({
-          date: `2026-03-${String(day).padStart(2, "0")}`,
+          date: date.toISOString().slice(0, 10),
           weightGrams: 80 / Math.pow(2, w),
           printCount: 1,
         });
