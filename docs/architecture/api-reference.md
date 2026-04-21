@@ -915,3 +915,47 @@ Query stored HMS events.
     }
   ]
 }
+```
+
+## 8. Admin SQL
+
+Diagnostic and repair endpoints for data-integrity fixes. All routes require Bearer auth.
+
+### `POST /api/v1/admin/query`
+
+Run a read-only SELECT against the production database on a `readonly` SQLite connection.
+
+- **Auth:** `requireAuth`
+- **Body:** `{ "query": "SELECT ..." }` (or `sql`)
+- **Blocks:** any write verb, semicolons, multi-statements.
+
+**Response**
+```json
+{ "rows": [ ... ], "count": 12 }
+```
+
+### `POST /api/v1/admin/sql/execute`
+
+Run a single write statement (UPDATE/INSERT/DELETE) with positional parameter binding. Designed for repair workflows driven from the Diagnostics page.
+
+- **Auth:** `requireAuth`
+- **Body:**
+  ```json
+  {
+    "sql": "UPDATE spools SET remaining_weight = ? WHERE id = ?",
+    "params": [120, "<spool-uuid>"],
+    "dryRun": false
+  }
+  ```
+- **Blocks:** SELECT (use `/query`), DDL (CREATE/DROP/ALTER/PRAGMA/VACUUM/REINDEX/ATTACH/DETACH), multi-statements, SQL longer than 10KB.
+- **Dry run:** when `dryRun: true`, the statement runs inside a transaction that is always rolled back. `changes` still reflects what *would* have been affected, so callers can preview impact before committing.
+
+**Response**
+```json
+{
+  "operation": "UPDATE",
+  "changes": 1,
+  "lastInsertRowid": 0,
+  "dryRun": false
+}
+```
