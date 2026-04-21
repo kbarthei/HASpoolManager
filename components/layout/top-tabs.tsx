@@ -6,6 +6,9 @@ import { useState } from "react";
 import { LayoutDashboard, Circle, Package, ShoppingCart, Printer, Clock, Plus, Settings, BarChart3 } from "lucide-react";
 import { AddOrderDialog } from "@/components/orders/add-order-dialog";
 
+// Inlined by next.config.ts at build time from ha-addon/haspoolmanager/config.yaml.
+const ADDON_VERSION = process.env.ADDON_VERSION ?? "dev";
+
 const tabs = [
   {
     label: "Dashboard",
@@ -72,8 +75,27 @@ export function TopTabs() {
   return (
     <>
       <header className="hidden md:flex h-12 items-center justify-between bg-card border-b border-border px-4">
-        {/* Left: title */}
-        <span className="font-semibold text-sm shrink-0">HASpoolManager</span>
+        {/* Left: icon + title + deployed version */}
+        <Link
+          href="/"
+          className="flex items-baseline gap-1.5 shrink-0 hover:opacity-80 transition-opacity"
+          aria-label="HASpoolManager — go to dashboard"
+        >
+          {/* Teal "S" mark matching app/icon.tsx and app/apple-icon.tsx */}
+          <span
+            className="self-center h-5 w-5 rounded-[5px] bg-primary text-white flex items-center justify-center font-bold text-[14px] leading-none tracking-[-1px]"
+            aria-hidden
+          >
+            S
+          </span>
+          <span className="font-semibold text-sm">HASpoolManager</span>
+          <span
+            className="text-2xs font-mono text-muted-foreground"
+            data-testid="header-version"
+          >
+            v{ADDON_VERSION}
+          </span>
+        </Link>
 
         {/* Center: tabs */}
         <nav className="flex items-center gap-0.5">
