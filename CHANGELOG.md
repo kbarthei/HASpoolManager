@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- **chore:** bump addon version to 1.0.82 (`ebd3b78`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`8b27f20`)
 - **feat:** apply redesign system to /admin (`f99fc2e`)
 - **feat:** apply redesign system to /history (`c3841be`)
 - **feat:** apply redesign system to /spools list + SpoolCard (`8b012f7`)
