@@ -6,6 +6,9 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- **feat:** SQL execute endpoint for admin-driven data repairs (`50a8e59`)
+- **feat:** diagnostics dashboard with issue-card deep-linking (`4de81ac`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`5edb043`)
 - **chore:** bump addon version to 1.0.84 (`1799bc8`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`51dbd6e`)
 - **feat:** 2-column layout for /admin on desktop (`e1958a6`)
