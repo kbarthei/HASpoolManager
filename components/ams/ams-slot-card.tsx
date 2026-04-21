@@ -30,6 +30,8 @@ interface AmsSlotCardProps {
   onClickLoad?: (slotId: string) => void;
   onClickUnload?: (slotId: string) => void;
   onClickArchive?: (spoolId: string) => void;
+  /** When true, card is dimmed (filter active + slot doesn't match). */
+  dimmed?: boolean;
 }
 
 function slotLabel(slotType: string, trayIndex: number): string {
@@ -44,6 +46,7 @@ export function AmsSlotCard({
   onClickLoad,
   onClickUnload,
   onClickArchive,
+  dimmed,
 }: AmsSlotCardProps) {
   const spool = slot.spool;
   const label = slotLabel(slot.slotType, slot.trayIndex);
@@ -53,7 +56,10 @@ export function AmsSlotCard({
       <button
         type="button"
         onClick={() => onClickLoad?.(slot.id)}
-        className="flex items-center gap-3 p-3 rounded-xl bg-background border border-dashed border-border opacity-60 hover:opacity-100 hover:border-primary/60 transition-all text-left w-full"
+        className={cn(
+          "flex items-center gap-3 p-3 rounded-xl bg-background border border-dashed border-border opacity-60 hover:opacity-100 hover:border-primary/60 transition-all text-left w-full",
+          dimmed && "opacity-20 hover:opacity-40",
+        )}
       >
         <div className="w-10 h-10 rounded-full border border-dashed border-border shrink-0" />
         <div className="min-w-0 flex-1">
@@ -97,13 +103,14 @@ export function AmsSlotCard({
         }
       }}
       className={cn(
-        "relative flex items-center gap-3 p-3 rounded-xl bg-background border cursor-pointer transition-colors",
+        "relative flex items-center gap-3 p-3 rounded-xl bg-background border cursor-pointer transition-all",
         "hover:bg-accent/40 focus:outline-none focus:ring-2 focus:ring-ring",
         isDraft
           ? "border-warning"
           : low
           ? "border-destructive"
           : "border-border",
+        dimmed && "opacity-30 hover:opacity-60",
       )}
     >
       <div

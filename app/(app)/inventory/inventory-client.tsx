@@ -123,6 +123,21 @@ function matchesFilter(spool: SpoolData, filter: string): boolean {
   return spool.filament.material === filter;
 }
 
+/**
+ * Filter predicate for an AMS slot. Empty slots never match (they have no
+ * material / weight to test); filled slots delegate to the spool predicate.
+ */
+function slotMatchesFilter(slot: SlotData, filter: string): boolean {
+  if (filter === "all") return true;
+  if (!slot.spool || slot.isEmpty) return false;
+  if (filter === "low") {
+    const s = slot.spool;
+    if (s.initialWeight <= 0) return false;
+    return s.remainingWeight / s.initialWeight < 0.1;
+  }
+  return slot.spool.filament.material === filter;
+}
+
 // ── Component ──────────────────────────────────────────────────────────────────
 
 export function InventoryClient({
@@ -412,6 +427,8 @@ export function InventoryClient({
                 onClickLoad={handleClickLoad}
                 onClickUnload={handleClickUnload}
                 onClickArchive={handleClickArchive}
+                filterActive={filter !== "all"}
+                matchesFilter={(slot) => slotMatchesFilter(slot, filter)}
               />
             )}
             {/* AMS HT + External share a row so the secondary slots align with
@@ -428,6 +445,8 @@ export function InventoryClient({
                 onClickLoad={handleClickLoad}
                 onClickUnload={handleClickUnload}
                 onClickArchive={handleClickArchive}
+                filterActive={filter !== "all"}
+                matchesFilter={(slot) => slotMatchesFilter(slot, filter)}
               />
             )}
           </div>
