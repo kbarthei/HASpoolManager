@@ -3,7 +3,6 @@ export const dynamic = "force-dynamic";
 import { getAllPrints, getPrinterStatus } from "@/lib/queries";
 import { SpoolMaterialBadge } from "@/components/spool/spool-material-badge";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { SpoolColorDot } from "@/components/spool/spool-color-dot";
 import { UsageWeightAdjuster } from "@/components/prints/usage-weight-adjuster";
 import { CheckCircle2, XCircle, Zap } from "lucide-react";
@@ -11,6 +10,7 @@ import { formatDateTime, formatDateLong, formatDateShort } from "@/lib/date";
 import { costTooltip } from "@/lib/format-cost";
 import { CostTooltip } from "@/components/prints/cost-tooltip";
 import { ClearStaleButton } from "@/components/prints/clear-stale-button";
+import { cn } from "@/lib/utils";
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -34,6 +34,40 @@ function groupByDate<T extends { startedAt: Date | null | string | undefined }>(
   return map;
 }
 
+// ── Stat cell (inline — matches the Spool Inspector 3-up row) ─────────────
+
+function StatCell({
+  label,
+  value,
+  sub,
+  tooltip,
+}: {
+  label: string;
+  value: string;
+  sub?: string | null;
+  tooltip?: string;
+}) {
+  const body = (
+    <div className="bg-muted rounded-lg p-3 text-center">
+      <div className="text-2xs font-semibold uppercase tracking-wider text-muted-foreground">
+        {label}
+      </div>
+      <div
+        className="font-bold tracking-tight leading-tight mt-1"
+        style={{ fontSize: "17px" }}
+      >
+        {value}
+      </div>
+      {sub && (
+        <div className="text-2xs text-muted-foreground mt-0.5 truncate">
+          {sub}
+        </div>
+      )}
+    </div>
+  );
+  return tooltip ? <CostTooltip text={tooltip}>{body}</CostTooltip> : body;
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────
 
 export default async function PrintHistoryPage() {
@@ -54,106 +88,126 @@ export default async function PrintHistoryPage() {
   const totalEnergyCost = allPrints.reduce((sum, p) => sum + Number(p.energyCost ?? 0), 0);
   const totalKwh = allPrints.reduce((sum, p) => sum + Number(p.energyKwh ?? 0), 0);
 
-  const headerCostTooltip = totalEnergyCost > 0
-    ? `Filament: €${totalFilamentCost.toFixed(2)} · Electricity: €${totalEnergyCost.toFixed(2)} (${totalKwh.toFixed(2)} kWh) · Total: €${totalCost.toFixed(2)}`
-    : undefined;
+  const headerCostTooltip =
+    totalEnergyCost > 0
+      ? `Filament €${totalFilamentCost.toFixed(2)} · Electricity €${totalEnergyCost.toFixed(2)} (${totalKwh.toFixed(2)} kWh)`
+      : undefined;
 
   const grouped = groupByDate(completedPrints);
 
   return (
-    <div data-testid="page-prints" className="max-w-2xl mx-auto px-4 py-6 space-y-6">
+    <div data-testid="page-prints" className="max-w-2xl mx-auto space-y-4">
       {/* Header */}
       <div>
-        <h1 className="text-xl font-semibold">Print History</h1>
-        <p className="text-xs text-muted-foreground mt-1">
-          {allPrints.length} prints &middot;{" "}
-          {totalWeight.toFixed(1)}g used &middot;{" "}
-          <CostTooltip text={headerCostTooltip}>
-            <span className={headerCostTooltip ? "cursor-help underline decoration-dotted" : undefined}>
-              &euro;{totalCost.toFixed(2)} total
-            </span>
-          </CostTooltip>
+        <h1 className="text-2xl font-bold tracking-tight">Print History</h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          {allPrints.length} prints · {totalWeight.toFixed(0)} g filament used
+          {totalCost > 0 && ` · €${totalCost.toFixed(2)} spent`}
         </p>
       </div>
 
+      {/* 3-up summary */}
+      {allPrints.length > 0 && (
+        <div className="grid grid-cols-3 gap-2.5">
+          <StatCell label="Prints" value={String(allPrints.length)} />
+          <StatCell label="Used" value={`${totalWeight.toFixed(0)} g`} />
+          <StatCell
+            label="Spent"
+            value={`€${totalCost.toFixed(2)}`}
+            sub={headerCostTooltip ? "filament + energy" : null}
+            tooltip={headerCostTooltip}
+          />
+        </div>
+      )}
+
       {/* Currently Printing */}
       {runningPrints.length > 0 && (
-        <div className="mb-4">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-2">
+        <section className="space-y-2">
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
               </span>
               Currently Printing
-            </h3>
+            </h2>
             <ClearStaleButton runningCount={runningPrints.length} />
           </div>
-          <p className="text-[10px] text-muted-foreground mb-2">
+          <p className="text-2xs text-muted-foreground">
             Stuck at &ldquo;running&rdquo;? Clear stale to mark failed and unblock future tracking (auto after 24h).
           </p>
           <div className="space-y-2">
             {runningPrints.map((print) => (
-              <Card key={print.id} className="p-3 rounded-xl border-l-[3px] border-l-primary">
-                <div className="flex items-start justify-between">
+              <Card
+                key={print.id}
+                className="p-4 rounded-xl border-l-[3px] border-l-primary"
+              >
+                <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
-                    <div className="text-sm font-medium truncate">
+                    <div className="text-sm font-semibold truncate">
                       {print.name ?? print.gcodeFile ?? "Unnamed print"}
                     </div>
                     <div className="text-xs text-muted-foreground mt-0.5">
-                      Started{" "}
-                      {formatDateShort(print.startedAt!)}
+                      Started {formatDateShort(print.startedAt!)}
                       {print.printer && ` · ${print.printer.name}`}
                     </div>
                   </div>
-                  <Badge className="text-[10px] h-5 px-1.5 bg-primary/15 text-primary border-primary/30 shrink-0 ml-2">
+                  <span className="inline-flex items-center h-5 px-2 rounded-full text-2xs font-bold uppercase tracking-wide bg-primary/15 text-primary border border-primary/30 shrink-0">
                     Printing
-                  </Badge>
+                  </span>
                 </div>
-                <div className="flex flex-wrap gap-3 mt-2 text-xs text-muted-foreground items-center">
+                <div className="flex flex-wrap gap-3 mt-3 text-xs text-muted-foreground items-center">
                   {printerStatus.activeSpools && printerStatus.activeSpools.length > 0 ? (
                     printerStatus.activeSpools.map((spool, i) => (
-                      <div key={i} className="flex items-center gap-1">
+                      <div key={i} className="flex items-center gap-1.5">
                         <SpoolColorDot hex={spool.colorHex} size="sm" />
-                        <span>{spool.vendor} {spool.name}</span>
+                        <span className="text-foreground">{spool.vendor} {spool.name}</span>
                         <SpoolMaterialBadge material={spool.material} />
                         {spool.colorName && (
-                          <span className="text-muted-foreground">({spool.colorName})</span>
+                          <span>({spool.colorName})</span>
                         )}
                       </div>
                     ))
                   ) : printerStatus.activeSpool ? (
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1.5">
                       <SpoolColorDot hex={printerStatus.activeSpool.colorHex} size="sm" />
-                      <span>{printerStatus.activeSpool.vendor} {printerStatus.activeSpool.name}</span>
+                      <span className="text-foreground">
+                        {printerStatus.activeSpool.vendor} {printerStatus.activeSpool.name}
+                      </span>
                       <SpoolMaterialBadge material={printerStatus.activeSpool.material} />
                       {printerStatus.activeSpool.colorName && (
-                        <span className="text-muted-foreground">({printerStatus.activeSpool.colorName})</span>
+                        <span>({printerStatus.activeSpool.colorName})</span>
                       )}
                     </div>
                   ) : null}
                   {print.printWeight != null && (
-                    <span className="font-mono">{print.printWeight}g</span>
+                    <span className="font-[family-name:var(--font-geist-mono)] tabular-nums">
+                      {print.printWeight}g
+                    </span>
                   )}
                   {(printerStatus.progress ?? 0) > 0 && (
-                    <span className="font-mono text-primary font-medium">{Math.round(printerStatus.progress ?? 0)}%</span>
+                    <span className="font-[family-name:var(--font-geist-mono)] tabular-nums text-primary font-semibold">
+                      {Math.round(printerStatus.progress ?? 0)}%
+                    </span>
                   )}
                   {(printerStatus.remainingTime ?? 0) > 0 && (
-                    <span className="font-mono">{Math.round(printerStatus.remainingTime ?? 0)}min left</span>
+                    <span className="font-[family-name:var(--font-geist-mono)] tabular-nums">
+                      {Math.round(printerStatus.remainingTime ?? 0)}min left
+                    </span>
                   )}
                 </div>
               </Card>
             ))}
           </div>
-        </div>
+        </section>
       )}
 
       {/* Grouped history */}
       {Array.from(grouped.entries()).map(([dateLabel, dayPrints]) => (
-        <section key={dateLabel}>
+        <section key={dateLabel} className="space-y-2">
           {/* Sticky date header */}
-          <div className="sticky top-0 z-10 bg-background py-1 mb-2">
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+          <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm py-1">
+            <span className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">
               {dateLabel}
             </span>
           </div>
@@ -167,14 +221,17 @@ export default async function PrintHistoryPage() {
               const printCostTip = costTooltip(print);
 
               return (
-                <Card key={print.id} className="px-4 py-3">
+                <Card
+                  key={print.id}
+                  className="px-4 py-3 rounded-xl"
+                >
                   <div className="flex items-start gap-3">
                     {/* Status icon */}
                     <div className="mt-0.5 shrink-0">
                       {finished ? (
-                        <CheckCircle2 className="h-4 w-4 text-green-500" />
+                        <CheckCircle2 className="h-4 w-4 text-success" />
                       ) : (
-                        <XCircle className="h-4 w-4 text-red-500" />
+                        <XCircle className="h-4 w-4 text-destructive" />
                       )}
                     </div>
 
@@ -185,7 +242,7 @@ export default async function PrintHistoryPage() {
                           <img
                             src={`/api/v1/snapshots/${print.coverImagePath.replace("snapshots/", "")}`}
                             alt="3D preview"
-                            className="h-10 w-10 rounded object-cover bg-muted"
+                            className="h-10 w-10 rounded-md object-cover bg-muted"
                             loading="lazy"
                           />
                         )}
@@ -193,7 +250,7 @@ export default async function PrintHistoryPage() {
                           <img
                             src={`/api/v1/snapshots/${print.snapshotPath.replace("snapshots/", "")}`}
                             alt="Print result"
-                            className="h-10 w-10 rounded object-cover bg-muted"
+                            className="h-10 w-10 rounded-md object-cover bg-muted"
                             loading="lazy"
                           />
                         )}
@@ -204,49 +261,46 @@ export default async function PrintHistoryPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-baseline justify-between gap-2">
                         <span
-                          className={`text-sm font-medium truncate ${
-                            failed ? "text-muted-foreground" : ""
-                          }`}
+                          className={cn(
+                            "text-sm font-semibold truncate",
+                            failed && "text-muted-foreground",
+                          )}
                         >
-                          {print.name ?? print.gcodeFile ?? "Unnamed Print"}
+                          {print.name ?? print.gcodeFile ?? "Unnamed print"}
                         </span>
-                        <div className="flex items-center gap-2 shrink-0 font-mono text-xs text-muted-foreground">
+                        <div className="flex items-center gap-2 shrink-0 font-[family-name:var(--font-geist-mono)] tabular-nums text-xs text-muted-foreground">
                           <span>{printWeight.toFixed(1)}g</span>
                           {printCost > 0 && print.energyCost ? (
                             <CostTooltip text={printCostTip}>
                               <span className="flex items-center gap-1 cursor-help underline decoration-dotted">
-                                &euro;{Number(print.filamentCost ?? 0).toFixed(2)}
+                                €{Number(print.filamentCost ?? 0).toFixed(2)}
                                 <span className="text-muted-foreground/40">+</span>
-                                <Zap className="w-3 h-3 text-amber-500" />
-                                &euro;{Number(print.energyCost).toFixed(2)}
+                                <Zap className="w-3 h-3 text-warning" />
+                                €{Number(print.energyCost).toFixed(2)}
                                 <span className="text-muted-foreground/40">=</span>
-                                <span className="font-semibold">&euro;{printCost.toFixed(2)}</span>
+                                <span className="font-semibold text-foreground">€{printCost.toFixed(2)}</span>
                               </span>
                             </CostTooltip>
                           ) : printCost > 0 ? (
-                            <span>&euro;{printCost.toFixed(2)}</span>
+                            <span>€{printCost.toFixed(2)}</span>
                           ) : null}
                         </div>
                       </div>
 
                       {/* Date + duration */}
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-xs text-muted-foreground">
-                          {formatDateTime(print.startedAt)}
-                        </span>
+                      <div className="flex items-center gap-1.5 mt-0.5 text-2xs text-muted-foreground">
+                        <span>{formatDateTime(print.startedAt)}</span>
                         {print.durationSeconds != null && (
                           <>
-                            <span className="text-xs text-muted-foreground">&middot;</span>
-                            <span className="text-xs text-muted-foreground">
-                              {formatDuration(print.durationSeconds)}
-                            </span>
+                            <span className="opacity-50">·</span>
+                            <span>{formatDuration(print.durationSeconds)}</span>
                           </>
                         )}
                       </div>
 
                       {/* Filament usage */}
                       {print.usage.length > 0 && (
-                        <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1.5">
+                        <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2">
                           {print.usage.map((u) => {
                             const filament = u.spool?.filament;
                             const hex = filament?.colorHex ?? "888888";
@@ -254,10 +308,10 @@ export default async function PrintHistoryPage() {
                               ? `${filament.material} ${filament.colorName ?? ""}`.trim()
                               : "Unknown";
                             return (
-                              <div key={u.id} className="flex items-center gap-1">
+                              <div key={u.id} className="flex items-center gap-1.5">
                                 <SpoolColorDot hex={hex} size="sm" />
-                                <span className="text-xs text-muted-foreground">
-                                  {name} &middot;{" "}
+                                <span className="text-2xs text-muted-foreground">
+                                  {name} ·
                                 </span>
                                 <UsageWeightAdjuster
                                   printId={print.id}
@@ -272,7 +326,7 @@ export default async function PrintHistoryPage() {
 
                       {/* Notes for failed */}
                       {failed && print.notes && (
-                        <p className="text-xs text-muted-foreground mt-1 italic">
+                        <p className="text-2xs text-muted-foreground mt-1.5 italic">
                           {print.notes}
                         </p>
                       )}
@@ -286,7 +340,9 @@ export default async function PrintHistoryPage() {
       ))}
 
       {allPrints.length === 0 && (
-        <p className="text-sm text-muted-foreground text-center py-12">No prints yet.</p>
+        <div className="py-16 text-center">
+          <p className="text-sm text-muted-foreground">No prints yet.</p>
+        </div>
       )}
     </div>
   );
