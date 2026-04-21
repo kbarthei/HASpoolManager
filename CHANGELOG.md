@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- **chore:** bump addon version to 1.0.81 (`e8693d1`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`984baf7`)
 - **chore:** delete dead /ams + /storage routes, unify on Spool Inspector (`eb31378`)
 - **feat:** 3.3 Spool Inspector — slide-in panel on desktop, bottom sheet on mobile (`8d373c7`)
 - **feat:** 3.2 Inventory redo — new rack, AMS strip, filter chips (`7dc3ebc`)
