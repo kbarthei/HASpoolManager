@@ -19,10 +19,7 @@ const tabs = [
     href: "/inventory",
     icon: Package,
     testId: "nav-inventory",
-    isActive: (path: string) =>
-      path.startsWith("/inventory") ||
-      path.startsWith("/ams") ||
-      path.startsWith("/storage"),
+    isActive: (path: string) => path.startsWith("/inventory"),
   },
   {
     label: "Orders",

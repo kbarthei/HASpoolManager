@@ -109,7 +109,7 @@ The following specs replace the old `tests/e2e/*.spec.ts` files. Each file is ~5
 | `13-mobile-viewport.spec.ts` | All key pages render correctly at 375×667 | 5 |
 | `14-analytics-page.spec.ts` | /analytics renders (page-analytics testid) + reachable via top-tabs nav | 2 |
 
-> **Pages note:** `/ams` and `/storage` redirect to `/inventory` — they are NOT standalone pages and have no `page-<name>` testid.
+> **Pages note:** `/inventory` is the single entry point for AMS + rack + workbench + surplus. Older `/ams` and `/storage` routes were removed in the 3.2 redesign (2026-04-21).
 > Real pages with anchors: dashboard, spools, inventory, orders, prints, history, admin, scan (8 total, 7 navigable + root).
 
 #### Not yet implemented (future work)

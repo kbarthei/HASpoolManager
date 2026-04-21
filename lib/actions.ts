@@ -26,7 +26,6 @@ export async function moveSpoolInRack(
       .where(eq(spools.id, swapSpoolId));
   }
 
-  revalidatePath("/storage");
   revalidatePath("/");
 }
 
@@ -34,7 +33,6 @@ export async function assignSpoolToRack(spoolId: string, row: number, col: numbe
   await db.update(spools)
     .set({ location: `rack:${row}-${col}`, updatedAt: new Date() })
     .where(eq(spools.id, spoolId));
-  revalidatePath("/storage");
   revalidatePath("/");
 }
 
@@ -42,7 +40,6 @@ export async function removeSpoolFromRack(spoolId: string) {
   await db.update(spools)
     .set({ location: "storage", updatedAt: new Date() })
     .where(eq(spools.id, spoolId));
-  revalidatePath("/storage");
   revalidatePath("/");
 }
 
@@ -50,7 +47,6 @@ export async function moveSpoolTo(spoolId: string, location: string) {
   await db.update(spools)
     .set({ location, updatedAt: new Date() })
     .where(eq(spools.id, spoolId));
-  revalidatePath("/storage");
   revalidatePath("/spools");
   revalidatePath("/");
 }
@@ -60,7 +56,6 @@ export async function moveAllRackToWorkbench() {
     .set({ location: "workbench", updatedAt: new Date() })
     .where(like(spools.location, "rack:%"))
     .returning();
-  revalidatePath("/storage");
   revalidatePath("/spools");
   revalidatePath("/");
   return result.length;
@@ -85,7 +80,6 @@ export async function moveOutOfBoundsToWorkbench() {
     }
   }
   if (moved > 0) {
-    revalidatePath("/storage");
     revalidatePath("/spools");
     revalidatePath("/");
   }
@@ -114,7 +108,6 @@ export async function loadSpoolToSlot(slotId: string, spoolId: string) {
     updatedAt: new Date(),
   }).where(eq(spools.id, spoolId));
 
-  revalidatePath("/ams");
   revalidatePath("/");
 }
 
@@ -133,7 +126,6 @@ export async function unloadSlotSpool(slotId: string) {
     await db.update(spools).set({ location: "storage", updatedAt: new Date() }).where(eq(spools.id, slot.spoolId));
   }
 
-  revalidatePath("/ams");
   revalidatePath("/");
 }
 
@@ -280,7 +272,6 @@ export async function createOrderFromParsed(data: {
 
   revalidatePath("/");
   revalidatePath("/spools");
-  revalidatePath("/storage");
   revalidatePath("/orders");
 
   return { orderId: order.id };
@@ -315,8 +306,6 @@ export async function adjustSpoolWeight(spoolId: string, newWeight: number) {
   revalidatePath("/");
   revalidatePath("/spools");
   revalidatePath(`/spools/${spoolId}`);
-  revalidatePath("/storage");
-  revalidatePath("/ams");
 }
 
 export async function receiveOrder(
@@ -337,7 +326,6 @@ export async function receiveOrder(
 
   revalidatePath("/");
   revalidatePath("/spools");
-  revalidatePath("/storage");
   revalidatePath("/orders");
 }
 
@@ -453,8 +441,6 @@ export async function mergeSpools(targetSpoolId: string, sourceSpoolId: string) 
   revalidatePath("/spools");
   revalidatePath(`/spools/${targetSpoolId}`);
   revalidatePath("/orders");
-  revalidatePath("/storage");
-  revalidatePath("/ams");
 }
 
 export async function archiveSpool(spoolId: string) {
@@ -474,8 +460,6 @@ export async function archiveSpool(spoolId: string) {
 
   revalidatePath("/");
   revalidatePath("/spools");
-  revalidatePath("/storage");
-  revalidatePath("/ams");
 }
 
 export async function restoreSpool(spoolId: string) {
@@ -487,7 +471,6 @@ export async function restoreSpool(spoolId: string) {
 
   revalidatePath("/");
   revalidatePath("/spools");
-  revalidatePath("/storage");
 }
 
 export async function permanentlyDeleteSpool(spoolId: string) {
@@ -574,7 +557,6 @@ export async function confirmDraftSpool(
 
   revalidatePath("/");
   revalidatePath("/spools");
-  revalidatePath("/ams");
 }
 
 export async function updateRackConfig(rows: number, columns: number) {
@@ -585,7 +567,6 @@ export async function updateRackConfig(rows: number, columns: number) {
   await db.insert(settings)
     .values({ key: "rack_columns", value: String(columns) })
     .onConflictDoUpdate({ target: settings.key, set: { value: String(columns), updatedAt: new Date() } });
-  revalidatePath("/storage");
   revalidatePath("/admin");
 }
 
@@ -598,7 +579,6 @@ export async function createSpoolFromFilament(filamentId: string, initialWeight:
     location: "workbench",
   }).returning();
   revalidatePath("/spools");
-  revalidatePath("/storage");
   revalidatePath("/");
   return spool;
 }
@@ -617,7 +597,6 @@ export async function cloneSpool(sourceSpoolId: string, initialWeight: number = 
     location: "workbench",
   }).returning();
   revalidatePath("/spools");
-  revalidatePath("/storage");
   revalidatePath("/");
   return newSpool;
 }
@@ -676,7 +655,6 @@ export async function createSpoolFromScan(data: {
   }).returning();
 
   revalidatePath("/spools");
-  revalidatePath("/storage");
   revalidatePath("/");
   return spool;
 }

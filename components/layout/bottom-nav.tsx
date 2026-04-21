@@ -16,10 +16,7 @@ const primaryTabs = [
     label: "Inventory",
     href: "/inventory",
     icon: Package,
-    isActive: (path: string) =>
-      path.startsWith("/inventory") ||
-      path.startsWith("/ams") ||
-      path.startsWith("/storage"),
+    isActive: (path: string) => path.startsWith("/inventory"),
   },
   {
     label: "Prints",

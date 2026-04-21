@@ -50,19 +50,18 @@ graph TD
 
     subgraph "Pages (Server Components)"
         Dashboard["/ Dashboard"]
-        Spools["/spools Inventory"]
+        Inventory["/inventory Inventory (AMS + Rack + Workbench + Surplus)"]
+        Spools["/spools Spools List"]
         SpoolDetail["/spools/[id] Detail"]
-        AMS["/ams AMS Status"]
-        Storage["/storage Rack Grid"]
         Orders["/orders Orders + Shopping"]
         Prints["/prints Print History"]
         History["/history Spool History"]
+        Analytics["/analytics Charts"]
         Scan["/scan NFC Lookup"]
     end
 
     subgraph "Client Components"
-        AmsClient["AmsClient<br/>React Query polling"]
-        StorageClient["StorageClient<br/>Drag & drop, context menu"]
+        InventoryClient["InventoryClient<br/>AMS live polling + RackGrid + filter chips"]
         OrdersClient["OrdersClient<br/>Shopping list, receive wizard"]
         SpoolsClient["SpoolsClient<br/>Grid/list toggle, filters"]
     end
@@ -71,16 +70,14 @@ graph TD
         SpoolColorDot["SpoolColorDot"]
         SpoolProgressBar["SpoolProgressBar"]
         SpoolMaterialBadge["SpoolMaterialBadge"]
-        SpoolDetailSheet["SpoolDetailSheet"]
-        WeightAdjuster["WeightAdjuster"]
+        SpoolInspector["SpoolInspector (+ SpoolHero / SpoolRemainingCard / …)"]
     end
 
     Layout --> TopTabs
     Layout --> BottomNav
     Dashboard --> Layout
+    Inventory --> InventoryClient
     Spools --> SpoolsClient
-    AMS --> AmsClient
-    Storage --> StorageClient
     Orders --> OrdersClient
 ```
 
@@ -89,11 +86,11 @@ graph TD
 | Page | Rendering | Why |
 |------|-----------|-----|
 | Dashboard | Server Component | Aggregates from multiple tables, no interactivity needed for initial render |
+| Inventory | Server Component + Client wrapper | Server fetches printer + rack + workbench + surplus; client handles AMS live polling, filter chips, drag-to-move, Spool Inspector |
 | Spools | Server Component + Client wrapper | Server fetches + filters, client handles view toggle and URL state |
 | Spool Detail | Server Component | Static data display, no live updates needed |
-| AMS Status | Server Component + React Query | Initial SSR, then polls every 30s for live slot updates |
-| Storage | Server Component + Client wrapper | Server fetches rack data, client handles drag & drop |
 | Orders | Server Component + Client wrapper | Server fetches orders, client handles shopping list, dialogs |
+| Analytics | Server Component | 13 charts composed from aggregated queries; no live updates |
 
 ### Data Mutation Pattern
 

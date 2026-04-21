@@ -12,7 +12,7 @@ import { formatDate } from "@/lib/date";
 import { Badge } from "@/components/ui/badge";
 import { SpoolColorDot } from "@/components/spool/spool-color-dot";
 import { SpoolMaterialBadge } from "@/components/spool/spool-material-badge";
-import { SpoolDetailSheet } from "@/components/spool/spool-detail-sheet";
+import { SpoolInspectorContainer } from "@/components/spool/spool-inspector-container";
 import { ExternalLink, Box } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -195,8 +195,8 @@ export function OrderDetailSheet({ order, open, onClose }: OrderDetailSheetProps
       </SheetContent>
     </Sheet>
 
-    {/* Nested spool detail */}
-    <SpoolDetailSheet
+    {/* Nested spool inspector (new redesign inspector replaces the old sheet) */}
+    <SpoolInspectorContainer
       spoolId={spoolDetailId}
       open={spoolDetailOpen}
       onClose={() => { setSpoolDetailOpen(false); setSpoolDetailId(null); }}
