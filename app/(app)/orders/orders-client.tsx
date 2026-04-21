@@ -89,6 +89,18 @@ interface OrdersClientProps {
   rack: RackInfo;
   shoppingList: ShoppingListItem[];
   allFilaments: FilamentOption[];
+  /**
+   * Optional server-rendered slots placed into the left column on desktop.
+   * These let the page inject Server Components (BudgetCard, OptimizedCart,
+   * ShopConfigList) without crossing the server/client boundary.
+   */
+  leftSlotTop?: React.ReactNode;
+  leftSlotMid?: React.ReactNode;
+  leftSlotBottom?: React.ReactNode;
+  /** Optional client-rendered slots interleaved in the left column. */
+  leftClientTop?: React.ReactNode;
+  leftClientMid?: React.ReactNode;
+  leftClientBottom?: React.ReactNode;
 }
 
 // ─── Pending Order Card ────────────────────────────────────────────────────────
@@ -237,7 +249,18 @@ function MonthHeader({
 
 // ─── Main client component ────────────────────────────────────────────────────
 
-export function OrdersClient({ orders, rack, shoppingList, allFilaments }: OrdersClientProps) {
+export function OrdersClient({
+  orders,
+  rack,
+  shoppingList,
+  allFilaments,
+  leftSlotTop,
+  leftSlotMid,
+  leftSlotBottom,
+  leftClientTop,
+  leftClientMid,
+  leftClientBottom,
+}: OrdersClientProps) {
   const router = useRouter();
   const [addOpen, setAddOpen] = useState(false);
   const [receiveOrder, setReceiveOrder] = useState<Order | null>(null);
@@ -341,6 +364,80 @@ export function OrdersClient({ orders, rack, shoppingList, allFilaments }: Order
 
   const showFilters = deliveredOrders.length > 5;
 
+  const pastOrdersSection = deliveredOrders.length > 0 && (
+    <section className="space-y-2">
+      <h2 className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">
+        Past Orders
+      </h2>
+
+      {/* Progressive filters */}
+      {showFilters && (
+        <div className="space-y-2">
+          <Input
+            type="search"
+            placeholder="Search orders..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="h-9 text-sm"
+          />
+          {shops.length > 1 && (
+            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+              <button
+                type="button"
+                className={cn(
+                  "shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors",
+                  selectedShop === "all"
+                    ? "bg-foreground text-background border-foreground"
+                    : "bg-card text-ink-2 border-border hover:bg-muted",
+                )}
+                onClick={() => setSelectedShop("all")}
+              >
+                All
+              </button>
+              {shops.map((shop) => (
+                <button
+                  key={shop}
+                  type="button"
+                  className={cn(
+                    "shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors",
+                    selectedShop === shop
+                      ? "bg-foreground text-background border-foreground"
+                      : "bg-card text-ink-2 border-border hover:bg-muted",
+                  )}
+                  onClick={() => setSelectedShop(shop)}
+                >
+                  {shop}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Month groups */}
+      {sortedMonths.length > 0 ? (
+        sortedMonths.map(([key, { label, orders: monthOrders, totalCost }]) => (
+          <div key={key} className="space-y-1 pb-2">
+            <MonthHeader
+              label={label}
+              count={monthOrders.length}
+              total={totalCost}
+            />
+            <div className="space-y-1 pt-1">
+              {monthOrders.map((o) => (
+                <DeliveredOrderCard key={o.id} order={o} onCardClick={handleCardClick} />
+              ))}
+            </div>
+          </div>
+        ))
+      ) : (
+        <p className="text-sm text-muted-foreground py-4 text-center">
+          No orders match your filters
+        </p>
+      )}
+    </section>
+  );
+
   return (
     <div data-testid="page-orders" className="space-y-4">
       {/* Page header */}
@@ -356,127 +453,70 @@ export function OrdersClient({ orders, rack, shoppingList, allFilaments }: Order
         </Button>
       </div>
 
-      {/* Empty state */}
-      {orders.length === 0 && (
-        <div className="flex flex-col items-center gap-3 py-16 text-center">
-          <ShoppingCart className="h-10 w-10 text-muted-foreground/40" />
-          <div className="space-y-1">
-            <p className="text-sm font-medium">No orders yet</p>
-            <p className="text-xs text-muted-foreground">
-              Add an order to track filament purchases
-            </p>
-          </div>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setAddOpen(true)}
-            className="mt-1 h-8 text-xs gap-1.5"
-          >
-            <Plus className="h-3.5 w-3.5" /> Add Order
-          </Button>
+      {/* 2-column grid on desktop; single-column on mobile */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        {/* Left column: supply operations + shopping list + admin settings */}
+        <div className="space-y-4">
+          {leftSlotTop}
+          {leftClientTop}
+          {leftSlotMid}
+
+          <ShoppingList
+            items={shoppingList}
+            allFilaments={allFilaments}
+            onMarkAsOrdered={() => setAddOpen(true)}
+          />
+
+          {leftClientMid}
+          {leftClientBottom}
+          {leftSlotBottom}
         </div>
-      )}
 
-      {/* Shopping List section */}
-      <ShoppingList
-        items={shoppingList}
-        allFilaments={allFilaments}
-        onMarkAsOrdered={() => setAddOpen(true)}
-      />
-
-      {/* Pending section */}
-      {pendingOrders.length > 0 && (
-        <section className="space-y-2">
-          <div className="flex items-center gap-2">
-            <h2 className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">
-              Awaiting Delivery
-            </h2>
-            <span className="inline-flex items-center h-4 px-1.5 rounded-full text-2xs font-bold uppercase tracking-wide bg-warning/15 text-warning border border-warning/30">
-              {pendingOrders.length}
-            </span>
-          </div>
-          <div className="space-y-2">
-            {pendingOrders.map((o) => (
-              <PendingOrderCard key={o.id} order={o} now={now} onReceive={handleReceive} onCardClick={handleCardClick} />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Past Orders section */}
-      {deliveredOrders.length > 0 && (
-        <section className="space-y-2">
-          <h2 className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">
-            Past Orders
-          </h2>
-
-          {/* Progressive filters */}
-          {showFilters && (
-            <div className="space-y-2">
-              <Input
-                type="search"
-                placeholder="Search orders..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="h-9 text-sm"
-              />
-              {shops.length > 1 && (
-                <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-                  <button
-                    type="button"
-                    className={cn(
-                      "shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors",
-                      selectedShop === "all"
-                        ? "bg-foreground text-background border-foreground"
-                        : "bg-card text-ink-2 border-border hover:bg-muted",
-                    )}
-                    onClick={() => setSelectedShop("all")}
-                  >
-                    All
-                  </button>
-                  {shops.map((shop) => (
-                    <button
-                      key={shop}
-                      type="button"
-                      className={cn(
-                        "shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors",
-                        selectedShop === shop
-                          ? "bg-foreground text-background border-foreground"
-                          : "bg-card text-ink-2 border-border hover:bg-muted",
-                      )}
-                      onClick={() => setSelectedShop(shop)}
-                    >
-                      {shop}
-                    </button>
-                  ))}
-                </div>
-              )}
+        {/* Right column: awaiting delivery + past orders history */}
+        <div className="space-y-4">
+          {/* Empty state */}
+          {orders.length === 0 && (
+            <div className="flex flex-col items-center gap-3 py-16 text-center">
+              <ShoppingCart className="h-10 w-10 text-muted-foreground/40" />
+              <div className="space-y-1">
+                <p className="text-sm font-medium">No orders yet</p>
+                <p className="text-xs text-muted-foreground">
+                  Add an order to track filament purchases
+                </p>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setAddOpen(true)}
+                className="mt-1 h-8 text-xs gap-1.5"
+              >
+                <Plus className="h-3.5 w-3.5" /> Add Order
+              </Button>
             </div>
           )}
 
-          {/* Month groups */}
-          {sortedMonths.length > 0 ? (
-            sortedMonths.map(([key, { label, orders: monthOrders, totalCost }]) => (
-              <div key={key} className="space-y-1 pb-2">
-                <MonthHeader
-                  label={label}
-                  count={monthOrders.length}
-                  total={totalCost}
-                />
-                <div className="space-y-1 pt-1">
-                  {monthOrders.map((o) => (
-                    <DeliveredOrderCard key={o.id} order={o} onCardClick={handleCardClick} />
-                  ))}
-                </div>
+          {/* Pending section */}
+          {pendingOrders.length > 0 && (
+            <section className="space-y-2">
+              <div className="flex items-center gap-2">
+                <h2 className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Awaiting Delivery
+                </h2>
+                <span className="inline-flex items-center h-4 px-1.5 rounded-full text-2xs font-bold uppercase tracking-wide bg-warning/15 text-warning border border-warning/30">
+                  {pendingOrders.length}
+                </span>
               </div>
-            ))
-          ) : (
-            <p className="text-sm text-muted-foreground py-4 text-center">
-              No orders match your filters
-            </p>
+              <div className="space-y-2">
+                {pendingOrders.map((o) => (
+                  <PendingOrderCard key={o.id} order={o} now={now} onReceive={handleReceive} onCardClick={handleCardClick} />
+                ))}
+              </div>
+            </section>
           )}
-        </section>
-      )}
+
+          {pastOrdersSection}
+        </div>
+      </div>
 
       {/* Add Order dialog */}
       <AddOrderDialog

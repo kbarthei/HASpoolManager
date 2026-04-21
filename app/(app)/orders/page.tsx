@@ -10,6 +10,9 @@ import { SupplyAlertsSection } from "./supply-alerts-section";
 import { SupplyRules } from "@/components/orders/supply-rules";
 import { OptimizedCart } from "@/components/orders/optimized-cart";
 import { BudgetCard } from "@/components/budget/budget-card";
+import { BudgetSettings } from "../admin/budget-settings";
+import { ShopConfigList } from "../admin/shop-config-list";
+import { Card } from "@/components/ui/card";
 import { getOrderStuck } from "@/lib/diagnostics";
 
 export default async function OrdersPage({
@@ -19,7 +22,17 @@ export default async function OrdersPage({
 }) {
   const params = await searchParams;
   const activeIssue = params.issue === "stuck" ? "stuck" : null;
-  const [orders, rackSpools, orderedSpools, shoppingList, allFilaments, supplyAlerts, supplyRulesList] = await Promise.all([
+  const [
+    orders,
+    rackSpools,
+    orderedSpools,
+    shoppingList,
+    allFilaments,
+    supplyAlerts,
+    supplyRulesList,
+    budgetRow,
+    budgetStartRow,
+  ] = await Promise.all([
     getOrders(),
     db.query.spools.findMany({
       where: or(like(schema.spools.location, "rack:%")),
@@ -46,6 +59,8 @@ export default async function OrdersPage({
         preferredShop: true,
       },
     }),
+    db.query.settings.findFirst({ where: eq(schema.settings.key, "monthly_filament_budget") }),
+    db.query.settings.findFirst({ where: eq(schema.settings.key, "budget_period_start_day") }),
   ]);
 
   // Build occupied rack positions list for ReceiveWizard
@@ -108,8 +123,35 @@ export default async function OrdersPage({
     vendor: { name: f.vendor.name },
   }));
 
+  const supplyRulesNode = (
+    <SupplyRules
+      rules={JSON.parse(JSON.stringify(supplyRulesList))}
+      filaments={JSON.parse(JSON.stringify(filamentList))}
+    />
+  );
+
+  const supplyAlertsNode =
+    supplyAlerts.length > 0 ? (
+      <SupplyAlertsSection alerts={JSON.parse(JSON.stringify(supplyAlerts))} />
+    ) : null;
+
+  const budgetSettingsNode = (
+    <Card className="p-4 space-y-3">
+      <div>
+        <h2 className="text-sm font-semibold">Monthly Filament Budget</h2>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          Spend cap for filament orders. Used by the supply optimizer to prioritise critical reorders.
+        </p>
+      </div>
+      <BudgetSettings
+        initialBudget={budgetRow?.value ?? ""}
+        initialStartDay={budgetStartRow?.value ?? "1"}
+      />
+    </Card>
+  );
+
   return (
-    <div className="max-w-3xl mx-auto space-y-4">
+    <div className="max-w-3xl lg:max-w-6xl mx-auto space-y-4">
       {/* Diagnostics issue banner */}
       {activeIssue && (
         <div
@@ -127,29 +169,17 @@ export default async function OrdersPage({
         </div>
       )}
 
-      {/* Budget */}
-      <BudgetCard />
-
-      {/* Supply Alerts */}
-      {supplyAlerts.length > 0 && (
-        <SupplyAlertsSection alerts={JSON.parse(JSON.stringify(supplyAlerts))} />
-      )}
-
-      {/* Optimized cart (from supply analysis) */}
-      <OptimizedCart />
-
-      {/* Orders + Shopping List (existing) */}
       <OrdersClient
         orders={JSON.parse(JSON.stringify(enrichedOrders))}
         rack={rack}
         shoppingList={JSON.parse(JSON.stringify(shoppingList))}
         allFilaments={JSON.parse(JSON.stringify(filamentList))}
-      />
-
-      {/* Supply Rules (collapsible) */}
-      <SupplyRules
-        rules={JSON.parse(JSON.stringify(supplyRulesList))}
-        filaments={JSON.parse(JSON.stringify(filamentList))}
+        leftSlotTop={<BudgetCard />}
+        leftClientTop={supplyAlertsNode}
+        leftSlotMid={<OptimizedCart />}
+        leftClientMid={supplyRulesNode}
+        leftClientBottom={budgetSettingsNode}
+        leftSlotBottom={<ShopConfigList />}
       />
     </div>
   );
