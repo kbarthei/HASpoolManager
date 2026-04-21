@@ -107,16 +107,16 @@ export default async function AdminPage() {
   const lastSync = lastSyncEntry;
 
   return (
-    <div data-testid="page-admin" className="max-w-3xl mx-auto px-4 py-6 space-y-6">
+    <div data-testid="page-admin" className="max-w-3xl mx-auto space-y-5">
       {/* Header */}
       <div>
-        <h1 className="text-xl font-semibold">Admin</h1>
-        <p className="text-xs text-muted-foreground mt-1">System overview and diagnostics</p>
+        <h1 className="text-2xl font-bold tracking-tight">Admin</h1>
+        <p className="text-sm text-muted-foreground mt-1">System overview and diagnostics</p>
       </div>
 
       {/* ═══ STATUS ═══════════════════════════════════════════════════════ */}
       <div className="pt-2 first:pt-0">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+        <p className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">
           Status
         </p>
       </div>
@@ -185,7 +185,7 @@ export default async function AdminPage() {
 
       {/* ═══ SUPPLY & BUDGET ═════════════════════════════════════════════ */}
       <div className="pt-4">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+        <p className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">
           Supply &amp; Budget
         </p>
       </div>
@@ -209,7 +209,7 @@ export default async function AdminPage() {
 
       {/* ═══ OPERATIONS ══════════════════════════════════════════════════ */}
       <div className="pt-4">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+        <p className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">
           Operations
         </p>
       </div>
@@ -224,7 +224,7 @@ export default async function AdminPage() {
 
       {/* ═══ ONE-TIME SETUP ══════════════════════════════════════════════ */}
       <div className="pt-4">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+        <p className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">
           One-time Setup
         </p>
       </div>
@@ -263,7 +263,7 @@ export default async function AdminPage() {
 
         {/* Section: Home Assistant Integration */}
         <div className="space-y-1.5">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          <p className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">
             Home Assistant Integration
           </p>
           <div className="space-y-1">
@@ -295,7 +295,7 @@ export default async function AdminPage() {
                 <span className="text-[11px] text-muted-foreground shrink-0">{label}</span>
                 <span
                   className={`text-[11px] truncate text-right ${mono ? "font-mono" : ""} ${
-                    status === "warn" ? "text-amber-500" : ""
+                    status === "warn" ? "text-warning" : ""
                   }`}
                 >
                   {value}
@@ -307,7 +307,7 @@ export default async function AdminPage() {
 
         {/* Section: Printer */}
         <div className="space-y-1.5">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          <p className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">
             Printer
           </p>
           <div className="space-y-1">
@@ -331,7 +331,7 @@ export default async function AdminPage() {
 
         {/* Section: Database */}
         <div className="space-y-1.5">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          <p className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">
             Database
           </p>
           <div className="space-y-1">
@@ -357,7 +357,7 @@ export default async function AdminPage() {
 
         {/* Section: AI Integration */}
         <div className="space-y-1.5">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          <p className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">
             AI Integration
           </p>
           <div className="space-y-1">
@@ -378,7 +378,7 @@ export default async function AdminPage() {
                 <span className="text-[11px] text-muted-foreground shrink-0">{label}</span>
                 <span
                   className={`text-[11px] text-right ${mono ? "font-mono" : ""} ${
-                    status === "warn" ? "text-amber-500" : ""
+                    status === "warn" ? "text-warning" : ""
                   }`}
                 >
                   {value}
@@ -392,7 +392,7 @@ export default async function AdminPage() {
 
       {/* ═══ DEV / BUILD ═════════════════════════════════════════════════ */}
       <div className="pt-4">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+        <p className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">
           Dev &amp; Build
         </p>
       </div>
@@ -438,17 +438,17 @@ async function HmsErrorLog() {
                 key={evt.id}
                 className="flex items-start gap-2 text-xs py-1.5 border-b border-border last:border-0"
               >
-                <Badge
+                <span
                   className={cn(
-                    "text-[9px] h-4 px-1 shrink-0 mt-0.5",
-                    evt.severity === "fatal" ? "bg-red-500/15 text-red-600 border-red-500/30" :
-                    evt.severity === "serious" ? "bg-amber-500/15 text-amber-600 border-amber-500/30" :
-                    evt.severity === "common" ? "bg-blue-500/15 text-blue-600 border-blue-500/30" :
-                    "bg-muted text-muted-foreground"
+                    "inline-flex items-center h-4 px-1.5 rounded-full text-2xs font-bold uppercase tracking-wide border shrink-0 mt-0.5",
+                    evt.severity === "fatal" ? "bg-destructive/15 text-destructive border-destructive/30" :
+                    evt.severity === "serious" ? "bg-warning/15 text-warning border-warning/30" :
+                    evt.severity === "common" ? "bg-primary/10 text-primary border-primary/20" :
+                    "bg-muted text-muted-foreground border-border",
                   )}
                 >
                   {evt.severity ?? "?"}
-                </Badge>
+                </span>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs truncate">{evt.message || evt.hmsCode}</p>
                   <div className="flex items-center gap-2 mt-0.5 text-muted-foreground">
