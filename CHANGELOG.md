@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- **feat:** 2-column layout for /admin on desktop (`e1958a6`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`c7c9f5a`)
 - **chore:** bump addon version to 1.0.83 (`2e6c1f5`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`6a54dc5`)
 - **feat:** /spools uses the Inspector panel; widen /admin + /history on desktop (`2557e4f`)
