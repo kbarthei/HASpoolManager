@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- **fix:** unblock CI — lint error + supply-engine test dates + new e2e coverage (`3bab05d`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`92c178f`)
 - **feat:** 2-column /orders layout + move Supply & Budget from /admin (`9804be3`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`99baffb`)
 - **feat:** fold health-check findings into Diagnostics dashboard (`07b8eeb`)
