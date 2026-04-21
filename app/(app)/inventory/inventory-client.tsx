@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AmsSection } from "@/components/ams/ams-section";
 import { RackGrid, type RackGridSpool } from "@/components/inventory/rack-grid";
-import { SpoolDetailSheet } from "@/components/spool/spool-detail-sheet";
+import { SpoolInspectorContainer } from "@/components/spool/spool-inspector-container";
 import { SpoolPicker } from "@/components/spool/spool-picker";
 import { SpoolColorDot } from "@/components/spool/spool-color-dot";
 import { SpoolMaterialBadge } from "@/components/spool/spool-material-badge";
@@ -93,6 +93,24 @@ const SECTION_ORDER = ["ams", "ams_ht", "external"];
 /** Rack slot coordinate in the new redesign format (R3·5). */
 function rackCoord(row: number, col: number): string {
   return `R${row}·${col}`;
+}
+
+/**
+ * Return the live AMS bambuRemain (0–100) for a spool id, or null.
+ * Only returns a value when the spool is currently loaded in an AMS slot AND
+ * the slot has a valid remain reading (0–100). The inspector's Remaining card
+ * uses this to surface drift between tracked-weight and printer RFID.
+ */
+function liveRfidPctForSpool(
+  slots: SlotData[],
+  spoolId: string | null,
+): number | null {
+  if (!spoolId) return null;
+  const slot = slots.find((s) => s.spool?.id === spoolId);
+  if (!slot) return null;
+  if (typeof slot.bambuRemain !== "number") return null;
+  if (slot.bambuRemain < 0 || slot.bambuRemain > 100) return null;
+  return slot.bambuRemain;
 }
 
 /** Filter predicate — "all" | material name | "low". */
@@ -549,14 +567,16 @@ export function InventoryClient({
         )}
       </section>
 
-      {/* AMS detail sheet + picker */}
-      <SpoolDetailSheet
+      {/* AMS inspector + picker */}
+      <SpoolInspectorContainer
         spoolId={selectedSpoolId}
         open={amsSheetOpen}
         onClose={() => {
           setAmsSheetOpen(false);
           setSelectedSpoolId(null);
         }}
+        onMove={handleMoveToRack}
+        liveRfidPct={liveRfidPctForSpool(typedSlots, selectedSpoolId)}
       />
       <SpoolPicker
         open={amsPickerOpen}
@@ -567,11 +587,13 @@ export function InventoryClient({
         }}
       />
 
-      {/* Storage detail sheet + picker */}
-      <SpoolDetailSheet
+      {/* Storage inspector + picker */}
+      <SpoolInspectorContainer
         spoolId={detailSpoolId}
         open={detailOpen}
         onClose={() => setDetailOpen(false)}
+        onMove={handleMoveToRack}
+        liveRfidPct={liveRfidPctForSpool(typedSlots, detailSpoolId)}
       />
       <SpoolPicker
         open={storagePickerOpen}
