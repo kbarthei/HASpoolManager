@@ -10,12 +10,12 @@ test.describe("diagnostics dashboard", () => {
     await page.goto("ingress/admin/diagnostics");
     await expect(page.getByTestId("page-diagnostics")).toBeVisible({ timeout: 15_000 });
 
-    // Section headers
+    // Section headers — disambiguate from the bottom-nav links by role.
     await expect(page.getByRole("heading", { name: "Diagnostics" })).toBeVisible();
-    await expect(page.getByText("Spools", { exact: true })).toBeVisible();
-    await expect(page.getByText("Prints", { exact: true })).toBeVisible();
-    await expect(page.getByText("Orders", { exact: true })).toBeVisible();
-    await expect(page.getByText("Sync", { exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Spools", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Prints", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Orders", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Sync", exact: true })).toBeVisible();
 
     // Cards — the 8 live detectors all render their count badge even at zero
     for (const id of [

@@ -64,8 +64,12 @@ test.describe("orders page", () => {
   test("orders page shows moved-from-admin sections (Monthly Budget + Shop Config)", async ({ page }) => {
     await page.goto("ingress/orders");
     await expect(page.getByTestId("page-orders")).toBeVisible({ timeout: 15_000 });
-    // Budget settings card (previously on /admin, now in the left column)
-    await expect(page.getByText("Monthly Filament Budget")).toBeVisible();
+    // Budget settings card (previously on /admin, now in the left column).
+    // BudgetCard also contains the string "No monthly filament budget set..."
+    // so match the heading specifically.
+    await expect(
+      page.getByRole("heading", { name: "Monthly Filament Budget" }),
+    ).toBeVisible();
     // Add Order button in header
     await expect(page.getByTestId("btn-add-order")).toBeVisible();
   });

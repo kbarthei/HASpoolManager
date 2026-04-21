@@ -85,9 +85,9 @@ test.describe("spools list", () => {
     await page.goto("ingress/spools");
     await expect(page.getByTestId("page-spools")).toBeVisible({ timeout: 15_000 });
 
-    // Each spool card is a link to /spools/<uuid>. Match links whose href
-    // contains "/spools/" followed by a UUID-like segment (not the nav link).
-    const spoolCards = page.locator('a[href*="/spools/"][href*="-"]');
+    // Each spool card carries data-testid="spool-card". Inspector-pattern
+    // cards render as <button>, not <a>, so match by testid instead of href.
+    const spoolCards = page.getByTestId("spool-card");
     await expect(spoolCards.first()).toBeVisible({ timeout: 10_000 });
     const count = await spoolCards.count();
     expect(count).toBeGreaterThanOrEqual(2);
