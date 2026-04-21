@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- **feat:** 2-column /orders layout + move Supply & Budget from /admin (`9804be3`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`99baffb`)
 - **feat:** fold health-check findings into Diagnostics dashboard (`07b8eeb`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`33b7585`)
 - **feat:** SQL execute endpoint for admin-driven data repairs (`50a8e59`)
