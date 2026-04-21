@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { SpoolFilters } from "@/components/spool/spool-filters";
 import { SpoolCard } from "@/components/spool/spool-card";
+import { SpoolInspectorContainer } from "@/components/spool/spool-inspector-container";
 import { ViewToggle } from "@/components/shared/view-toggle";
 import { Button } from "@/components/ui/button";
 import {
@@ -72,9 +73,13 @@ export function SpoolsClient({
   const router = useRouter();
   const searchParams = useSearchParams();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [inspectorSpoolId, setInspectorSpoolId] = useState<string | null>(null);
 
   const isArchiveView = searchParams.get("status") === "archived";
   const isDraftView = searchParams.get("status") === "draft";
+  // Draft + Archive views keep their bulk-select / identify actions; only the
+  // regular view opens the inspector on card click.
+  const useInspector = !isArchiveView && !isDraftView;
 
   function handleViewChange(v: "grid" | "list") {
     const params = new URLSearchParams(searchParams.toString());
@@ -272,7 +277,11 @@ export function SpoolsClient({
                 </div>
               </div>
             ) : (
-              <SpoolCard key={spool.id} spool={spool} />
+              <SpoolCard
+                key={spool.id}
+                spool={spool}
+                onClick={useInspector ? setInspectorSpoolId : undefined}
+              />
             )
           )}
         </div>
@@ -300,11 +309,11 @@ export function SpoolsClient({
               return (
                 <TableRow
                   key={spool.id}
-                  className={isArchiveView || isDraftView ? undefined : "cursor-pointer"}
+                  className={useInspector ? "cursor-pointer" : undefined}
                   onClick={
-                    isArchiveView || isDraftView
-                      ? undefined
-                      : () => router.push(`/spools/${spool.id}`)
+                    useInspector
+                      ? () => setInspectorSpoolId(spool.id)
+                      : undefined
                   }
                 >
                   {isArchiveView && (
@@ -392,6 +401,13 @@ export function SpoolsClient({
           </TableBody>
         </Table>
       )}
+
+      {/* Spool Inspector — slide-in panel on desktop, bottom sheet on mobile */}
+      <SpoolInspectorContainer
+        spoolId={inspectorSpoolId}
+        open={inspectorSpoolId !== null}
+        onClose={() => setInspectorSpoolId(null)}
+      />
     </div>
   );
 }

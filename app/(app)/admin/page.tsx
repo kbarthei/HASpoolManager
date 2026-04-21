@@ -107,7 +107,7 @@ export default async function AdminPage() {
   const lastSync = lastSyncEntry;
 
   return (
-    <div data-testid="page-admin" className="max-w-3xl mx-auto space-y-5">
+    <div data-testid="page-admin" className="max-w-3xl md:max-w-5xl mx-auto space-y-5">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Admin</h1>

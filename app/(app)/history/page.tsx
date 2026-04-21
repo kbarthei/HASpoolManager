@@ -82,7 +82,7 @@ export default async function SpoolHistoryPage() {
   const grouped = groupByDate(events);
 
   return (
-    <div data-testid="page-history" className="max-w-2xl mx-auto space-y-4">
+    <div data-testid="page-history" className="max-w-2xl md:max-w-4xl mx-auto space-y-4">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Spool History</h1>
