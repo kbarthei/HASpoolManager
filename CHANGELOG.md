@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- **test:** fix selector ambiguity in 3 specs (`0417e4e`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`b335573`)
 - **fix:** unblock CI — lint error + supply-engine test dates + new e2e coverage (`3bab05d`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`92c178f`)
 - **feat:** 2-column /orders layout + move Supply & Budget from /admin (`9804be3`)
