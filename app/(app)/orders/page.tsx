@@ -93,7 +93,7 @@ export default async function OrdersPage() {
   }));
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-6 space-y-4">
+    <div className="max-w-3xl mx-auto space-y-4">
       {/* Budget */}
       <BudgetCard />
 

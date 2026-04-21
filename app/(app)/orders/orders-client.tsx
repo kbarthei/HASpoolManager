@@ -6,7 +6,6 @@ import { OrderDetailSheet } from "@/components/orders/order-detail-sheet";
 import { formatDate, formatMonthYear } from "@/lib/date";
 import { ReceiveWizard } from "@/components/orders/receive-wizard";
 import { SpoolColorDot } from "@/components/spool/spool-color-dot";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -343,15 +342,15 @@ export function OrdersClient({ orders, rack, shoppingList, allFilaments }: Order
   const showFilters = deliveredOrders.length > 5;
 
   return (
-    <div data-testid="page-orders">
+    <div data-testid="page-orders" className="space-y-4">
       {/* Page header */}
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="text-lg font-semibold">Orders</h2>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold tracking-tight">Orders</h1>
         <Button
           size="sm"
           data-testid="btn-add-order"
           onClick={() => setAddOpen(true)}
-          className="h-8 text-xs gap-1.5"
+          className="h-9 text-sm gap-1.5"
         >
           <Plus className="h-3.5 w-3.5" /> Add Order
         </Button>
@@ -387,48 +386,49 @@ export function OrdersClient({ orders, rack, shoppingList, allFilaments }: Order
 
       {/* Pending section */}
       {pendingOrders.length > 0 && (
-        <div className="mb-4">
-          <div className="flex items-center gap-2 mb-2">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        <section className="space-y-2">
+          <div className="flex items-center gap-2">
+            <h2 className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">
               Awaiting Delivery
-            </h3>
-            <Badge className="text-[10px] h-4 px-1.5 bg-amber-500/15 text-amber-600 border-amber-500/30">
+            </h2>
+            <span className="inline-flex items-center h-4 px-1.5 rounded-full text-2xs font-bold uppercase tracking-wide bg-warning/15 text-warning border border-warning/30">
               {pendingOrders.length}
-            </Badge>
+            </span>
           </div>
           <div className="space-y-2">
             {pendingOrders.map((o) => (
               <PendingOrderCard key={o.id} order={o} now={now} onReceive={handleReceive} onCardClick={handleCardClick} />
             ))}
           </div>
-        </div>
+        </section>
       )}
 
       {/* Past Orders section */}
       {deliveredOrders.length > 0 && (
-        <div>
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+        <section className="space-y-2">
+          <h2 className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">
             Past Orders
-          </h3>
+          </h2>
 
           {/* Progressive filters */}
           {showFilters && (
-            <div className="space-y-2 mb-3">
+            <div className="space-y-2">
               <Input
                 type="search"
                 placeholder="Search orders..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="h-8 text-xs"
+                className="h-9 text-sm"
               />
               {shops.length > 1 && (
-                <div className="flex gap-1.5 overflow-x-auto pb-1">
+                <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
                   <button
+                    type="button"
                     className={cn(
-                      "text-[11px] px-2.5 py-1 rounded-full border whitespace-nowrap transition",
+                      "shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors",
                       selectedShop === "all"
-                        ? "bg-primary text-primary-foreground border-primary"
-                        : "border-border text-muted-foreground hover:text-foreground"
+                        ? "bg-foreground text-background border-foreground"
+                        : "bg-card text-ink-2 border-border hover:bg-muted",
                     )}
                     onClick={() => setSelectedShop("all")}
                   >
@@ -437,11 +437,12 @@ export function OrdersClient({ orders, rack, shoppingList, allFilaments }: Order
                   {shops.map((shop) => (
                     <button
                       key={shop}
+                      type="button"
                       className={cn(
-                        "text-[11px] px-2.5 py-1 rounded-full border whitespace-nowrap transition",
+                        "shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors",
                         selectedShop === shop
-                          ? "bg-primary text-primary-foreground border-primary"
-                          : "border-border text-muted-foreground hover:text-foreground"
+                          ? "bg-foreground text-background border-foreground"
+                          : "bg-card text-ink-2 border-border hover:bg-muted",
                       )}
                       onClick={() => setSelectedShop(shop)}
                     >
@@ -456,13 +457,13 @@ export function OrdersClient({ orders, rack, shoppingList, allFilaments }: Order
           {/* Month groups */}
           {sortedMonths.length > 0 ? (
             sortedMonths.map(([key, { label, orders: monthOrders, totalCost }]) => (
-              <div key={key} className="mb-3">
+              <div key={key} className="space-y-1 pb-2">
                 <MonthHeader
                   label={label}
                   count={monthOrders.length}
                   total={totalCost}
                 />
-                <div className="space-y-1 mt-1">
+                <div className="space-y-1 pt-1">
                   {monthOrders.map((o) => (
                     <DeliveredOrderCard key={o.id} order={o} onCardClick={handleCardClick} />
                   ))}
@@ -470,11 +471,11 @@ export function OrdersClient({ orders, rack, shoppingList, allFilaments }: Order
               </div>
             ))
           ) : (
-            <p className="text-xs text-muted-foreground py-4 text-center">
+            <p className="text-sm text-muted-foreground py-4 text-center">
               No orders match your filters
             </p>
           )}
-        </div>
+        </section>
       )}
 
       {/* Add Order dialog */}
