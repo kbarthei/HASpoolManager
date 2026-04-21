@@ -114,15 +114,24 @@ export default async function AdminPage() {
         <p className="text-sm text-muted-foreground mt-1">System overview and diagnostics</p>
       </div>
 
+      {/*
+        2-column grid on ≥ lg (1024 px). Zone headings and dense full-width
+        cards (System Overview, Data Quality, HMS log, Shop Config, Sync Log,
+        Printer Mappings, Configuration Details) span both columns. Shorter
+        form cards (Budget, Rack, Energy, Build & Cache) fit in a single
+        column so Rack + Energy and Budget + Build pair naturally side-by-side.
+      */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+
       {/* ═══ STATUS ═══════════════════════════════════════════════════════ */}
-      <div className="pt-2 first:pt-0">
+      <div className="lg:col-span-2 pt-2 first:pt-0">
         <p className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">
           Status
         </p>
       </div>
 
       {/* ── System Overview ──────────────────────────────────────────────── */}
-      <Card className="p-4 space-y-4">
+      <Card className="lg:col-span-2 p-4 space-y-4">
         <h2 className="text-sm font-semibold">System Overview</h2>
 
         {/* DB counts */}
@@ -178,13 +187,17 @@ export default async function AdminPage() {
       </Card>
 
       {/* ── Data Quality ──────────────────────────────────────────────── */}
-      <DataQualityCard />
+      <div className="lg:col-span-2">
+        <DataQualityCard />
+      </div>
 
       {/* ── HMS Error Log ──────────────────────────────────────────────── */}
-      <HmsErrorLog />
+      <div className="lg:col-span-2">
+        <HmsErrorLog />
+      </div>
 
       {/* ═══ SUPPLY & BUDGET ═════════════════════════════════════════════ */}
-      <div className="pt-4">
+      <div className="lg:col-span-2 pt-4">
         <p className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">
           Supply &amp; Budget
         </p>
@@ -205,34 +218,40 @@ export default async function AdminPage() {
       </Card>
 
       {/* ── Shop Configuration ───────────────────────────────────────── */}
-      <ShopConfigList />
+      <div className="lg:col-span-2">
+        <ShopConfigList />
+      </div>
 
       {/* ═══ OPERATIONS ══════════════════════════════════════════════════ */}
-      <div className="pt-4">
+      <div className="lg:col-span-2 pt-4">
         <p className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">
           Operations
         </p>
       </div>
 
       {/* ── Import Historical Orders ──────────────────────────────────── */}
-      <ImportOrdersCard allSpools={JSON.parse(JSON.stringify(allSpools))} />
+      <div className="lg:col-span-2">
+        <ImportOrdersCard allSpools={JSON.parse(JSON.stringify(allSpools))} />
+      </div>
 
       {/* ── Sync Log ─────────────────────────────────────────────────────── */}
-      <Card className="p-4">
+      <Card className="lg:col-span-2 p-4">
         <SyncLogTable />
       </Card>
 
       {/* ═══ ONE-TIME SETUP ══════════════════════════════════════════════ */}
-      <div className="pt-4">
+      <div className="lg:col-span-2 pt-4">
         <p className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">
           One-time Setup
         </p>
       </div>
 
       {/* ── Printer Discovery & Entity Mappings ─────────────────────────── */}
-      <PrinterMappings />
+      <div className="lg:col-span-2">
+        <PrinterMappings />
+      </div>
 
-      {/* ── Rack Configuration ──────────────────────────────────────────── */}
+      {/* ── Rack Configuration ─ pairs with Energy on desktop ──────────── */}
       <Card className="p-4 space-y-3">
         <div>
           <h2 className="text-sm font-semibold">Rack Configuration</h2>
@@ -243,7 +262,7 @@ export default async function AdminPage() {
         <RackSettings initialRows={rackConfig.rows} initialColumns={rackConfig.columns} />
       </Card>
 
-      {/* ── Energy Tracking ───────────────────────────────────────────────── */}
+      {/* ── Energy Tracking ───────────────────────────────────────────── */}
       <Card className="p-4 space-y-3">
         <div>
           <h2 className="text-sm font-semibold">Energy Tracking</h2>
@@ -258,7 +277,7 @@ export default async function AdminPage() {
       </Card>
 
       {/* ── Configuration Details ────────────────────────────────────────── */}
-      <Card className="p-4 space-y-4">
+      <Card className="lg:col-span-2 p-4 space-y-4">
         <h2 className="text-sm font-semibold">Configuration Details</h2>
 
         {/* Section: Home Assistant Integration */}
@@ -391,17 +410,19 @@ export default async function AdminPage() {
       </Card>
 
       {/* ═══ DEV / BUILD ═════════════════════════════════════════════════ */}
-      <div className="pt-4">
+      <div className="lg:col-span-2 pt-4">
         <p className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">
           Dev &amp; Build
         </p>
       </div>
 
-      {/* ── Build & Cache ─────────────────────────────────────────────── */}
+      {/* ── Build & Cache ─ single column on desktop ──────────────────── */}
       <Card className="p-4 space-y-3">
         <h2 className="text-sm font-semibold">Build &amp; Cache</h2>
         <AdminTools buildInfo={buildInfo} />
       </Card>
+
+      </div>
     </div>
   );
 }
