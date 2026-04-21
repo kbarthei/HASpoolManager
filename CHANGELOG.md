@@ -6,6 +6,14 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- **feat:** apply redesign system to /admin (`f99fc2e`)
+- **feat:** apply redesign system to /history (`c3841be`)
+- **feat:** apply redesign system to /spools list + SpoolCard (`8b012f7`)
+- **feat:** /spools/[id] full-page rebuild using the Inspector system (`83c020e`)
+- **feat:** apply redesign system to /orders (`ff3b8ce`)
+- **feat:** apply redesign system to /prints (`cc2b8b5`)
+- **fix:** extend filter dimming to AMS + AMS HT + External chips (`03aa3f4`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`e91dc3f`)
 - **chore:** bump addon version to 1.0.81 (`e8693d1`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`984baf7`)
 - **chore:** delete dead /ams + /storage routes, unify on Spool Inspector (`eb31378`)
