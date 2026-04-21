@@ -32,13 +32,26 @@ interface AmsSectionProps {
   onClickArchive?: (spoolId: string) => void;
 }
 
-export function AmsSection({ label, slots, onClickSpool, onClickLoad, onClickUnload, onClickArchive }: AmsSectionProps) {
+/**
+ * Horizontal grid of AMS slot chips. Always `grid-cols-2 md:grid-cols-4` so
+ * AMS (4 slots), AMS HT (1 slot), and External (1 slot) all share the same
+ * cell geometry and single-slot sections visually align with the 4-slot row
+ * above them.
+ */
+export function AmsSection({
+  label,
+  slots,
+  onClickSpool,
+  onClickLoad,
+  onClickUnload,
+  onClickArchive,
+}: AmsSectionProps) {
   return (
-    <div className="space-y-1.5">
-      <div className="text-xs uppercase tracking-wide text-muted-foreground font-medium px-0.5">
+    <div className="space-y-2">
+      <div className="text-2xs uppercase tracking-wider text-muted-foreground font-semibold">
         {label}
       </div>
-      <div className="flex flex-col gap-1.5">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
         {slots.map((slot) => (
           <AmsSlotCard
             key={slot.id}

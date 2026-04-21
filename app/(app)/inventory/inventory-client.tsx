@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AmsSection } from "@/components/ams/ams-section";
-import { StorageGrid } from "@/components/storage/storage-grid";
+import { RackGrid, type RackGridSpool } from "@/components/inventory/rack-grid";
 import { SpoolDetailSheet } from "@/components/spool/spool-detail-sheet";
 import { SpoolPicker } from "@/components/spool/spool-picker";
 import { SpoolColorDot } from "@/components/spool/spool-color-dot";
@@ -90,6 +90,21 @@ function sectionLabel(type: string, count: number): string {
 
 const SECTION_ORDER = ["ams", "ams_ht", "external"];
 
+/** Rack slot coordinate in the new redesign format (R3·5). */
+function rackCoord(row: number, col: number): string {
+  return `R${row}·${col}`;
+}
+
+/** Filter predicate — "all" | material name | "low". */
+function matchesFilter(spool: SpoolData, filter: string): boolean {
+  if (filter === "all") return true;
+  if (filter === "low") {
+    if (spool.initialWeight <= 0) return false;
+    return spool.remainingWeight / spool.initialWeight < 0.1;
+  }
+  return spool.filament.material === filter;
+}
+
 // ── Component ──────────────────────────────────────────────────────────────────
 
 export function InventoryClient({
@@ -102,6 +117,9 @@ export function InventoryClient({
   rows,
   cols,
 }: InventoryClientProps) {
+  // ── Filter state ───────────────────────────────────────────────────────────
+  const [filter, setFilter] = useState<string>("all");
+
   // ── AMS state ──────────────────────────────────────────────────────────────
   const [selectedSpoolId, setSelectedSpoolId] = useState<string | null>(null);
   const [amsSheetOpen, setAmsSheetOpen] = useState(false);
@@ -203,7 +221,7 @@ export function InventoryClient({
         (s) => s.id === moveToRackSpoolId
       );
       toast.success(
-        spool ? `Moved ${spoolLabel(spool)} to R${row}S${col}` : `Moved to R${row}S${col}`
+        spool ? `Moved ${spoolLabel(spool)} to ${rackCoord(row, col)}` : `Moved to ${rackCoord(row, col)}`
       );
     } catch {
       toast.error("Failed to move spool to rack");
@@ -248,7 +266,7 @@ export function InventoryClient({
       toast.success(
         swapSpool
           ? `Swapped ${movingSpool.filament.name} with ${swapSpool.filament.name}`
-          : `Moved ${movingSpool.filament.name} to R${toRow}S${toCol}`
+          : `Moved ${movingSpool.filament.name} to ${rackCoord(toRow, toCol)}`
       );
     } catch {
       toast.error("Failed to move spool");
@@ -297,27 +315,103 @@ export function InventoryClient({
     }
   }
 
+  // ── Derived: filter chip data + rack spool subset passed to grid ───────────
+  const materialCounts = new Map<string, number>();
+  for (const s of [...spools, ...workbenchSpools, ...surplusSpools]) {
+    const mat = s.filament.material;
+    materialCounts.set(mat, (materialCounts.get(mat) ?? 0) + 1);
+  }
+  const materialChips = Array.from(materialCounts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .map(([name, count]) => ({ name, count }));
+  const totalStored =
+    spools.length + workbenchSpools.length + surplusSpools.length;
+  const lowStockCount = [...spools, ...workbenchSpools, ...surplusSpools].filter(
+    (s) => s.initialWeight > 0 && s.remainingWeight / s.initialWeight < 0.1,
+  ).length;
+
+  // Pass to rack grid — grid renders only spools with a rack:R-C location.
+  // Filter does NOT change which cells are shown; it highlights matching cards
+  // via selection-ish dimming. For now we apply the filter to Workbench + Surplus
+  // only (the rack is physical and doesn't get reshuffled). Filter = "all" when
+  // nothing selected.
+  const rackSpoolsForGrid: RackGridSpool[] = spools.map((s) => ({
+    id: s.id,
+    remainingWeight: s.remainingWeight,
+    initialWeight: s.initialWeight,
+    location: s.location,
+    filament: s.filament,
+  }));
+  const filteredWorkbench = workbenchSpools.filter((s) => matchesFilter(s, filter));
+  const filteredSurplus = surplusSpools.filter((s) => matchesFilter(s, filter));
+
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <>
+      {/* FILTER CHIP ROW */}
+      <div
+        data-testid="filter-chips"
+        className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 scrollbar-none"
+      >
+        <FilterChip
+          label="All"
+          count={totalStored}
+          active={filter === "all"}
+          onClick={() => setFilter("all")}
+        />
+        {materialChips.map((m) => (
+          <FilterChip
+            key={m.name}
+            label={m.name}
+            count={m.count}
+            active={filter === m.name}
+            onClick={() => setFilter(m.name)}
+          />
+        ))}
+        {lowStockCount > 0 && (
+          <FilterChip
+            label="Low stock"
+            count={lowStockCount}
+            variant="warn"
+            active={filter === "low"}
+            onClick={() => setFilter("low")}
+          />
+        )}
+      </div>
+
       {/* PRINTER SECTION */}
       {typedSlots.length > 0 && (
         <section data-testid="printer-section" className="space-y-2">
-          <div className="text-xs uppercase tracking-wide text-muted-foreground font-medium">
-            Printer · {printerName ?? "H2S"}
+          <div className="text-2xs uppercase tracking-wider text-muted-foreground font-semibold">
+            In the Printer · {printerName ?? "H2S"}
           </div>
-          <div className="space-y-5">
-            {SECTION_ORDER.filter((type) => groupedSlots[type]?.length > 0).map((type) => (
+          <div className="space-y-4">
+            {groupedSlots.ams && groupedSlots.ams.length > 0 && (
               <AmsSection
-                key={type}
-                label={sectionLabel(type, groupedSlots[type].length)}
-                slots={groupedSlots[type]}
+                label={sectionLabel("ams", groupedSlots.ams.length)}
+                slots={groupedSlots.ams}
                 onClickSpool={handleClickSpool}
                 onClickLoad={handleClickLoad}
                 onClickUnload={handleClickUnload}
                 onClickArchive={handleClickArchive}
               />
-            ))}
+            )}
+            {/* AMS HT + External share a row so the secondary slots align with
+                the 4-slot AMS row above them (AMS HT first, External second). */}
+            {((groupedSlots.ams_ht && groupedSlots.ams_ht.length > 0) ||
+              (groupedSlots.external && groupedSlots.external.length > 0)) && (
+              <AmsSection
+                label="AMS HT · External Spool"
+                slots={[
+                  ...(groupedSlots.ams_ht ?? []),
+                  ...(groupedSlots.external ?? []),
+                ]}
+                onClickSpool={handleClickSpool}
+                onClickLoad={handleClickLoad}
+                onClickUnload={handleClickUnload}
+                onClickArchive={handleClickArchive}
+              />
+            )}
           </div>
         </section>
       )}
@@ -325,34 +419,43 @@ export function InventoryClient({
       {/* SPOOL RACK SECTION */}
       <section data-testid="rack-section" className="space-y-2">
         <div className="flex items-baseline gap-2">
-          <span className="text-xs uppercase tracking-wide text-muted-foreground font-medium">
+          <span className="text-2xs uppercase tracking-wider text-muted-foreground font-semibold">
             Spool Rack · {rows} × {cols}
           </span>
-          <span className="text-xs text-muted-foreground">{spools.length} spools stored</span>
+          <span className="text-2xs text-muted-foreground">
+            {spools.length} spools stored · {rows * cols - spools.length} empty
+          </span>
         </div>
-        <StorageGrid
-          spools={spools}
-          rows={rows}
-          cols={cols}
-          onCellClick={handleCellClick}
-          onMove={handleMove}
-          onMoveToSurplus={handleMoveToSurplus}
-          onMoveToWorkbench={handleMoveToWorkbench}
-          onRemoveFromRack={handleRemoveFromRack}
-          onArchive={handleArchiveStorage}
-        />
+        <div className="rounded-xl bg-card border border-border p-3">
+          <RackGrid
+            spools={rackSpoolsForGrid}
+            rows={rows}
+            cols={cols}
+            onCellClick={handleCellClick}
+            onMove={handleMove}
+            filterActive={filter !== "all"}
+            matchesFilter={(s) => matchesFilter(s as unknown as SpoolData, filter)}
+          />
+        </div>
       </section>
 
-      {/* SURPLUS SECTION */}
-      <section data-testid="surplus-section" className="space-y-2">
-        <p className="text-xs uppercase tracking-wide text-muted-foreground font-medium">
-          Surplus · {surplusSpools.length} spool{surplusSpools.length !== 1 ? "s" : ""}
+      {/* WORKBENCH SECTION */}
+      <section data-testid="workbench-section" className="space-y-2">
+        <p className="text-2xs uppercase tracking-wider text-muted-foreground font-semibold">
+          Workbench · {filteredWorkbench.length} spool{filteredWorkbench.length !== 1 ? "s" : ""}
+          {filter !== "all" && workbenchSpools.length !== filteredWorkbench.length && (
+            <span className="ml-1 text-muted-foreground/60 normal-case font-normal">
+              ({workbenchSpools.length} total)
+            </span>
+          )}
         </p>
-        {surplusSpools.length === 0 ? (
-          <p className="text-xs text-muted-foreground">No surplus spools</p>
+        {filteredWorkbench.length === 0 ? (
+          <p className="text-2xs text-muted-foreground">
+            {workbenchSpools.length === 0 ? "No spools on workbench" : "No matching spools"}
+          </p>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-            {surplusSpools.map((spool) => (
+            {filteredWorkbench.map((spool) => (
               <DropdownMenu key={spool.id}>
                 <DropdownMenuTrigger className="flex items-center gap-2.5 rounded-lg border border-border bg-card px-3 py-2 text-left hover:bg-muted/50 transition-colors w-full">
                   <SpoolColorDot hex={spool.filament.colorHex ?? "888888"} size="sm" />
@@ -360,7 +463,7 @@ export function InventoryClient({
                     <p className="text-xs font-medium truncate">{spoolLabel(spool)}</p>
                     <div className="flex items-center gap-1.5 mt-0.5">
                       <SpoolMaterialBadge material={spool.filament.material} />
-                      <span className="text-[10px] text-muted-foreground">
+                      <span className="text-2xs text-muted-foreground">
                         {spool.remainingWeight}g
                       </span>
                     </div>
@@ -371,8 +474,8 @@ export function InventoryClient({
                     View Details
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => handleMoveToWorkbench(spool.id)}>
-                    Move to Workbench
+                  <DropdownMenuItem onClick={() => handleMoveToSurplus(spool.id)}>
+                    Move to Surplus
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => handleMoveToRack(spool.id)}>
                     Move to Rack
@@ -391,16 +494,23 @@ export function InventoryClient({
         )}
       </section>
 
-      {/* WORKBENCH SECTION */}
-      <section data-testid="workbench-section" className="space-y-2">
-        <p className="text-xs uppercase tracking-wide text-muted-foreground font-medium">
-          Workbench · {workbenchSpools.length} spool{workbenchSpools.length !== 1 ? "s" : ""}
+      {/* SURPLUS SECTION */}
+      <section data-testid="surplus-section" className="space-y-2">
+        <p className="text-2xs uppercase tracking-wider text-muted-foreground font-semibold">
+          Surplus · {filteredSurplus.length} spool{filteredSurplus.length !== 1 ? "s" : ""}
+          {filter !== "all" && surplusSpools.length !== filteredSurplus.length && (
+            <span className="ml-1 text-muted-foreground/60 normal-case font-normal">
+              ({surplusSpools.length} total)
+            </span>
+          )}
         </p>
-        {workbenchSpools.length === 0 ? (
-          <p className="text-xs text-muted-foreground">No spools on workbench</p>
+        {filteredSurplus.length === 0 ? (
+          <p className="text-2xs text-muted-foreground">
+            {surplusSpools.length === 0 ? "No surplus spools" : "No matching spools"}
+          </p>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-            {workbenchSpools.map((spool) => (
+            {filteredSurplus.map((spool) => (
               <DropdownMenu key={spool.id}>
                 <DropdownMenuTrigger className="flex items-center gap-2.5 rounded-lg border border-border bg-card px-3 py-2 text-left hover:bg-muted/50 transition-colors w-full">
                   <SpoolColorDot hex={spool.filament.colorHex ?? "888888"} size="sm" />
@@ -408,7 +518,7 @@ export function InventoryClient({
                     <p className="text-xs font-medium truncate">{spoolLabel(spool)}</p>
                     <div className="flex items-center gap-1.5 mt-0.5">
                       <SpoolMaterialBadge material={spool.filament.material} />
-                      <span className="text-[10px] text-muted-foreground">
+                      <span className="text-2xs text-muted-foreground">
                         {spool.remainingWeight}g
                       </span>
                     </div>
@@ -419,8 +529,8 @@ export function InventoryClient({
                     View Details
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => handleMoveToSurplus(spool.id)}>
-                    Move to Surplus
+                  <DropdownMenuItem onClick={() => handleMoveToWorkbench(spool.id)}>
+                    Move to Workbench
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => handleMoveToRack(spool.id)}>
                     Move to Rack
@@ -532,5 +642,43 @@ export function InventoryClient({
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+// ── Filter chip ────────────────────────────────────────────────────────────
+
+interface FilterChipProps {
+  label: string;
+  count: number;
+  active?: boolean;
+  variant?: "warn";
+  onClick: () => void;
+}
+
+function FilterChip({ label, count, active, variant, onClick }: FilterChipProps) {
+  const warn = variant === "warn";
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border flex items-center gap-1.5 transition-colors",
+        active && "bg-foreground text-background border-foreground",
+        !active && !warn && "bg-card text-ink-2 border-border hover:bg-muted",
+        !active && warn && "bg-destructive/10 text-destructive border-destructive/30 hover:bg-destructive/15",
+      )}
+    >
+      {label}
+      <span
+        className={cn(
+          "text-2xs",
+          active && "opacity-60",
+          !active && warn && "text-destructive",
+          !active && !warn && "text-muted-foreground",
+        )}
+      >
+        {count}
+      </span>
+    </button>
   );
 }
