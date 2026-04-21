@@ -35,8 +35,8 @@ export function SpoolCard({ spool }: { spool: SpoolCardData }) {
       <Card
         data-testid="spool-card"
         className={cn(
-          "rounded-xl p-3 hover:bg-accent/50 transition gap-2 ring-0 bg-card/60",
-          isLow && "ring-1 ring-amber-500/40 dark:ring-amber-500/30",
+          "rounded-xl p-3 hover:bg-accent/50 transition-colors gap-2 ring-0 bg-card/60",
+          isLow && "ring-1 ring-warning/60",
           isEmpty && "opacity-50",
         )}
       >
@@ -47,16 +47,18 @@ export function SpoolCard({ spool }: { spool: SpoolCardData }) {
             <SpoolMaterialBadge material={spool.filament.material} />
           </div>
           {isLow && (
-            <span className="text-[9px] font-semibold text-amber-500 uppercase tracking-wider">Low</span>
+            <span className="text-2xs font-bold uppercase tracking-wider text-warning">
+              Low
+            </span>
           )}
         </div>
 
         {/* Filament name + vendor */}
         <div className="px-0">
-          <p className="text-sm font-medium leading-tight truncate">
+          <p className="text-sm font-semibold leading-tight truncate">
             {spool.filament.name}
           </p>
-          <p className="text-xs text-muted-foreground truncate">
+          <p className="text-2xs text-muted-foreground truncate">
             {spool.filament.vendor.name}
           </p>
         </div>
@@ -70,15 +72,15 @@ export function SpoolCard({ spool }: { spool: SpoolCardData }) {
 
         {/* Bottom row: weight + location */}
         <div className="flex items-center justify-between px-0">
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 font-[family-name:var(--font-geist-mono)] tabular-nums">
             <span className={cn(
-              "font-mono text-xs font-semibold",
-              isLow && "text-amber-500",
+              "text-xs font-semibold",
+              isLow && "text-warning",
             )}>{spool.remainingWeight}g</span>
-            <span className="text-xs text-muted-foreground">/ {spool.initialWeight}g</span>
+            <span className="text-2xs text-muted-foreground">/ {spool.initialWeight}g</span>
           </div>
           {spool.location && (
-            <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded-md truncate max-w-[80px]">
+            <span className="text-2xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded-md truncate max-w-[80px]">
               {spool.location}
             </span>
           )}
@@ -86,7 +88,7 @@ export function SpoolCard({ spool }: { spool: SpoolCardData }) {
 
         {/* Price */}
         {spool.purchasePrice && (
-          <p className="text-xs text-muted-foreground px-0">
+          <p className="text-2xs text-muted-foreground px-0 font-[family-name:var(--font-geist-mono)] tabular-nums">
             {spool.purchasePrice} {spool.currency ?? "EUR"}
           </p>
         )}

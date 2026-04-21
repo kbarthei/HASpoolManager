@@ -149,10 +149,15 @@ export function SpoolsClient({
   }
 
   return (
-    <div data-testid="page-spools" className="space-y-3">
-      {/* Toolbar */}
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <SpoolFilters materials={materials} vendors={vendors} colors={colors} />
+    <div data-testid="page-spools" className="space-y-4">
+      {/* Page header */}
+      <div className="flex items-center justify-between gap-2">
+        <h1 className="text-2xl font-bold tracking-tight">
+          Spools
+          <span className="ml-2 text-sm font-normal text-muted-foreground align-middle">
+            {spools.length}
+          </span>
+        </h1>
         <div className="flex items-center gap-2">
           <ViewToggle view={initialView} onViewChange={handleViewChange} />
           {!isArchiveView && (
@@ -161,9 +166,12 @@ export function SpoolsClient({
         </div>
       </div>
 
+      {/* Filters toolbar */}
+      <SpoolFilters materials={materials} vendors={vendors} colors={colors} />
+
       {/* Draft toolbar */}
       {isDraftView && (
-        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400">
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-warning/10 border border-warning/30 text-warning">
           <span className="text-base leading-none">⚠</span>
           <span className="text-xs font-medium">
             {spools.length} spool{spools.length !== 1 ? "s" : ""} need{spools.length === 1 ? "s" : ""} review — identify them to make them active.
@@ -224,10 +232,10 @@ export function SpoolsClient({
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
           {spools.map((spool) =>
             isDraftView ? (
-              <div key={spool.id} className="relative rounded-xl border-2 border-amber-400/60 dark:border-amber-500/60 overflow-hidden">
+              <div key={spool.id} className="relative rounded-xl border-2 border-warning/60 overflow-hidden">
                 <SpoolCard spool={spool} />
                 <div className="absolute top-2 left-2">
-                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-2xs font-bold uppercase tracking-wide bg-warning/15 text-warning border border-warning/30">
                     Draft
                   </span>
                 </div>
@@ -318,7 +326,7 @@ export function SpoolsClient({
                     <div className="flex items-center gap-1.5">
                       {spool.filament.name}
                       {isDraftView && (
-                        <span className="inline-flex items-center px-1 py-0.5 rounded text-[10px] font-medium bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+                        <span className="inline-flex items-center px-1 py-0.5 rounded text-2xs font-bold uppercase tracking-wide bg-warning/15 text-warning border border-warning/30">
                           Draft
                         </span>
                       )}
