@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- **feat:** brand mark + deployed version in header, repo link on admin (`03c9836`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`5b78a1f`)
 - **test:** fix selector ambiguity in 3 specs (`0417e4e`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`b335573`)
 - **fix:** unblock CI — lint error + supply-engine test dates + new e2e coverage (`3bab05d`)
