@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
 
+import Link from "next/link";
 import { getSystemStats, getPrinterStatus, getRackConfig } from "@/lib/queries";
 import { formatDateTime, formatDate } from "@/lib/date";
 import { db } from "@/lib/db";
@@ -187,8 +188,17 @@ export default async function AdminPage() {
       </Card>
 
       {/* ── Data Quality ──────────────────────────────────────────────── */}
-      <div className="lg:col-span-2">
+      <div className="lg:col-span-2 space-y-2">
         <DataQualityCard />
+        <div className="flex justify-end">
+          <Link
+            href="/admin/diagnostics"
+            className="text-xs text-primary hover:underline inline-flex items-center gap-1"
+            data-testid="admin-diagnostics-link"
+          >
+            Open Diagnostics →
+          </Link>
+        </div>
       </div>
 
       {/* ── HMS Error Log ──────────────────────────────────────────────── */}

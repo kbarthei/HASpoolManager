@@ -5,6 +5,32 @@ import * as schema from "@/lib/db/schema";
 import { desc, eq, sql } from "drizzle-orm";
 import { SpoolsClient } from "./spools-client";
 import { FilamentReliability } from "./filament-reliability";
+import {
+  getSpoolDrift,
+  getSpoolStale,
+  getSpoolZeroActive,
+} from "@/lib/diagnostics";
+
+type SpoolIssue = "drift" | "stale" | "zero-active";
+
+async function getSpoolIdsForIssue(issue: SpoolIssue): Promise<Set<string>> {
+  if (issue === "drift") {
+    const { rows } = await getSpoolDrift();
+    return new Set(rows.map((r) => r.spoolId));
+  }
+  if (issue === "stale") {
+    const { rows } = await getSpoolStale();
+    return new Set(rows.map((r) => r.spoolId));
+  }
+  const { rows } = await getSpoolZeroActive();
+  return new Set(rows.map((r) => r.spoolId));
+}
+
+function issueLabel(issue: SpoolIssue): string {
+  if (issue === "drift") return "RFID drift > 10pp";
+  if (issue === "stale") return "No usage in 90+ days";
+  return "Zero weight but still active";
+}
 
 export default async function SpoolsPage({
   searchParams,
@@ -75,6 +101,22 @@ export default async function SpoolsPage({
     allSpools = allSpools.filter((s) => s.filament.colorHex === params.color);
   }
 
+  // Apply diagnostic issue filter (from /admin/diagnostics Review links)
+  const validIssues: SpoolIssue[] = ["drift", "stale", "zero-active"];
+  const activeIssue = validIssues.includes(params.issue as SpoolIssue)
+    ? (params.issue as SpoolIssue)
+    : null;
+  if (activeIssue) {
+    const ids = await getSpoolIdsForIssue(activeIssue);
+    // Issue filters override the default "hide archived/draft" filter so
+    // flagged zero-weight spools stay visible regardless of status.
+    const allUnfiltered = await db.query.spools.findMany({
+      with: { filament: { with: { vendor: true } }, tagMappings: true },
+      orderBy: [desc(schema.spools.updatedAt)],
+    });
+    allSpools = allUnfiltered.filter((s) => ids.has(s.id));
+  }
+
   const view = (params.view === "list" ? "list" : "grid") as "grid" | "list";
 
   // Fetch all filaments for the Identify dialog dropdown
@@ -123,6 +165,8 @@ export default async function SpoolsPage({
         colors={colors}
         initialView={view}
         allFilaments={JSON.parse(JSON.stringify(allFilaments))}
+        activeIssue={activeIssue}
+        activeIssueLabel={activeIssue ? issueLabel(activeIssue) : null}
       />
       {reliability.length > 0 && (
         <FilamentReliability data={reliability} />

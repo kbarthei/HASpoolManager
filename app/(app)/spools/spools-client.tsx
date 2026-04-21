@@ -62,6 +62,8 @@ export function SpoolsClient({
   colors,
   initialView,
   allFilaments = [],
+  activeIssue = null,
+  activeIssueLabel = null,
 }: {
   spools: Spool[];
   materials: string[];
@@ -69,6 +71,8 @@ export function SpoolsClient({
   colors: { hex: string; name: string }[];
   initialView: "grid" | "list";
   allFilaments?: FilamentOption[];
+  activeIssue?: string | null;
+  activeIssueLabel?: string | null;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -170,6 +174,27 @@ export function SpoolsClient({
           )}
         </div>
       </div>
+
+      {/* Diagnostics issue banner */}
+      {activeIssue && (
+        <div
+          data-testid="issue-banner"
+          className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30"
+        >
+          <div className="text-xs">
+            <span className="font-semibold text-amber-600">Filtered:</span>{" "}
+            <span className="text-foreground">{activeIssueLabel}</span>
+            <span className="text-muted-foreground"> · {spools.length} spool{spools.length === 1 ? "" : "s"}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => router.push("/spools")}
+            className="text-xs text-amber-600 hover:underline"
+          >
+            Clear
+          </button>
+        </div>
+      )}
 
       {/* Filters toolbar */}
       <SpoolFilters materials={materials} vendors={vendors} colors={colors} />

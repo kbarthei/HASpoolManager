@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
 
+import Link from "next/link";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { or, like, eq, desc } from "drizzle-orm";
@@ -9,8 +10,15 @@ import { SupplyAlertsSection } from "./supply-alerts-section";
 import { SupplyRules } from "@/components/orders/supply-rules";
 import { OptimizedCart } from "@/components/orders/optimized-cart";
 import { BudgetCard } from "@/components/budget/budget-card";
+import { getOrderStuck } from "@/lib/diagnostics";
 
-export default async function OrdersPage() {
+export default async function OrdersPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | undefined }>;
+}) {
+  const params = await searchParams;
+  const activeIssue = params.issue === "stuck" ? "stuck" : null;
   const [orders, rackSpools, orderedSpools, shoppingList, allFilaments, supplyAlerts, supplyRulesList] = await Promise.all([
     getOrders(),
     db.query.spools.findMany({
@@ -58,8 +66,16 @@ export default async function OrdersPage() {
     spoolsByFilament.get(key)!.push(spool);
   }
 
+  // Apply diagnostic issue filter (from /admin/diagnostics Review links)
+  let filteredOrders = orders;
+  if (activeIssue === "stuck") {
+    const { rows } = await getOrderStuck();
+    const stuckIds = new Set(rows.map((r) => r.orderId));
+    filteredOrders = orders.filter((o) => stuckIds.has(o.id));
+  }
+
   // Enrich orders: for each "ordered" order, attach spools to items
-  const enrichedOrders = orders.map(order => {
+  const enrichedOrders = filteredOrders.map(order => {
     if (order.status !== "ordered") return order;
 
     // Track which spools we've already assigned (avoid double-counting)
@@ -94,6 +110,23 @@ export default async function OrdersPage() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-4">
+      {/* Diagnostics issue banner */}
+      {activeIssue && (
+        <div
+          data-testid="issue-banner"
+          className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30"
+        >
+          <div className="text-xs">
+            <span className="font-semibold text-amber-600">Filtered:</span>{" "}
+            <span className="text-foreground">Stuck orders (30d+ in &ldquo;ordered&rdquo; status)</span>
+            <span className="text-muted-foreground"> · {enrichedOrders.length} order{enrichedOrders.length === 1 ? "" : "s"}</span>
+          </div>
+          <Link href="/orders" className="text-xs text-amber-600 hover:underline">
+            Clear
+          </Link>
+        </div>
+      )}
+
       {/* Budget */}
       <BudgetCard />
 

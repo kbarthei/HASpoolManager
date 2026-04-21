@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
 
+import Link from "next/link";
 import { getAllPrints, getPrinterStatus } from "@/lib/queries";
 import { SpoolMaterialBadge } from "@/components/spool/spool-material-badge";
 import { Card } from "@/components/ui/card";
@@ -11,6 +12,32 @@ import { costTooltip } from "@/lib/format-cost";
 import { CostTooltip } from "@/components/prints/cost-tooltip";
 import { ClearStaleButton } from "@/components/prints/clear-stale-button";
 import { cn } from "@/lib/utils";
+import {
+  getPrintStuck,
+  getPrintNoWeight,
+  getPrintNoUsage,
+} from "@/lib/diagnostics";
+
+type PrintIssue = "stuck" | "no-weight" | "no-usage";
+
+async function getPrintIdsForIssue(issue: PrintIssue): Promise<Set<string>> {
+  if (issue === "stuck") {
+    const { rows } = await getPrintStuck();
+    return new Set(rows.map((r) => r.printId));
+  }
+  if (issue === "no-weight") {
+    const { rows } = await getPrintNoWeight();
+    return new Set(rows.map((r) => r.printId));
+  }
+  const { rows } = await getPrintNoUsage();
+  return new Set(rows.map((r) => r.printId));
+}
+
+function printIssueLabel(issue: PrintIssue): string {
+  if (issue === "stuck") return "Stuck running for 24h+";
+  if (issue === "no-weight") return "Finished without weight (last 30d)";
+  return "Finished without usage rows (last 30d)";
+}
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -70,11 +97,28 @@ function StatCell({
 
 // ── Page ──────────────────────────────────────────────────────────────────
 
-export default async function PrintHistoryPage() {
-  const [allPrints, printerStatus] = await Promise.all([
+export default async function PrintHistoryPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | undefined }>;
+}) {
+  const params = await searchParams;
+  const validIssues: PrintIssue[] = ["stuck", "no-weight", "no-usage"];
+  const activeIssue = validIssues.includes(params.issue as PrintIssue)
+    ? (params.issue as PrintIssue)
+    : null;
+
+  const [allPrintsRaw, printerStatus] = await Promise.all([
     getAllPrints(),
     getPrinterStatus(),
   ]);
+
+  const allPrints = activeIssue
+    ? await getPrintIdsForIssue(activeIssue).then((ids) =>
+        allPrintsRaw.filter((p) => ids.has(p.id)),
+      )
+    : allPrintsRaw;
+
   const runningPrints = allPrints.filter((p) => p.status === "running");
   const completedPrints = allPrints.filter((p) => p.status !== "running");
 
@@ -97,6 +141,26 @@ export default async function PrintHistoryPage() {
 
   return (
     <div data-testid="page-prints" className="max-w-2xl mx-auto space-y-4">
+      {/* Diagnostics issue banner */}
+      {activeIssue && (
+        <div
+          data-testid="issue-banner"
+          className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30"
+        >
+          <div className="text-xs">
+            <span className="font-semibold text-amber-600">Filtered:</span>{" "}
+            <span className="text-foreground">{printIssueLabel(activeIssue)}</span>
+            <span className="text-muted-foreground"> · {allPrints.length} print{allPrints.length === 1 ? "" : "s"}</span>
+          </div>
+          <Link
+            href="/prints"
+            className="text-xs text-amber-600 hover:underline"
+          >
+            Clear
+          </Link>
+        </div>
+      )}
+
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Print History</h1>
