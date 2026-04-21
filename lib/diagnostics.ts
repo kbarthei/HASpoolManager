@@ -247,6 +247,126 @@ export async function getSyncErrors(): Promise<DiagnosticResult<SyncErrorRow>> {
   return { count: rows.length, rows };
 }
 
+// ── Health check rollup ───────────────────────────────────────────────────
+
+// Surfaces the latest `data_quality_log` run, grouped per rule. Complements
+// the live detectors above — the health-check job writes structural findings
+// (integrity, orphans, duplicates, unused entities) to data_quality_log on
+// addon start, and this reads them back for display.
+export interface HealthCheckRuleRow {
+  entityType: string | null;
+  entityId: string | null;
+  label: string; // short, human-friendly summary from details JSON
+}
+
+export interface HealthCheckRule {
+  ruleId: string;
+  severity: "critical" | "warning" | "info";
+  action: "auto_fixed" | "flagged" | "info";
+  count: number;
+  rows: HealthCheckRuleRow[];
+}
+
+export interface HealthCheckSummary {
+  latestRunAt: string | null;
+  rules: HealthCheckRule[];
+  counts: { autoFixed: number; flagged: number; info: number };
+}
+
+type RawLogRow = {
+  id: string;
+  ruleId: string;
+  severity: string;
+  action: string;
+  entityType: string | null;
+  entityId: string | null;
+  details: string | null;
+};
+
+function summarizeDetails(json: string | null): string {
+  if (!json) return "";
+  try {
+    const parsed = JSON.parse(json) as Record<string, unknown>;
+    if (typeof parsed.name === "string") return parsed.name;
+    if ("before" in parsed && "after" in parsed) {
+      return `${String(parsed.before)} → ${String(parsed.after)}`;
+    }
+    if (Array.isArray(parsed.duplicates)) {
+      return `${parsed.duplicates.length} duplicates`;
+    }
+    return "";
+  } catch {
+    return "";
+  }
+}
+
+export async function getHealthCheckFindings(): Promise<HealthCheckSummary> {
+  const latestRunRow = (await db.all(sql`
+    SELECT run_at AS runAt FROM data_quality_log ORDER BY run_at DESC LIMIT 1
+  `)) as Array<{ runAt: string }>;
+  const latestRunAt = latestRunRow[0]?.runAt ?? null;
+
+  if (!latestRunAt) {
+    return {
+      latestRunAt: null,
+      rules: [],
+      counts: { autoFixed: 0, flagged: 0, info: 0 },
+    };
+  }
+
+  const rows = (await db.all(sql`
+    SELECT id, rule_id AS ruleId, severity, action,
+           entity_type AS entityType, entity_id AS entityId, details
+    FROM data_quality_log
+    WHERE run_at = ${latestRunAt}
+    ORDER BY severity DESC, rule_id
+  `)) as RawLogRow[];
+
+  const byRule = new Map<string, HealthCheckRule>();
+  for (const r of rows) {
+    const sev = (r.severity === "critical" || r.severity === "warning" ? r.severity : "info") as
+      | "critical"
+      | "warning"
+      | "info";
+    const act = (r.action === "auto_fixed" || r.action === "flagged" ? r.action : "info") as
+      | "auto_fixed"
+      | "flagged"
+      | "info";
+    let entry = byRule.get(r.ruleId);
+    if (!entry) {
+      entry = {
+        ruleId: r.ruleId,
+        severity: sev,
+        action: act,
+        count: 0,
+        rows: [],
+      };
+      byRule.set(r.ruleId, entry);
+    }
+    entry.count += 1;
+    if (entry.rows.length < 5) {
+      entry.rows.push({
+        entityType: r.entityType,
+        entityId: r.entityId,
+        label: summarizeDetails(r.details),
+      });
+    }
+  }
+
+  const rules = Array.from(byRule.values()).sort((a, b) => {
+    const sevOrder = { critical: 0, warning: 1, info: 2 } as const;
+    return sevOrder[a.severity] - sevOrder[b.severity] || a.ruleId.localeCompare(b.ruleId);
+  });
+
+  const counts = {
+    autoFixed: rows.filter((r) => r.action === "auto_fixed").length,
+    flagged: rows.filter((r) => r.action === "flagged").length,
+    info: rows.filter((r) => r.action === "info").length,
+  };
+
+  return { latestRunAt, rules, counts };
+}
+
 // ── Aggregate runner ──────────────────────────────────────────────────────
 
 export interface DiagnosticSummary {
@@ -258,6 +378,7 @@ export interface DiagnosticSummary {
   printNoUsage: DiagnosticResult<PrintNoUsageRow>;
   orderStuck: DiagnosticResult<OrderStuckRow>;
   syncErrors: DiagnosticResult<SyncErrorRow>;
+  healthCheck: HealthCheckSummary;
 }
 
 export async function getAllDiagnostics(): Promise<DiagnosticSummary> {
@@ -270,6 +391,7 @@ export async function getAllDiagnostics(): Promise<DiagnosticSummary> {
     printNoUsage,
     orderStuck,
     syncErrors,
+    healthCheck,
   ] = await Promise.all([
     getSpoolDrift(),
     getSpoolStale(),
@@ -279,6 +401,7 @@ export async function getAllDiagnostics(): Promise<DiagnosticSummary> {
     getPrintNoUsage(),
     getOrderStuck(),
     getSyncErrors(),
+    getHealthCheckFindings(),
   ]);
   return {
     spoolDrift,
@@ -289,5 +412,6 @@ export async function getAllDiagnostics(): Promise<DiagnosticSummary> {
     printNoUsage,
     orderStuck,
     syncErrors,
+    healthCheck,
   };
 }

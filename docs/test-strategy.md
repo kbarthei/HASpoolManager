@@ -19,11 +19,11 @@ This rewrite:
 ┌──────────────────────────────────────────────┐
 │ E2e (Playwright + Docker nginx + ingress)    │  37 tests (14 specs)
 ├──────────────────────────────────────────────┤
-│ Integration (Vitest + SQLite file DB)        │ 109 tests (11 files)
+│ Integration (Vitest + SQLite file DB)        │ 110 tests (11 files)
 ├──────────────────────────────────────────────┤
 │ Unit (Vitest, no DB)                         │  512 tests (16 files)
 └──────────────────────────────────────────────┘
-Total: 658 tests — CI runs all three layers, ~2 min total.
+Total: 659 tests — CI runs all three layers, ~2 min total.
 ```
 
 ### Layer responsibilities
@@ -69,7 +69,7 @@ Before rewriting tests, the codebase must lose its dual-driver baggage:
 | Layer | Files | Status |
 |-------|-------|--------|
 | `tests/unit/` (12 files, 479 tests) | color, date, matching-scoring, order-parsing, price-crawler, printer-sync-helpers (incl. calculateEnergyCost, parseHmsCode), storage-moves, theme, validations, weight-adjustment, color-lookup, supply-engine | ✅ All import real code, no DB |
-| `tests/integration/` (11 files, 109 tests) | api-health, api-crud, api-match, api-events, api-admin-sync-log, printer-sync (incl. energy tracking), hms-events, spool-manage, data-quality, diagnostics, sql-execute | ✅ All use per-worker SQLite harness + direct route handler calls |
+| `tests/integration/` (11 files, 110 tests) | api-health, api-crud, api-match, api-events, api-admin-sync-log, printer-sync (incl. energy tracking), hms-events, spool-manage, data-quality, diagnostics (incl. health-check rollup), sql-execute | ✅ All use per-worker SQLite harness + direct route handler calls |
 | `tests/e2e/` (14 specs, 37 tests) | 01-smoke through 14-analytics-page | ✅ Run against addon stack (Docker nginx + ingress simulator) |
 | `tests/fixtures/seed.ts` | Factory functions (makeVendor, makeFilament, makeSpool, makePrinter, makeAmsSlot, makeTagMapping) | ✅ Uses `@/lib/db` singleton (lazy, binds to harness DB) |
 | `tests/harness/` | sqlite-db.ts, request.ts, addon-stack.ts, ingress-simulator.ts | ✅ Complete harness infrastructure |

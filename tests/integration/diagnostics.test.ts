@@ -32,7 +32,9 @@ import {
   getPrintNoUsage,
   getOrderStuck,
   getSyncErrors,
+  getHealthCheckFindings,
 } from "@/lib/diagnostics";
+import { dataQualityLog } from "@/lib/db/schema";
 
 beforeAll(async () => {
   await setupTestDb();
@@ -248,6 +250,58 @@ describe("getOrderStuck", () => {
     await db.delete(orders).where(eq(orders.id, stuck));
     await db.delete(orders).where(eq(orders.id, fresh));
     await db.delete(orders).where(eq(orders.id, delivered));
+  });
+});
+
+describe("getHealthCheckFindings", () => {
+  it("groups latest-run rows by ruleId and reports action counts", async () => {
+    const runAt = new Date().toISOString();
+    // Seed 3 different rule findings for a single run
+    await db.insert(dataQualityLog).values([
+      {
+        runAt: new Date(runAt),
+        ruleId: "filament_unused",
+        severity: "info",
+        action: "info",
+        entityType: "filament",
+        entityId: "fil-a",
+        details: JSON.stringify({ name: "PLA Basic" }),
+      },
+      {
+        runAt: new Date(runAt),
+        ruleId: "filament_unused",
+        severity: "info",
+        action: "info",
+        entityType: "filament",
+        entityId: "fil-b",
+        details: JSON.stringify({ name: "PETG Pro" }),
+      },
+      {
+        runAt: new Date(runAt),
+        ruleId: "spool_weight_negative",
+        severity: "critical",
+        action: "auto_fixed",
+        entityType: "spool",
+        entityId: "spool-a",
+        details: JSON.stringify({ before: -5, after: 0 }),
+      },
+    ]);
+
+    const result = await getHealthCheckFindings();
+    expect(result.latestRunAt).toBeTruthy();
+
+    const unused = result.rules.find((r) => r.ruleId === "filament_unused");
+    expect(unused).toBeDefined();
+    expect(unused!.count).toBe(2);
+    expect(unused!.rows[0].label).toBe("PLA Basic");
+
+    const negative = result.rules.find((r) => r.ruleId === "spool_weight_negative");
+    expect(negative).toBeDefined();
+    expect(negative!.action).toBe("auto_fixed");
+    expect(negative!.severity).toBe("critical");
+
+    expect(result.counts.autoFixed).toBeGreaterThanOrEqual(1);
+    expect(result.counts.info).toBeGreaterThanOrEqual(2);
   });
 });
 

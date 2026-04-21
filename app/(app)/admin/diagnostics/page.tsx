@@ -4,6 +4,31 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { getAllDiagnostics } from "@/lib/diagnostics";
 import { IssueCard } from "./issue-card";
+import { formatDateTime } from "@/lib/date";
+
+const RULE_TITLES: Record<string, string> = {
+  sqlite_integrity: "SQLite integrity",
+  foreign_key_violation: "Foreign key violations",
+  spool_weight_negative: "Negative spool weight",
+  spool_weight_overflow: "Spool weight over initial",
+  spool_empty_status_mismatch: "Empty spools not marked empty",
+  print_usage_orphan_spool: "Orphan print_usage rows",
+  shop_unused: "Unused shops",
+  shop_duplicate: "Duplicate shops",
+  filament_unused: "Unused filaments",
+};
+
+const RULE_DESCRIPTIONS: Record<string, string> = {
+  sqlite_integrity: "SQLite quick_check reported a problem with the database file.",
+  foreign_key_violation: "A row references a parent record that no longer exists.",
+  spool_weight_negative: "remaining_weight dropped below zero and was auto-clamped.",
+  spool_weight_overflow: "remaining_weight exceeded initial_weight and was auto-clamped.",
+  spool_empty_status_mismatch: "Zero-weight spool still marked active — auto-archived.",
+  print_usage_orphan_spool: "print_usage row referenced a deleted spool — auto-removed.",
+  shop_unused: "Configured shop with no listings and no orders yet.",
+  shop_duplicate: "Multiple shops share the same canonical name.",
+  filament_unused: "Filament with no spools, no orders, and no prints.",
+};
 
 export default async function DiagnosticsPage() {
   const d = await getAllDiagnostics();
@@ -171,6 +196,56 @@ export default async function DiagnosticsPage() {
             testId="issue-sync-errors"
           />
         </div>
+      </section>
+
+      {/* ── Health Check ────────────────────────────────────────────────── */}
+      <section className="space-y-2">
+        <div className="flex items-baseline justify-between gap-2">
+          <h2 className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">
+            Health Check
+          </h2>
+          {d.healthCheck.latestRunAt && (
+            <span className="text-2xs text-muted-foreground">
+              Last run {formatDateTime(d.healthCheck.latestRunAt)}
+              {" · "}
+              {d.healthCheck.counts.autoFixed} auto-fixed
+              {" · "}
+              {d.healthCheck.counts.flagged} flagged
+              {" · "}
+              {d.healthCheck.counts.info} info
+            </span>
+          )}
+        </div>
+        {d.healthCheck.latestRunAt === null ? (
+          <p className="text-xs text-muted-foreground italic py-2">
+            No health check has run yet — restart the addon to trigger one.
+          </p>
+        ) : d.healthCheck.rules.length === 0 ? (
+          <p className="text-xs text-muted-foreground italic py-2">
+            Latest health check reported no findings.
+          </p>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {d.healthCheck.rules.map((rule) => (
+              <IssueCard
+                key={rule.ruleId}
+                title={RULE_TITLES[rule.ruleId] ?? rule.ruleId}
+                description={RULE_DESCRIPTIONS[rule.ruleId] ?? `Findings from rule "${rule.ruleId}".`}
+                count={rule.count}
+                severity={rule.severity}
+                tone={rule.action === "auto_fixed" ? "resolved" : "pending"}
+                preview={rule.rows.map((r) => ({
+                  label:
+                    r.label ||
+                    (r.entityType && r.entityId
+                      ? `${r.entityType} · ${r.entityId.slice(0, 8)}`
+                      : "—"),
+                }))}
+                testId={`issue-hc-${rule.ruleId}`}
+              />
+            ))}
+          </div>
+        )}
       </section>
     </div>
   );

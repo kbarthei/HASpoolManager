@@ -5,12 +5,19 @@ import { cn } from "@/lib/utils";
 import { ArrowRight, AlertTriangle, Info, CheckCircle2 } from "lucide-react";
 
 export type IssueSeverity = "critical" | "warning" | "info";
+export type IssueTone = "resolved" | "pending";
 
 interface IssueCardProps {
   title: string;
   description: string;
   count: number;
   severity: IssueSeverity;
+  /**
+   * "resolved" overrides the severity-driven red/amber treatment with a green
+   * "already handled" look. Use for health-check rules whose action was
+   * auto_fixed — the count is historical, not outstanding work.
+   */
+  tone?: IssueTone;
   /** Deep-link to destination page with ?issue=<id> filter applied. */
   reviewHref?: string;
   reviewLabel?: string;
@@ -19,8 +26,8 @@ interface IssueCardProps {
   testId?: string;
 }
 
-function severityBadge(severity: IssueSeverity, count: number): string {
-  if (count === 0) {
+function severityBadge(severity: IssueSeverity, count: number, tone: IssueTone): string {
+  if (count === 0 || tone === "resolved") {
     return "bg-emerald-500/15 text-emerald-600 border-emerald-500/30";
   }
   if (severity === "critical") {
@@ -35,11 +42,13 @@ function severityBadge(severity: IssueSeverity, count: number): string {
 function SeverityIcon({
   severity,
   count,
+  tone,
 }: {
   severity: IssueSeverity;
   count: number;
+  tone: IssueTone;
 }) {
-  if (count === 0) return <CheckCircle2 className="w-4 h-4 text-emerald-500" />;
+  if (count === 0 || tone === "resolved") return <CheckCircle2 className="w-4 h-4 text-emerald-500" />;
   if (severity === "critical") return <AlertTriangle className="w-4 h-4 text-red-500" />;
   if (severity === "warning") return <AlertTriangle className="w-4 h-4 text-amber-500" />;
   return <Info className="w-4 h-4 text-muted-foreground" />;
@@ -50,12 +59,14 @@ export function IssueCard({
   description,
   count,
   severity,
+  tone = "pending",
   reviewHref,
   reviewLabel = "Review",
   preview,
   testId,
 }: IssueCardProps) {
   const clean = count === 0;
+  const resolved = tone === "resolved" && count > 0;
   return (
     <Card
       className={cn(
@@ -67,7 +78,7 @@ export function IssueCard({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <h3 className="text-sm font-semibold flex items-center gap-1.5">
-            <SeverityIcon severity={severity} count={count} />
+            <SeverityIcon severity={severity} count={count} tone={tone} />
             {title}
           </h3>
           <p className="text-xs text-muted-foreground mt-0.5 leading-snug">
@@ -77,7 +88,7 @@ export function IssueCard({
         <Badge
           className={cn(
             "text-[11px] h-6 px-2 font-mono shrink-0",
-            severityBadge(severity, count),
+            severityBadge(severity, count, tone),
           )}
           data-testid={testId ? `${testId}-count` : undefined}
         >
@@ -113,6 +124,12 @@ export function IssueCard({
 
       {clean && (
         <p className="text-2xs text-emerald-600/80">All clear.</p>
+      )}
+
+      {resolved && (
+        <p className="text-2xs text-emerald-600/80">
+          Already handled by the health-check job.
+        </p>
       )}
     </Card>
   );
