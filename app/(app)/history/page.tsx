@@ -82,21 +82,21 @@ export default async function SpoolHistoryPage() {
   const grouped = groupByDate(events);
 
   return (
-    <div data-testid="page-history" className="max-w-2xl mx-auto px-4 py-6 space-y-6">
+    <div data-testid="page-history" className="max-w-2xl mx-auto space-y-4">
       {/* Header */}
       <div>
-        <h1 className="text-xl font-semibold">Spool History</h1>
-        <p className="text-xs text-muted-foreground mt-1">
-          {events.length} events
+        <h1 className="text-2xl font-bold tracking-tight">Spool History</h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          {events.length} event{events.length === 1 ? "" : "s"}
         </p>
       </div>
 
       {/* Timeline */}
       {Array.from(grouped.entries()).map(([dateLabel, dayEvents]) => (
-        <section key={dateLabel}>
+        <section key={dateLabel} className="space-y-2">
           {/* Sticky date header */}
-          <div className="sticky top-0 z-10 bg-background py-1 mb-1">
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+          <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm py-1">
+            <span className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">
               {dateLabel}
             </span>
           </div>
@@ -108,7 +108,7 @@ export default async function SpoolHistoryPage() {
                 <div className="absolute -left-[1.375rem] mt-1 h-2 w-2 rounded-full bg-border" />
 
                 {/* Time */}
-                <span className="text-xs text-muted-foreground w-10 shrink-0 pt-0.5">
+                <span className="text-2xs text-muted-foreground font-[family-name:var(--font-geist-mono)] tabular-nums w-10 shrink-0 pt-0.5">
                   {formatTime(ev.date)}
                 </span>
 
@@ -128,8 +128,11 @@ export default async function SpoolHistoryPage() {
                       <SpoolColorDot hex={ev.colorHex} size="sm" />
                       <span className="text-sm">
                         Used{" "}
-                        <span className="font-mono">{ev.weightUsed.toFixed(1)}g</span> of{" "}
-                        <span className="font-medium">{ev.filamentName}</span> for{" "}
+                        <span className="font-[family-name:var(--font-geist-mono)] tabular-nums font-semibold">
+                          {ev.weightUsed.toFixed(1)}g
+                        </span>{" "}
+                        of{" "}
+                        <span className="font-semibold">{ev.filamentName}</span> for{" "}
                         <span className="text-muted-foreground">{ev.printName}</span>
                       </span>
                     </div>
@@ -138,7 +141,7 @@ export default async function SpoolHistoryPage() {
                       <SpoolColorDot hex={ev.colorHex} size="sm" />
                       <span className="text-sm">
                         Added{" "}
-                        <span className="font-medium">{ev.filamentName}</span> to inventory
+                        <span className="font-semibold">{ev.filamentName}</span> to inventory
                       </span>
                     </div>
                   )}
@@ -150,7 +153,9 @@ export default async function SpoolHistoryPage() {
       ))}
 
       {events.length === 0 && (
-        <p className="text-sm text-muted-foreground text-center py-12">No history yet.</p>
+        <div className="py-16 text-center">
+          <p className="text-sm text-muted-foreground">No history yet.</p>
+        </div>
       )}
     </div>
   );
