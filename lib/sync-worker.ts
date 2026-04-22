@@ -584,6 +584,36 @@ async function registerPrinter(discovered: DiscoveredPrinter): Promise<PrinterSy
     printerId = discovered.deviceId; // fallback
   }
 
+  // Upsert printer_ams_units from the discovered AMS devices.
+  // Best-effort: failure here doesn't block sync-worker startup.
+  try {
+    const port = process.env.NEXT_PORT || "3000";
+    const basePath = process.env.HA_ADDON === "true" ? "/ingress" : "";
+    const apiKey = process.env.API_SECRET_KEY || "";
+    if (discovered.amsDevices.length > 0 && apiKey) {
+      const res = await fetch(
+        `http://127.0.0.1:${port}${basePath}/api/v1/printers/${printerId}/ams-units/discover`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+          body: JSON.stringify({ devices: discovered.amsDevices }),
+        },
+      );
+      if (res.ok) {
+        const body = (await res.json()) as { created: number; refreshed: number };
+        if (body.created > 0 || body.refreshed > 0) {
+          console.log(
+            `[sync-worker] ams-units: created=${body.created} refreshed=${body.refreshed} for printer ${printerId.slice(0, 8)}`,
+          );
+        }
+      } else {
+        console.error(`[sync-worker] ams-units discover failed: ${res.status}`);
+      }
+    }
+  } catch (error) {
+    console.error("[sync-worker] ams-units discover error:", error);
+  }
+
   const state: PrinterSyncState = {
     printerId,
     deviceId: discovered.deviceId,
