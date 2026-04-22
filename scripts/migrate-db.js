@@ -590,6 +590,134 @@ const migrations = [
       `);
     },
   },
+  {
+    name: "racks table (multi-rack support)",
+    check: () => {
+      const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='racks'").all();
+      return tables.length > 0;
+    },
+    apply: () => {
+      db.exec(`
+        CREATE TABLE racks (
+          id TEXT PRIMARY KEY NOT NULL,
+          name TEXT NOT NULL,
+          rows INTEGER NOT NULL,
+          cols INTEGER NOT NULL,
+          sort_order INTEGER DEFAULT 0 NOT NULL,
+          archived_at TEXT,
+          created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        )
+      `);
+    },
+  },
+  {
+    name: "printer_ams_units table (multi-AMS topology)",
+    check: () => {
+      const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='printer_ams_units'").all();
+      return tables.length > 0;
+    },
+    apply: () => {
+      db.exec(`
+        CREATE TABLE printer_ams_units (
+          id TEXT PRIMARY KEY NOT NULL,
+          printer_id TEXT NOT NULL REFERENCES printers(id) ON DELETE CASCADE,
+          ams_index INTEGER NOT NULL,
+          slot_type TEXT NOT NULL,
+          ha_device_id TEXT DEFAULT '' NOT NULL,
+          display_name TEXT NOT NULL,
+          enabled INTEGER DEFAULT 1 NOT NULL,
+          discovered_at TEXT NOT NULL DEFAULT (datetime('now'))
+        )
+      `);
+      db.exec("CREATE UNIQUE INDEX uq_printer_ams_unit ON printer_ams_units (printer_id, ams_index, slot_type)");
+    },
+  },
+  {
+    name: "backfill default rack and rewrite spool locations",
+    check: () => {
+      try {
+        return (db.prepare("SELECT COUNT(*) as c FROM racks").get().c) > 0;
+      } catch {
+        return false;
+      }
+    },
+    apply: () => {
+      // Pattern-consistent with other migrations: inline the backfill logic.
+      // Tests cover the same logic via lib/migrate-data.ts (migrateRackData).
+      const rowsSetting = db.prepare("SELECT value FROM settings WHERE key = ?").get("rack_rows");
+      const colsSetting = db.prepare("SELECT value FROM settings WHERE key = ?").get("rack_columns");
+      const rows = rowsSetting ? parseInt(rowsSetting.value, 10) : 3;
+      const cols = colsSetting ? parseInt(colsSetting.value, 10) : 10;
+      const defaultRackId = require("crypto").randomUUID();
+
+      db.prepare(
+        "INSERT INTO racks (id, name, rows, cols, sort_order) VALUES (?, ?, ?, ?, ?)"
+      ).run(defaultRackId, "Main", rows, cols, 0);
+
+      // Rewrite legacy rack locations: "rack:R-C" → "rack:<id>:R-C"
+      const rewriteStmt = db.prepare("UPDATE spools SET location = ? WHERE id = ?");
+      const allSpools = db.prepare("SELECT id, location FROM spools").all();
+      let rewrote = 0;
+      for (const s of allSpools) {
+        if (!s.location || !s.location.startsWith("rack:")) continue;
+        // Already migrated (two colons): skip
+        if (s.location.match(/^rack:[^:]+:[^:]+$/)) continue;
+        const match = s.location.match(/^rack:(\d+)-(\d+)$/);
+        if (!match) continue;
+        rewriteStmt.run(`rack:${defaultRackId}:${match[1]}-${match[2]}`, s.id);
+        rewrote++;
+      }
+
+      db.prepare("DELETE FROM settings WHERE key IN (?, ?)").run("rack_rows", "rack_columns");
+
+      console.log(`[migrate]   → Created rack '${defaultRackId}' (${rows}×${cols}), rewrote ${rewrote} spool location(s), dropped legacy settings`);
+    },
+  },
+  {
+    name: "backfill printer_ams_units from amsSlots",
+    check: () => {
+      try {
+        return (db.prepare("SELECT COUNT(*) as c FROM printer_ams_units").get().c) > 0;
+      } catch {
+        return false;
+      }
+    },
+    apply: () => {
+      const printers = db.prepare("SELECT id FROM printers").all();
+      const insertStmt = db.prepare(
+        "INSERT INTO printer_ams_units (id, printer_id, ams_index, slot_type, ha_device_id, display_name, enabled) VALUES (?, ?, ?, ?, '', ?, 1)"
+      );
+      let created = 0;
+      for (const p of printers) {
+        const combos = db.prepare(
+          "SELECT DISTINCT ams_index, slot_type FROM ams_slots WHERE printer_id = ? AND slot_type IN ('ams', 'ams_ht')"
+        ).all(p.id);
+        // Stable sort: ams before ams_ht, then amsIndex asc
+        combos.sort((a, b) => {
+          if (a.slot_type !== b.slot_type) return a.slot_type === "ams" ? -1 : 1;
+          return a.ams_index - b.ams_index;
+        });
+        for (const c of combos) {
+          const displayName = c.slot_type === "ams_ht" ? "AMS HT" : `AMS ${c.ams_index + 1}`;
+          insertStmt.run(require("crypto").randomUUID(), p.id, c.ams_index, c.slot_type, displayName);
+          created++;
+        }
+      }
+      if (created > 0) {
+        console.log(`[migrate]   → Created ${created} AMS unit(s) across ${printers.length} printer(s)`);
+      }
+    },
+  },
+  {
+    name: "drop printers.ams_count column (replaced by printer_ams_units)",
+    check: () => {
+      const cols = db.pragma("table_info(printers)");
+      return !cols.some((c) => c.name === "ams_count");
+    },
+    apply: () => {
+      db.exec("ALTER TABLE printers DROP COLUMN ams_count");
+    },
+  },
 ];
 
 // ── Run migrations ──────────────────────────────────────────────────────────
