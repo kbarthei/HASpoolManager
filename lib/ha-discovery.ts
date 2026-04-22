@@ -78,12 +78,20 @@ export interface EntityMapping {
   status: "ok" | "missing" | "unknown";
 }
 
+export interface DiscoveredAmsDevice {
+  id: string;
+  model: string; // lower-cased; "ams", "ams ht", "ams lite", etc.
+  name: string;
+}
+
 export interface DiscoveredPrinter {
   deviceId: string;
   name: string;
   model: string | null;
   serial: string | null;
+  /** @deprecated kept for back-compat — prefer amsDevices which carries model info */
   amsDeviceIds: string[];
+  amsDevices: DiscoveredAmsDevice[];
   mappings: EntityMapping[];
   unmappedEntities: Array<{ entityId: string; originalName: string }>;
 }
@@ -128,6 +136,17 @@ export function discoverPrinters(
     });
 
     const amsDeviceIds = relatedDevices.map((d) => d.id);
+    // Rich AMS device info (excludes External Spool — not an AMS unit)
+    const amsDevices: DiscoveredAmsDevice[] = relatedDevices
+      .filter((d) => {
+        const m = (d.model || "").toLowerCase();
+        return m.startsWith("ams") && m !== "external spool";
+      })
+      .map((d) => ({
+        id: d.id,
+        model: (d.model || "").toLowerCase(),
+        name: d.name || "",
+      }));
     const allDeviceIds = [printer.id, ...amsDeviceIds];
 
     // Get all entities for this printer + its AMS units
@@ -194,6 +213,7 @@ export function discoverPrinters(
       model: printer.model,
       serial: printer.serial_number,
       amsDeviceIds,
+      amsDevices,
       mappings,
       unmappedEntities,
     });
