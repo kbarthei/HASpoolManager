@@ -3,13 +3,14 @@ export const dynamic = "force-dynamic";
 import { getSystemStats, getPrinterStatus, getRackConfig } from "@/lib/queries";
 import { formatDateTime, formatDate } from "@/lib/date";
 import { db } from "@/lib/db";
-import { spools, printers as printersTable, syncLog, settings, hmsEvents, racks } from "@/lib/db/schema";
+import { spools, printers as printersTable, syncLog, settings, hmsEvents, racks, printerAmsUnits } from "@/lib/db/schema";
 import { eq, ne, desc } from "drizzle-orm";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { SyncLogTable } from "./sync-log-table";
 import { RacksCard } from "./racks-card";
+import { AmsUnitsCard } from "./ams-units-card";
 import { ImportOrdersCard } from "./import-orders-card";
 import { AdminTools } from "./admin-tools";
 import { PrinterMappings } from "./printer-mappings";
@@ -52,13 +53,15 @@ export default async function AdminPage() {
     nodeEnv: process.env.NODE_ENV,
   };
 
-  const [stats, [lastSyncEntry], printerStatus, rackConfig, allRacksRaw, activePrinter, energyEntityRow, energyPriceRow] = await Promise.all([
+  const [stats, [lastSyncEntry], printerStatus, rackConfig, allRacksRaw, activePrinter, allPrinters, allAmsUnitsRaw, energyEntityRow, energyPriceRow] = await Promise.all([
     getSystemStats(),
     db.select().from(syncLog).orderBy(desc(syncLog.createdAt)).limit(1),
     getPrinterStatus(),
     getRackConfig(),
     db.select().from(racks).orderBy(racks.sortOrder, racks.createdAt),
     db.query.printers.findFirst({ where: eq(printersTable.isActive, true) }),
+    db.select().from(printersTable).orderBy(printersTable.name),
+    db.select().from(printerAmsUnits).orderBy(printerAmsUnits.slotType, printerAmsUnits.amsIndex),
     db.query.settings.findFirst({ where: eq(settings.key, "energy_sensor_entity_id") }),
     db.query.settings.findFirst({ where: eq(settings.key, "electricity_price_per_kwh") }),
   ]);
@@ -71,6 +74,12 @@ export default async function AdminPage() {
     sortOrder: r.sortOrder,
     archivedAt: r.archivedAt ? r.archivedAt.toISOString() : null,
   }));
+  const amsUnitsByPrinter = new Map<string, typeof allAmsUnitsRaw>();
+  for (const u of allAmsUnitsRaw) {
+    const list = amsUnitsByPrinter.get(u.printerId) ?? [];
+    list.push(u);
+    amsUnitsByPrinter.set(u.printerId, list);
+  }
 
   // ── Config details ────────────────────────────────────────────────────────
   const isAddon = process.env.HA_ADDON === "true";
@@ -230,6 +239,38 @@ export default async function AdminPage() {
       <div className="lg:col-span-2">
         <PrinterMappings />
       </div>
+
+      {/* ── AMS Units ───────────────────────────────────────────────────── */}
+      <Card className="p-4 space-y-3 lg:col-span-2">
+        <div>
+          <h2 className="text-sm font-semibold">AMS Units</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Auto-discovered from Home Assistant · rename or disable individual units
+          </p>
+        </div>
+        {allPrinters.length === 0 ? (
+          <p className="text-xs text-muted-foreground">No printers configured yet.</p>
+        ) : (
+          <div className="space-y-4">
+            {allPrinters.map((p) => (
+              <AmsUnitsCard
+                key={p.id}
+                printerId={p.id}
+                printerName={p.name}
+                initialUnits={(amsUnitsByPrinter.get(p.id) ?? []).map((u) => ({
+                  id: u.id,
+                  printerId: u.printerId,
+                  amsIndex: u.amsIndex,
+                  slotType: u.slotType,
+                  displayName: u.displayName,
+                  enabled: u.enabled,
+                  haDeviceId: u.haDeviceId,
+                }))}
+              />
+            ))}
+          </div>
+        )}
+      </Card>
 
       {/* ── Rack Configuration ─ pairs with Energy on desktop ──────────── */}
       <Card className="p-4 space-y-3">
