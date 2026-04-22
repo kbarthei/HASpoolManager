@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { prints, amsSlots, spools, syncLog, printUsage, vendors, filaments, tagMappings, settings } from "@/lib/db/schema";
+import { prints, amsSlots, spools, syncLog, printUsage, vendors, filaments, tagMappings, settings, printerAmsUnits } from "@/lib/db/schema";
 import { eq, and, sql, lt } from "drizzle-orm";
 import { requireAuth } from "@/lib/auth";
 import { matchSpool } from "@/lib/matching";
@@ -11,6 +11,7 @@ import {
   classifyGcodeState, isCalibrationJob,
   buildEventId, bambuColorName, bambuFilamentName, calculateWeightSync,
   calculateEnergyCost,
+  buildSlotDefs, type SlotDef,
 } from "@/lib/printer-sync-helpers";
 import { sqlCount, sqlNowMinusHours } from "@/lib/db/sql-helpers";
 
@@ -35,7 +36,7 @@ async function autoCreateBambuSpool(
   bambuIdx: string,
   trayType: string,
   trayColor: string,
-  slotDef: (typeof SLOT_DEFS)[number],
+  slotDef: SlotDef,
 ): Promise<string | null> {
   try {
     // Guard: don't create if tag_mapping already exists (race-condition safety)
@@ -129,7 +130,7 @@ async function autoCreateBambuSpool(
 async function autoCreateDraftSpool(
   trayType: string,
   trayColor: string,
-  slotDef: (typeof SLOT_DEFS)[number],
+  slotDef: SlotDef,
 ): Promise<string | null> {
   try {
     // Guard: if the slot already has a spool AND the linked spool's filament
@@ -213,15 +214,8 @@ async function autoCreateDraftSpool(
   }
 }
 
-// ── Slot definition (maps HA sensor names to our slot types) ─────────────────
-const SLOT_DEFS = [
-  { key: "slot_1", slotType: "ams", amsIndex: 0, trayIndex: 0 },
-  { key: "slot_2", slotType: "ams", amsIndex: 0, trayIndex: 1 },
-  { key: "slot_3", slotType: "ams", amsIndex: 0, trayIndex: 2 },
-  { key: "slot_4", slotType: "ams", amsIndex: 0, trayIndex: 3 },
-  { key: "slot_ht",  slotType: "ams_ht", amsIndex: 1, trayIndex: 0 },
-  { key: "slot_ext", slotType: "external", amsIndex: -1, trayIndex: 0 },
-] as const;
+// SLOT_DEFS is built dynamically per-request inside POST from the enabled
+// printer_ams_units rows. See buildSlotDefs() in lib/printer-sync-helpers.ts.
 
 /**
  * Create print_usage records: link print to all spools used, deduct weight, calculate cost.
@@ -234,6 +228,7 @@ async function createPrintUsage(
   printId: string,
   printerId: string,
   totalWeight: number,
+  slotDefs: SlotDef[],
   endRemains?: Record<string, number>,
   trayWeights?: Record<string, number>,
 ) {
@@ -305,7 +300,7 @@ async function createPrintUsage(
           where: and(eq(amsSlots.printerId, printerId), eq(amsSlots.spoolId, spoolId)),
         });
         if (slot) {
-          const defKey = SLOT_DEFS.find(
+          const defKey = slotDefs.find(
             (d) => d.slotType === slot.slotType && d.amsIndex === slot.amsIndex && d.trayIndex === slot.trayIndex
           )?.key;
           if (defKey && startRemains[defKey] !== undefined && endRemains[defKey] !== undefined) {
@@ -413,6 +408,14 @@ export async function POST(request: NextRequest) {
     if (!printer_id) {
       return NextResponse.json({ error: "printer_id required" }, { status: 400 });
     }
+
+    // Build slot defs dynamically from enabled printer_ams_units for this printer.
+    // Replaces the former hardcoded 6-slot array.
+    const amsUnitRows = await db
+      .select({ amsIndex: printerAmsUnits.amsIndex, slotType: printerAmsUnits.slotType })
+      .from(printerAmsUnits)
+      .where(and(eq(printerAmsUnits.printerId, printer_id), eq(printerAmsUnits.enabled, true)));
+    const SLOT_DEFS = buildSlotDefs(amsUnitRows);
 
     // gcode_state: coarse lifecycle state (10 values, stable)
     // print_state: fine-grained stage (68+ values, for display/spool tracking)
@@ -586,7 +589,7 @@ export async function POST(request: NextRequest) {
 
       // Create print_usage record and deduct weight from active spool
       // (also computes filamentCost and totalCost = filament + energy)
-      await createPrintUsage(runningPrint.id, printer_id, finalWeight || 0, endRemainsFinish, trayWeights);
+      await createPrintUsage(runningPrint.id, printer_id, finalWeight || 0, SLOT_DEFS, endRemainsFinish, trayWeights);
 
       console.log(`[printer-sync] FINISHED: "${runningPrint.name}" weight=${finalWeight}g energy=${energyUpdate.energyKwh ?? "n/a"}kWh`);
     } else if (runningPrint && isFailed) {
@@ -638,7 +641,7 @@ export async function POST(request: NextRequest) {
           const partialWeight = progress < 100
             ? Math.round(totalWeight * (progress / 100) * 100) / 100
             : totalWeight;
-          await createPrintUsage(runningPrint.id, printer_id, partialWeight, endRemainsFailed, trayWeights);
+          await createPrintUsage(runningPrint.id, printer_id, partialWeight, SLOT_DEFS, endRemainsFailed, trayWeights);
           console.log(`[printer-sync] FAILED: "${runningPrint.name}" progress=${progress}% partialWeight=${partialWeight}g (total=${totalWeight}g)`);
         } else {
           console.log(`[printer-sync] FAILED: "${runningPrint.name}" no progress data, skipping usage deduction`);

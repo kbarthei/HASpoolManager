@@ -14,6 +14,7 @@ import {
   printUsage,
   printers,
   amsSlots,
+  printerAmsUnits,
   orders,
   orderItems,
 } from "@/lib/db/schema";
@@ -124,6 +125,39 @@ export async function makeAmsSlot(
     })
     .returning({ id: amsSlots.id });
   return row.id;
+}
+
+export async function makeAmsUnit(
+  printerId: string,
+  overrides: {
+    amsIndex?: number;
+    slotType?: "ams" | "ams_ht";
+    displayName?: string;
+    enabled?: boolean;
+    haDeviceId?: string;
+  } = {},
+): Promise<string> {
+  const amsIndex = overrides.amsIndex ?? 0;
+  const slotType = overrides.slotType ?? "ams";
+  const [row] = await db
+    .insert(printerAmsUnits)
+    .values({
+      printerId,
+      amsIndex,
+      slotType,
+      haDeviceId: overrides.haDeviceId ?? "",
+      displayName:
+        overrides.displayName ?? (slotType === "ams_ht" ? "AMS HT" : `AMS ${amsIndex + 1}`),
+      enabled: overrides.enabled ?? true,
+    })
+    .returning({ id: printerAmsUnits.id });
+  return row.id;
+}
+
+/** Convenience: seed the standard H2S setup (1 AMS unit at amsIndex 0, 1 AMS HT at amsIndex 1). */
+export async function seedStandardH2SAmsUnits(printerId: string): Promise<void> {
+  await makeAmsUnit(printerId, { amsIndex: 0, slotType: "ams", displayName: "AMS 1" });
+  await makeAmsUnit(printerId, { amsIndex: 1, slotType: "ams_ht", displayName: "AMS HT" });
 }
 
 // ── Orders ───────────────────────────────────────────────────────────────────
