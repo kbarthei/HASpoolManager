@@ -566,7 +566,6 @@ async function registerPrinter(discovered: DiscoveredPrinter): Promise<PrinterSy
             name: discovered.name,
             model: discovered.model || "Unknown",
             serial: discovered.serial || "",
-            amsCount: discovered.amsDeviceIds.length,
           }),
         });
         if (createRes.ok) {

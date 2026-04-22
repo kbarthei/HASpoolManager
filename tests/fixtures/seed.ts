@@ -88,7 +88,6 @@ export async function makePrinter(
     name?: string;
     model?: string;
     serial?: string;
-    amsCount?: number;
   } = {},
 ): Promise<string> {
   const ts = Date.now();
@@ -98,7 +97,6 @@ export async function makePrinter(
       name: overrides.name ?? `TestPrinter_${ts}`,
       model: overrides.model ?? "H2S",
       serial: overrides.serial ?? `SERIAL_${ts}_${Math.random().toString(36).slice(2, 8)}`,
-      amsCount: overrides.amsCount ?? 1,
       isActive: true,
     })
     .returning({ id: printers.id });

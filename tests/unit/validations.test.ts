@@ -297,7 +297,6 @@ describe("createPrinterSchema", () => {
     const result = createPrinterSchema.safeParse({ name: "H2S" });
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.data.amsCount).toBe(1);
       expect(result.data.isActive).toBe(true);
       expect(result.data.model).toBe("");
     }
@@ -305,14 +304,6 @@ describe("createPrinterSchema", () => {
 
   it("rejects empty name", () => {
     expect(createPrinterSchema.safeParse({ name: "" }).success).toBe(false);
-  });
-
-  it("rejects amsCount above 10", () => {
-    expect(createPrinterSchema.safeParse({ name: "H2S", amsCount: 11 }).success).toBe(false);
-  });
-
-  it("rejects negative amsCount", () => {
-    expect(createPrinterSchema.safeParse({ name: "H2S", amsCount: -1 }).success).toBe(false);
   });
 });
 

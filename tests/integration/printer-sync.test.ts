@@ -44,7 +44,7 @@ describe("printer-sync integration", () => {
       makeAmsSlot,
     } = await import("../fixtures/seed");
 
-    testPrinterId = await makePrinter({ name: "H2S", amsCount: 1 });
+    testPrinterId = await makePrinter({ name: "H2S" });
 
     // 4 AMS slots + 1 HT slot
     for (let i = 0; i < 4; i++) {

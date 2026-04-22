@@ -57,7 +57,6 @@ export const createPrinterSchema = z.object({
   model: z.string().max(200).optional().default(""),
   serialNumber: z.string().max(100).nullable().optional(),
   ipAddress: z.string().max(100).nullable().optional(),
-  amsCount: z.number().int().min(0).max(10).optional().default(1),
   isActive: z.boolean().optional().default(true),
 });
 

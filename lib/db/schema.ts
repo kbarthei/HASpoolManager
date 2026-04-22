@@ -105,7 +105,6 @@ export const printers = sqliteTable("printers", {
   mqttTopic: text("mqtt_topic"),
   haDeviceId: text("ha_device_id"),
   ipAddress: text("ip_address"),
-  amsCount: integer("ams_count").notNull().default(0),
   isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
   createdAt: tsCol("created_at").notNull().default(sql`(datetime('now'))`),
   updatedAt: tsCol("updated_at").notNull().default(sql`(datetime('now'))`),
