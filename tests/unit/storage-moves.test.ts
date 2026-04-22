@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { parseRackPosition } from "@/lib/rack-helpers";
+import { parseRackLocation, formatRackLocation, parseLegacyRackLocation } from "@/lib/rack-helpers";
 
-// parseRackPosition is the real production function exported from lib/rack-helpers.ts.
+// parseRackLocation / formatRackLocation are the real production helpers.
 // The move/assign/unload server actions (moveSpoolInRack, moveSpoolTo, etc.)
 // require a DB connection and are covered by integration tests — they are not
 // tested here.
@@ -68,22 +68,49 @@ describe("Move spool logic — algorithm design", () => {
   });
 });
 
-describe("Rack position parsing — real production function", () => {
+describe("parseRackLocation — canonical (rack:<id>:R-C) format", () => {
+  const RACK_ID = "abc-123";
+
   it("parses valid rack positions", () => {
-    expect(parseRackPosition("rack:1-3")).toEqual({ row: 1, col: 3 });
-    expect(parseRackPosition("rack:4-8")).toEqual({ row: 4, col: 8 });
+    expect(parseRackLocation(`rack:${RACK_ID}:1-3`)).toEqual({ rackId: RACK_ID, row: 1, col: 3 });
+    expect(parseRackLocation(`rack:${RACK_ID}:4-8`)).toEqual({ rackId: RACK_ID, row: 4, col: 8 });
   });
 
   it("returns null for non-rack locations", () => {
-    expect(parseRackPosition("surplus")).toBeNull();
-    expect(parseRackPosition("workbench")).toBeNull();
-    expect(parseRackPosition("storage")).toBeNull();
-    expect(parseRackPosition("ams")).toBeNull();
+    expect(parseRackLocation("surplus")).toBeNull();
+    expect(parseRackLocation("workbench")).toBeNull();
+    expect(parseRackLocation("storage")).toBeNull();
+    expect(parseRackLocation("ams")).toBeNull();
   });
 
   it("returns null for malformed rack positions", () => {
-    expect(parseRackPosition("rack:")).toBeNull();
-    expect(parseRackPosition("rack:abc")).toBeNull();
-    expect(parseRackPosition("rack:1")).toBeNull();
+    expect(parseRackLocation("rack:")).toBeNull();
+    expect(parseRackLocation(`rack:${RACK_ID}:abc`)).toBeNull();
+    expect(parseRackLocation(`rack:${RACK_ID}:1`)).toBeNull();
+  });
+
+  it("returns null for legacy format without rackId", () => {
+    expect(parseRackLocation("rack:1-3")).toBeNull();
+  });
+
+  it("accepts null/undefined input", () => {
+    expect(parseRackLocation(null)).toBeNull();
+    expect(parseRackLocation(undefined)).toBeNull();
+  });
+});
+
+describe("formatRackLocation", () => {
+  it("builds canonical rack-location string", () => {
+    expect(formatRackLocation("abc-123", 2, 5)).toBe("rack:abc-123:2-5");
+  });
+});
+
+describe("parseLegacyRackLocation — pre-migration format only", () => {
+  it("parses 'rack:R-C'", () => {
+    expect(parseLegacyRackLocation("rack:1-3")).toEqual({ row: 1, col: 3 });
+  });
+
+  it("returns null for canonical format", () => {
+    expect(parseLegacyRackLocation("rack:abc-123:1-3")).toBeNull();
   });
 });

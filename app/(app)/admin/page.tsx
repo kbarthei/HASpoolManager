@@ -9,7 +9,6 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { SyncLogTable } from "./sync-log-table";
-import { RackSettings } from "./rack-settings";
 import { ImportOrdersCard } from "./import-orders-card";
 import { AdminTools } from "./admin-tools";
 import { PrinterMappings } from "./printer-mappings";
@@ -228,8 +227,10 @@ export default async function AdminPage() {
           <p className="text-xs text-muted-foreground mt-0.5">
             Currently {rackConfig.rows} rows × {rackConfig.columns} columns · R1 is the bottom-left shelf
           </p>
+          <p className="text-xs text-muted-foreground mt-2">
+            Rack management UI ships in Phase 3 — use <code className="bg-muted px-1 rounded text-[10px]">/api/v1/racks</code> for now.
+          </p>
         </div>
-        <RackSettings initialRows={rackConfig.rows} initialColumns={rackConfig.columns} />
       </Card>
 
       {/* ── Energy Tracking ───────────────────────────────────────────── */}

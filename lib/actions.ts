@@ -1,12 +1,20 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { amsSlots, spools, shops, orders, orderItems, filaments, vendors, shoppingListItems, shopListings, tagMappings, printUsage, prints, settings } from "@/lib/db/schema";
-import { eq, and, like, sql } from "drizzle-orm";
+import { amsSlots, spools, shops, orders, orderItems, filaments, vendors, shoppingListItems, shopListings, tagMappings, printUsage, prints, settings, racks } from "@/lib/db/schema";
+import { eq, and, like, sql, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { getRackConfig } from "@/lib/queries";
+import { getActiveRacks, getRackConfig } from "@/lib/queries";
+import { formatRackLocation, parseRackLocation } from "@/lib/rack-helpers";
 import { resolveVendorName } from "@/lib/vendor-aliases";
 import { normalizeName } from "@/lib/name-normalize";
+
+async function resolveRackId(rackId?: string): Promise<string> {
+  if (rackId) return rackId;
+  const active = await getActiveRacks();
+  if (active.length === 0) throw new Error("No active rack — create one first");
+  return active[0].id;
+}
 
 export async function moveSpoolInRack(
   spoolId: string,
@@ -15,23 +23,26 @@ export async function moveSpoolInRack(
   swapSpoolId?: string,
   fromRow?: number,
   fromCol?: number,
+  rackId?: string,
 ) {
+  const resolvedRackId = await resolveRackId(rackId);
   await db.update(spools)
-    .set({ location: `rack:${toRow}-${toCol}`, updatedAt: new Date() })
+    .set({ location: formatRackLocation(resolvedRackId, toRow, toCol), updatedAt: new Date() })
     .where(eq(spools.id, spoolId));
 
   if (swapSpoolId && fromRow != null && fromCol != null) {
     await db.update(spools)
-      .set({ location: `rack:${fromRow}-${fromCol}`, updatedAt: new Date() })
+      .set({ location: formatRackLocation(resolvedRackId, fromRow, fromCol), updatedAt: new Date() })
       .where(eq(spools.id, swapSpoolId));
   }
 
   revalidatePath("/");
 }
 
-export async function assignSpoolToRack(spoolId: string, row: number, col: number) {
+export async function assignSpoolToRack(spoolId: string, row: number, col: number, rackId?: string) {
+  const resolvedRackId = await resolveRackId(rackId);
   await db.update(spools)
-    .set({ location: `rack:${row}-${col}`, updatedAt: new Date() })
+    .set({ location: formatRackLocation(resolvedRackId, row, col), updatedAt: new Date() })
     .where(eq(spools.id, spoolId));
   revalidatePath("/");
 }
@@ -62,17 +73,20 @@ export async function moveAllRackToWorkbench() {
 }
 
 export async function moveOutOfBoundsToWorkbench() {
-  const { rows, columns } = await getRackConfig();
+  // Multi-rack aware: iterate each active rack's bounds, move spools
+  // that live outside the rack's current rows/cols to "workbench".
+  const activeRacks = await getActiveRacks();
+  const rackById = new Map(activeRacks.map((r) => [r.id, r]));
   const rackSpools = await db.query.spools.findMany({
     where: like(spools.location, "rack:%"),
   });
   let moved = 0;
   for (const spool of rackSpools) {
-    const match = spool.location?.match(/^rack:(\d+)-(\d+)$/);
-    if (!match) continue;
-    const r = parseInt(match[1], 10);
-    const c = parseInt(match[2], 10);
-    if (r > rows || c > columns) {
+    const parsed = parseRackLocation(spool.location);
+    if (!parsed) continue;
+    const rack = rackById.get(parsed.rackId);
+    // Orphaned (archived or unknown rack) → move to workbench
+    if (!rack || parsed.row > rack.rows || parsed.col > rack.cols) {
       await db.update(spools)
         .set({ location: "workbench", updatedAt: new Date() })
         .where(eq(spools.id, spool.id));
@@ -559,15 +573,42 @@ export async function confirmDraftSpool(
   revalidatePath("/spools");
 }
 
-export async function updateRackConfig(rows: number, columns: number) {
-  "use server";
-  await db.insert(settings)
-    .values({ key: "rack_rows", value: String(rows) })
-    .onConflictDoUpdate({ target: settings.key, set: { value: String(rows), updatedAt: new Date() } });
-  await db.insert(settings)
-    .values({ key: "rack_columns", value: String(columns) })
-    .onConflictDoUpdate({ target: settings.key, set: { value: String(columns), updatedAt: new Date() } });
+// ── Rack server actions ────────────────────────────────────────────────────
+
+export async function createRack(name: string, rows: number, cols: number) {
+  const [row] = await db
+    .insert(racks)
+    .values({ name, rows, cols, sortOrder: 0 })
+    .returning();
   revalidatePath("/admin");
+  revalidatePath("/");
+  return row;
+}
+
+export async function updateRack(
+  id: string,
+  patch: Partial<{ name: string; rows: number; cols: number; sortOrder: number }>,
+) {
+  await db.update(racks).set(patch).where(eq(racks.id, id));
+  revalidatePath("/admin");
+  revalidatePath("/");
+}
+
+export async function archiveRack(id: string) {
+  // Move all spools in this rack to storage, then soft-archive the rack.
+  await db
+    .update(spools)
+    .set({ location: "storage", updatedAt: new Date() })
+    .where(like(spools.location, `rack:${id}:%`));
+  await db.update(racks).set({ archivedAt: new Date() }).where(eq(racks.id, id));
+  revalidatePath("/admin");
+  revalidatePath("/");
+}
+
+export async function restoreRack(id: string) {
+  await db.update(racks).set({ archivedAt: null }).where(eq(racks.id, id));
+  revalidatePath("/admin");
+  revalidatePath("/");
 }
 
 export async function createSpoolFromFilament(filamentId: string, initialWeight: number = 1000) {
