@@ -113,6 +113,7 @@ export const printers = sqliteTable("printers", {
 
 export const printersRelations = relations(printers, ({ many }) => ({
   amsSlots: many(amsSlots),
+  amsUnits: many(printerAmsUnits),
   prints: many(prints),
   syncLogs: many(syncLog),
 }));
@@ -327,6 +328,34 @@ export const racks = sqliteTable("racks", {
   archivedAt: tsCol("archived_at"),
   createdAt: tsCol("created_at").notNull().default(sql`(datetime('now'))`),
 });
+
+// ─── Printer AMS Units ──────────────────────────────────────────────────────
+
+export const printerAmsUnits = sqliteTable(
+  "printer_ams_units",
+  {
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    printerId: text("printer_id")
+      .notNull()
+      .references(() => printers.id, { onDelete: "cascade" }),
+    amsIndex: integer("ams_index").notNull(),
+    slotType: text("slot_type").notNull(),
+    haDeviceId: text("ha_device_id").notNull().default(""),
+    displayName: text("display_name").notNull(),
+    enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
+    discoveredAt: tsCol("discovered_at").notNull().default(sql`(datetime('now'))`),
+  },
+  (table) => [
+    uniqueIndex("uq_printer_ams_unit").on(table.printerId, table.amsIndex, table.slotType),
+  ]
+);
+
+export const printerAmsUnitsRelations = relations(printerAmsUnits, ({ one }) => ({
+  printer: one(printers, {
+    fields: [printerAmsUnits.printerId],
+    references: [printers.id],
+  }),
+}));
 
 // ─── Orders ─────────────────────────────────────────────────────────────────
 
