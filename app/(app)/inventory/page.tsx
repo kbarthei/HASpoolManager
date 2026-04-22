@@ -2,7 +2,8 @@ import { Suspense } from "react";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { eq, or, like, desc } from "drizzle-orm";
-import { getRackConfig } from "@/lib/queries";
+import { getActiveRacks, getPrinterAmsUnits } from "@/lib/queries";
+import { parseRackLocation } from "@/lib/rack-helpers";
 import { getSelectedPrinter } from "@/lib/printer-context";
 import { PrinterSelector } from "@/components/layout/printer-selector";
 import { AddSpoolDialog } from "@/components/spool/add-spool-dialog";
@@ -33,27 +34,28 @@ export default async function InventoryPage({
       })
     : null;
 
-  // Load rack config
-  const rackConfig = await getRackConfig();
-  const { rows, columns: cols } = rackConfig;
+  // Load active racks and AMS units for the selected printer
+  const activeRacks = await getActiveRacks();
+  const amsUnits = printer ? await getPrinterAmsUnits(printer.id) : [];
 
-  // Auto-move out-of-bounds rack spools and orphaned "storage" spools to workbench
+  // Auto-move orphaned spools: "storage" sentinel → workbench,
+  // and out-of-bounds rack spools (rack archived or row/col outside
+  // current bounds) → workbench
+  const rackById = new Map(activeRacks.map((r) => [r.id, r]));
   const allRackSpools = await db.query.spools.findMany({
     where: or(like(schema.spools.location, "rack:%"), eq(schema.spools.location, "storage")),
   });
   for (const spool of allRackSpools) {
     if (spool.location === "storage") {
-      // "storage" is a limbo state — move to workbench so it's visible
       await db.update(schema.spools)
         .set({ location: "workbench", updatedAt: new Date() })
         .where(eq(schema.spools.id, spool.id));
       continue;
     }
-    const match = spool.location?.match(/^rack:(\d+)-(\d+)$/);
-    if (!match) continue;
-    const r = parseInt(match[1], 10);
-    const c = parseInt(match[2], 10);
-    if (r > rows || c > cols) {
+    const parsed = parseRackLocation(spool.location);
+    if (!parsed) continue;
+    const rack = rackById.get(parsed.rackId);
+    if (!rack || parsed.row > rack.rows || parsed.col > rack.cols) {
       await db.update(schema.spools)
         .set({ location: "workbench", updatedAt: new Date() })
         .where(eq(schema.spools.id, spool.id));
@@ -122,8 +124,8 @@ export default async function InventoryPage({
         spools={JSON.parse(JSON.stringify(storageSpools))}
         surplusSpools={JSON.parse(JSON.stringify(surplusSpools))}
         workbenchSpools={JSON.parse(JSON.stringify(workbenchSpools))}
-        rows={rows}
-        cols={cols}
+        activeRacks={JSON.parse(JSON.stringify(activeRacks))}
+        amsUnits={JSON.parse(JSON.stringify(amsUnits))}
       />
     </div>
   );

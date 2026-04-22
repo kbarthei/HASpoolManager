@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AmsSection } from "@/components/ams/ams-section";
 import { RackGrid, type RackGridSpool } from "@/components/inventory/rack-grid";
+import { parseRackLocation } from "@/lib/rack-helpers";
 import { SpoolInspectorContainer } from "@/components/spool/spool-inspector-container";
 import { SpoolPicker } from "@/components/spool/spool-picker";
 import { SpoolColorDot } from "@/components/spool/spool-color-dot";
@@ -65,6 +66,23 @@ interface SpoolData {
   };
 }
 
+interface ActiveRack {
+  id: string;
+  name: string;
+  rows: number;
+  cols: number;
+  sortOrder: number;
+}
+
+interface AmsUnit {
+  id: string;
+  printerId: string;
+  amsIndex: number;
+  slotType: string;
+  displayName: string;
+  enabled: boolean;
+}
+
 interface InventoryClientProps {
   initialSlots: SlotData[];
   printerId: string | null;
@@ -72,8 +90,8 @@ interface InventoryClientProps {
   spools: SpoolData[];
   surplusSpools: SpoolData[];
   workbenchSpools: SpoolData[];
-  rows: number;
-  cols: number;
+  activeRacks: ActiveRack[];
+  amsUnits: AmsUnit[];
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -147,9 +165,17 @@ export function InventoryClient({
   spools,
   surplusSpools,
   workbenchSpools,
-  rows,
-  cols,
+  activeRacks,
+  amsUnits,
 }: InventoryClientProps) {
+  // If no active rack exists (edge case — migration should have made one),
+  // fall back to an implicit default to avoid rendering errors.
+  const safeActiveRacks: ActiveRack[] = activeRacks.length > 0
+    ? activeRacks
+    : [];
+  // Track which rack the user is currently interacting with for actions
+  // that don't include a rackId in their event (cell click, drag-drop source).
+  const primaryRackId = safeActiveRacks[0]?.id ?? "";
   // ── Filter state ───────────────────────────────────────────────────────────
   const [filter, setFilter] = useState<string>("all");
 
@@ -163,6 +189,7 @@ export function InventoryClient({
   const [detailSpoolId, setDetailSpoolId] = useState<string | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [storagePickerOpen, setStoragePickerOpen] = useState(false);
+  const [targetRackId, setTargetRackId] = useState<string>(primaryRackId);
   const [targetRow, setTargetRow] = useState<number>(1);
   const [targetCol, setTargetCol] = useState<number>(1);
   const [moveToRackSpoolId, setMoveToRackSpoolId] = useState<string | null>(null);
@@ -246,10 +273,11 @@ export function InventoryClient({
     setMoveToRackOpen(true);
   }
 
-  async function handleRackSlotSelected(row: number, col: number) {
+  async function handleRackSlotSelected(row: number, col: number, rackId?: string) {
     if (!moveToRackSpoolId) return;
+    const resolvedRackId = rackId ?? targetRackId ?? primaryRackId;
     try {
-      await assignSpoolToRack(moveToRackSpoolId, row, col);
+      await assignSpoolToRack(moveToRackSpoolId, row, col, resolvedRackId);
       const spool = [...surplusSpools, ...workbenchSpools].find(
         (s) => s.id === moveToRackSpoolId
       );
@@ -264,10 +292,11 @@ export function InventoryClient({
     }
   }
 
-  function handleCellClick(row: number, col: number, spool?: SpoolData | null) {
+  function handleCellClick(rackId: string, row: number, col: number, spool?: SpoolData | null) {
     if (spool) {
       openDetail(spool.id);
     } else {
+      setTargetRackId(rackId);
       setTargetRow(row);
       setTargetCol(col);
       setStoragePickerOpen(true);
@@ -275,14 +304,17 @@ export function InventoryClient({
   }
 
   async function handleStoragePickerSelect(spoolId: string) {
-    await assignSpoolToRack(spoolId, targetRow, targetCol);
+    await assignSpoolToRack(spoolId, targetRow, targetCol, targetRackId);
   }
 
-  async function handleMove(fromRow: number, fromCol: number, toRow: number, toCol: number) {
+  async function handleMove(rackId: string, fromRow: number, fromCol: number, toRow: number, toCol: number) {
+    // Lookup by full "rack:<id>:R-C" coordinate — scoped to this rack
     const spoolMap = new Map<string, SpoolData>();
     for (const spool of spools) {
-      const match = spool.location?.match(/^rack:(\d+)-(\d+)$/);
-      if (match) spoolMap.set(`${match[1]}-${match[2]}`, spool);
+      const parsed = parseRackLocation(spool.location);
+      if (parsed && parsed.rackId === rackId) {
+        spoolMap.set(`${parsed.row}-${parsed.col}`, spool);
+      }
     }
     const movingSpool = spoolMap.get(`${fromRow}-${fromCol}`);
     if (!movingSpool) return;
@@ -294,7 +326,8 @@ export function InventoryClient({
         toCol,
         swapSpool?.id,
         swapSpool ? fromRow : undefined,
-        swapSpool ? fromCol : undefined
+        swapSpool ? fromCol : undefined,
+        rackId,
       );
       toast.success(
         swapSpool
@@ -412,27 +445,37 @@ export function InventoryClient({
         )}
       </div>
 
-      {/* PRINTER SECTION */}
+      {/* PRINTER SECTION — one AMS section per enabled unit */}
       {typedSlots.length > 0 && (
         <section data-testid="printer-section" className="space-y-2">
           <div className="text-2xs uppercase tracking-wider text-muted-foreground font-semibold">
             In the Printer · {printerName ?? "H2S"}
           </div>
           <div className="space-y-4">
-            {groupedSlots.ams && groupedSlots.ams.length > 0 && (
-              <AmsSection
-                label={sectionLabel("ams", groupedSlots.ams.length)}
-                slots={groupedSlots.ams}
-                onClickSpool={handleClickSpool}
-                onClickLoad={handleClickLoad}
-                onClickUnload={handleClickUnload}
-                onClickArchive={handleClickArchive}
-                filterActive={filter !== "all"}
-                matchesFilter={(slot) => slotMatchesFilter(slot, filter)}
-              />
-            )}
-            {/* AMS HT + External share a row so the secondary slots align with
-                the 4-slot AMS row above them (AMS HT first, External second). */}
+            {/* Enabled AMS units (slot_type='ams'), ordered by amsIndex */}
+            {amsUnits
+              .filter((u) => u.enabled && u.slotType === "ams")
+              .sort((a, b) => a.amsIndex - b.amsIndex)
+              .map((unit) => {
+                const unitSlots = typedSlots.filter(
+                  (s) => s.slotType === "ams" && s.amsIndex === unit.amsIndex,
+                );
+                if (unitSlots.length === 0) return null;
+                return (
+                  <AmsSection
+                    key={unit.id}
+                    label={`${unit.displayName} · ${unitSlots.length} Slot${unitSlots.length !== 1 ? "s" : ""}`}
+                    slots={unitSlots}
+                    onClickSpool={handleClickSpool}
+                    onClickLoad={handleClickLoad}
+                    onClickUnload={handleClickUnload}
+                    onClickArchive={handleClickArchive}
+                    filterActive={filter !== "all"}
+                    matchesFilter={(slot) => slotMatchesFilter(slot, filter)}
+                  />
+                );
+              })}
+            {/* AMS HT + External share a row (HT first, External second) */}
             {((groupedSlots.ams_ht && groupedSlots.ams_ht.length > 0) ||
               (groupedSlots.external && groupedSlots.external.length > 0)) && (
               <AmsSection
@@ -453,28 +496,41 @@ export function InventoryClient({
         </section>
       )}
 
-      {/* SPOOL RACK SECTION */}
-      <section data-testid="rack-section" className="space-y-2">
-        <div className="flex items-baseline gap-2">
-          <span className="text-2xs uppercase tracking-wider text-muted-foreground font-semibold">
-            Spool Rack · {rows} × {cols}
-          </span>
-          <span className="text-2xs text-muted-foreground">
-            {spools.length} spools stored · {rows * cols - spools.length} empty
-          </span>
-        </div>
-        <div className="rounded-xl bg-card border border-border p-3">
-          <RackGrid
-            spools={rackSpoolsForGrid}
-            rows={rows}
-            cols={cols}
-            onCellClick={handleCellClick}
-            onMove={handleMove}
-            filterActive={filter !== "all"}
-            matchesFilter={(s) => matchesFilter(s as unknown as SpoolData, filter)}
-          />
-        </div>
-      </section>
+      {/* SPOOL RACK SECTION — one grid per active rack */}
+      {safeActiveRacks.map((rack) => {
+        const spoolsInRack = spools.filter((s) => {
+          const parsed = parseRackLocation(s.location);
+          return parsed && parsed.rackId === rack.id;
+        });
+        return (
+          <section
+            key={rack.id}
+            data-testid={`rack-section-${rack.id}`}
+            className="space-y-2"
+          >
+            <div className="flex items-baseline gap-2">
+              <span className="text-2xs uppercase tracking-wider text-muted-foreground font-semibold">
+                {rack.name} · {rack.rows} × {rack.cols}
+              </span>
+              <span className="text-2xs text-muted-foreground">
+                {spoolsInRack.length} spools stored · {rack.rows * rack.cols - spoolsInRack.length} empty
+              </span>
+            </div>
+            <div className="rounded-xl bg-card border border-border p-3">
+              <RackGrid
+                rackId={rack.id}
+                spools={rackSpoolsForGrid}
+                rows={rack.rows}
+                cols={rack.cols}
+                onCellClick={(row, col, s) => handleCellClick(rack.id, row, col, s as SpoolData | null)}
+                onMove={(fr, fc, tr, tc) => handleMove(rack.id, fr, fc, tr, tc)}
+                filterActive={filter !== "all"}
+                matchesFilter={(s) => matchesFilter(s as unknown as SpoolData, filter)}
+              />
+            </div>
+          </section>
+        );
+      })}
 
       {/* WORKBENCH SECTION */}
       <section data-testid="workbench-section" className="space-y-2">
@@ -626,41 +682,71 @@ export function InventoryClient({
           <DialogHeader>
             <DialogTitle>Pick a Rack Slot</DialogTitle>
           </DialogHeader>
-          <div className="overflow-x-auto">
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: `32px repeat(${cols}, 1fr)`,
-                gap: "4px",
-              }}
-            >
-              {/* Column headers */}
-              <div />
-              {Array.from({ length: cols }, (_, c) => (
-                <div key={c} className="text-center text-[9px] text-muted-foreground">
-                  S{c + 1}
-                </div>
+          {safeActiveRacks.length > 1 && (
+            <div className="flex flex-wrap gap-2 pb-2">
+              {safeActiveRacks.map((r) => (
+                <button
+                  key={r.id}
+                  type="button"
+                  onClick={() => setTargetRackId(r.id)}
+                  className={cn(
+                    "px-3 py-1 rounded-md text-xs border transition",
+                    targetRackId === r.id
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground hover:border-muted-foreground"
+                  )}
+                >
+                  {r.name}
+                </button>
               ))}
+            </div>
+          )}
+          {(() => {
+            const activeRack = safeActiveRacks.find((r) => r.id === targetRackId) ?? safeActiveRacks[0];
+            if (!activeRack) {
+              return <p className="text-xs text-muted-foreground">No active rack. Create one in Admin first.</p>;
+            }
+            const pickRows = activeRack.rows;
+            const pickCols = activeRack.cols;
+            const pickRackId = activeRack.id;
+            return (
+              <div className="overflow-x-auto">
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: `32px repeat(${pickCols}, 1fr)`,
+                    gap: "4px",
+                  }}
+                >
+                  {/* Column headers */}
+                  <div />
+                  {Array.from({ length: pickCols }, (_, c) => (
+                    <div key={c} className="text-center text-[9px] text-muted-foreground">
+                      S{c + 1}
+                    </div>
+                  ))}
 
-              {/* Rows — R(max) at top, R1 at bottom */}
-              {Array.from({ length: rows }, (_, r) => {
-                const row = rows - r;
-                return [
-                  <div
-                    key={`label-${row}`}
-                    className="flex items-center justify-center text-[9px] text-muted-foreground"
-                  >
-                    R{row}
-                  </div>,
-                  ...Array.from({ length: cols }, (_, c) => {
-                    const col = c + 1;
-                    const pos = `${row}-${col}`;
-                    const occupied = spools.some((s) => s.location === `rack:${pos}`);
-                    return (
-                      <button
-                        key={pos}
-                        disabled={occupied}
-                        onClick={() => handleRackSlotSelected(row, col)}
+                  {/* Rows — R(max) at top, R1 at bottom */}
+                  {Array.from({ length: pickRows }, (_, r) => {
+                    const row = pickRows - r;
+                    return [
+                      <div
+                        key={`label-${row}`}
+                        className="flex items-center justify-center text-[9px] text-muted-foreground"
+                      >
+                        R{row}
+                      </div>,
+                      ...Array.from({ length: pickCols }, (_, c) => {
+                        const col = c + 1;
+                        const pos = `${row}-${col}`;
+                        const occupied = spools.some(
+                          (s) => s.location === `rack:${pickRackId}:${pos}`,
+                        );
+                        return (
+                          <button
+                            key={pos}
+                            disabled={occupied}
+                            onClick={() => handleRackSlotSelected(row, col, pickRackId)}
                         className={cn(
                           "aspect-square min-h-[40px] rounded-md border transition",
                           occupied
@@ -674,12 +760,14 @@ export function InventoryClient({
                           <span className="text-primary text-sm">+</span>
                         )}
                       </button>
-                    );
-                  }),
-                ];
-              })}
-            </div>
-          </div>
+                        );
+                      }),
+                    ];
+                  })}
+                </div>
+              </div>
+            );
+          })()}
         </DialogContent>
       </Dialog>
     </>
