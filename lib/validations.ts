@@ -200,6 +200,29 @@ export function getSpoolStatusForWeight(weight: number): "empty" | "active" {
   return weight <= 0 ? "empty" : "active";
 }
 
+// ─── Rack schemas ──────────────────────────────────────────────────────────────
+
+export const createRackSchema = z.object({
+  name: z.string().min(1).max(100),
+  rows: z.number().int().min(1).max(10),
+  cols: z.number().int().min(1).max(20),
+  sortOrder: z.number().int().min(0).max(1000).optional().default(0),
+});
+
+export const updateRackSchema = z.object({
+  name: z.string().min(1).max(100).optional(),
+  rows: z.number().int().min(1).max(10).optional(),
+  cols: z.number().int().min(1).max(20).optional(),
+  sortOrder: z.number().int().min(0).max(1000).optional(),
+});
+
+// ─── AMS unit schemas ──────────────────────────────────────────────────────────
+
+export const updateAmsUnitSchema = z.object({
+  displayName: z.string().min(1).max(100).optional(),
+  enabled: z.boolean().optional(),
+});
+
 // ─── Helper ────────────────────────────────────────────────────────────────────
 export function validateBody<T>(
   schema: z.ZodSchema<T>,
