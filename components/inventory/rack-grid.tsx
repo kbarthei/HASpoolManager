@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type CSSProperties } from "react";
+import { parseRackLocation } from "@/lib/rack-helpers";
 import { RackSpoolCard, type RackCardSpool } from "./rack-spool-card";
 
 export interface RackGridSpool extends RackCardSpool {
@@ -8,12 +9,14 @@ export interface RackGridSpool extends RackCardSpool {
 }
 
 interface RackGridProps {
+  /** The rack this grid represents. Used to filter spools by location. */
+  rackId: string;
   spools: RackGridSpool[];
   rows: number;
   cols: number;
   selectedSpoolId?: string | null;
   onCellClick?: (row: number, col: number, spool: RackGridSpool | null) => void;
-  /** Called when a card is dragged to another cell. */
+  /** Called when a card is dragged to another cell within this rack. */
   onMove?: (fromRow: number, fromCol: number, toRow: number, toCol: number) => void;
   /**
    * Predicate used when a filter chip is active. Cards whose spool returns
@@ -32,6 +35,7 @@ interface RackGridProps {
  * wide so text stays readable.
  */
 export function RackGrid({
+  rackId,
   spools,
   rows,
   cols,
@@ -41,12 +45,12 @@ export function RackGrid({
   matchesFilter,
   filterActive,
 }: RackGridProps) {
-  // Build lookup: "row-col" → spool
+  // Build lookup: "row-col" → spool, scoped to this rack only
   const spoolMap = new Map<string, RackGridSpool>();
   for (const spool of spools) {
-    const match = spool.location?.match(/^rack:(\d+)-(\d+)$/);
-    if (match) {
-      spoolMap.set(`${match[1]}-${match[2]}`, spool);
+    const parsed = parseRackLocation(spool.location);
+    if (parsed && parsed.rackId === rackId) {
+      spoolMap.set(`${parsed.row}-${parsed.col}`, spool);
     }
   }
 
