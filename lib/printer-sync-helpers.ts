@@ -345,3 +345,42 @@ export function parseHmsCodeString(hmsCode: string): ParsedHmsCode | null {
   if (isNaN(attr) || isNaN(codeInt)) return null;
   return parseHmsCode(attr, codeInt);
 }
+
+// ─── buildSlotDefs ──────────────────────────────────────────────────────────
+// Generates the slot-key/slotType/amsIndex/trayIndex mapping dynamically from
+// the enabled printer_ams_units rows. Replaces the former hardcoded 6-entry
+// SLOT_DEFS array so a printer can have 0, 1, 2+ AMS units plus HT.
+
+export interface SlotDef {
+  key: string;
+  slotType: "ams" | "ams_ht" | "external";
+  amsIndex: number;
+  trayIndex: number;
+}
+
+export interface AmsUnitForSlots {
+  amsIndex: number;
+  slotType: string;
+}
+
+export function buildSlotDefs(units: AmsUnitForSlots[]): SlotDef[] {
+  const defs: SlotDef[] = [];
+  const sorted = [...units].sort((a, b) => {
+    if (a.slotType !== b.slotType) return a.slotType === "ams" ? -1 : 1;
+    return a.amsIndex - b.amsIndex;
+  });
+
+  for (const u of sorted) {
+    if (u.slotType === "ams") {
+      for (let i = 0; i < 4; i++) {
+        defs.push({ key: `slot_ams_${u.amsIndex}_${i}`, slotType: "ams", amsIndex: u.amsIndex, trayIndex: i });
+      }
+    } else if (u.slotType === "ams_ht") {
+      defs.push({ key: `slot_ht_${u.amsIndex}`, slotType: "ams_ht", amsIndex: u.amsIndex, trayIndex: 0 });
+    }
+  }
+
+  // External slot is always present (not tied to an AMS unit)
+  defs.push({ key: "slot_ext", slotType: "external", amsIndex: -1, trayIndex: 0 });
+  return defs;
+}
