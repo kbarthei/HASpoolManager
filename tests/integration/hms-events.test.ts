@@ -32,9 +32,10 @@ async function getHms(params = "") {
 describe("HMS events integration", () => {
   beforeAll(async () => {
     await setupTestDb();
-    const { makeVendor, makeFilament, makeSpool, makePrinter, makeAmsSlot } = await import("../fixtures/seed");
+    const { makeVendor, makeFilament, makeSpool, makePrinter, makeAmsSlot, seedStandardH2SAmsUnits } = await import("../fixtures/seed");
 
     testPrinterId = await makePrinter({ name: "H2S-HMS" });
+    await seedStandardH2SAmsUnits(testPrinterId);
 
     const vendorId = await makeVendor("TestVendor");
     testFilamentId = await makeFilament(vendorId, {

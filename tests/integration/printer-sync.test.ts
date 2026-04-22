@@ -42,9 +42,12 @@ describe("printer-sync integration", () => {
       makeTagMapping,
       makePrinter,
       makeAmsSlot,
+      seedStandardH2SAmsUnits,
     } = await import("../fixtures/seed");
 
     testPrinterId = await makePrinter({ name: "H2S" });
+    // H2S has 1 AMS unit (4 slots) + 1 AMS HT (1 slot) enabled by default
+    await seedStandardH2SAmsUnits(testPrinterId);
 
     // 4 AMS slots + 1 HT slot
     for (let i = 0; i < 4; i++) {
@@ -340,17 +343,17 @@ describe("printer-sync integration", () => {
   // ── E. AMS Slot Updates ───────────────────────────────────────────────────
 
   describe("E. AMS Slot Updates", () => {
-    it("E1: slot_1 data → slot updated", async () => {
+    it("E1: slot_ams_0_0 data → slot updated", async () => {
       const { db } = await import("@/lib/db");
       const { amsSlots } = await import("@/lib/db/schema");
       const { eq, and } = await import("drizzle-orm");
 
       const { body } = await sync({
         print_state: "idle",
-        slot_1_type: "PLA",
-        slot_1_color: "FF0000FF",
-        slot_1_remain: 75,
-        slot_1_empty: false,
+        slot_ams_0_0_type: "PLA",
+        slot_ams_0_0_color: "FF0000FF",
+        slot_ams_0_0_remain: 75,
+        slot_ams_0_0_empty: false,
       });
       expect(body.slots_updated).toBeGreaterThanOrEqual(1);
 
@@ -374,12 +377,12 @@ describe("printer-sync integration", () => {
 
       const { body } = await sync({
         print_state: "idle",
-        slot_1_type: "ABS-GF",
-        slot_1_color: "C6C6C6FF",
-        slot_1_filament_id: "GFB50",
-        slot_1_tag: SEED_TAG_BAMBU_ABSGF,
-        slot_1_remain: 70,
-        slot_1_empty: false,
+        slot_ams_0_0_type: "ABS-GF",
+        slot_ams_0_0_color: "C6C6C6FF",
+        slot_ams_0_0_filament_id: "GFB50",
+        slot_ams_0_0_tag: SEED_TAG_BAMBU_ABSGF,
+        slot_ams_0_0_remain: 70,
+        slot_ams_0_0_empty: false,
       });
       expect(body.slots_updated).toBeGreaterThanOrEqual(1);
 
@@ -405,12 +408,12 @@ describe("printer-sync integration", () => {
 
       const { body } = await sync({
         print_state: "idle",
-        slot_2_type: "TPU_TEST_E3",
-        slot_2_color: `${Math.floor(Math.random() * 0xffffff).toString(16).padStart(6, "0").toUpperCase()}FF`,
-        slot_2_filament_id: unusedBambuIdx,
-        slot_2_tag: newTag,
-        slot_2_remain: 90,
-        slot_2_empty: false,
+        slot_ams_0_1_type: "TPU_TEST_E3",
+        slot_ams_0_1_color: `${Math.floor(Math.random() * 0xffffff).toString(16).padStart(6, "0").toUpperCase()}FF`,
+        slot_ams_0_1_filament_id: unusedBambuIdx,
+        slot_ams_0_1_tag: newTag,
+        slot_ams_0_1_remain: 90,
+        slot_ams_0_1_empty: false,
       });
       expect(body.slots_updated).toBeGreaterThanOrEqual(1);
 
@@ -431,11 +434,11 @@ describe("printer-sync integration", () => {
 
       const { body } = await sync({
         print_state: "idle",
-        slot_3_type: uniqueMaterial,
-        slot_3_color: uniqueColor,
-        slot_3_tag: "0000000000000000",
-        slot_3_remain: 50,
-        slot_3_empty: false,
+        slot_ams_0_2_type: uniqueMaterial,
+        slot_ams_0_2_color: uniqueColor,
+        slot_ams_0_2_tag: "0000000000000000",
+        slot_ams_0_2_remain: 50,
+        slot_ams_0_2_empty: false,
       });
       expect(body.slots_updated).toBeGreaterThanOrEqual(1);
 
@@ -460,12 +463,12 @@ describe("printer-sync integration", () => {
       // Put a known spool in slot 0 first
       await sync({
         print_state: "idle",
-        slot_1_type: "ABS-GF",
-        slot_1_color: "C6C6C6FF",
-        slot_1_filament_id: "GFB50",
-        slot_1_tag: SEED_TAG_BAMBU_ABSGF,
-        slot_1_remain: 70,
-        slot_1_empty: false,
+        slot_ams_0_0_type: "ABS-GF",
+        slot_ams_0_0_color: "C6C6C6FF",
+        slot_ams_0_0_filament_id: "GFB50",
+        slot_ams_0_0_tag: SEED_TAG_BAMBU_ABSGF,
+        slot_ams_0_0_remain: 70,
+        slot_ams_0_0_empty: false,
       });
       const slotBefore = await db.query.amsSlots.findFirst({
         where: and(
@@ -479,8 +482,8 @@ describe("printer-sync integration", () => {
 
       const { body } = await sync({
         print_state: "idle",
-        slot_1_type: "Empty",
-        slot_1_empty: true,
+        slot_ams_0_0_type: "Empty",
+        slot_ams_0_0_empty: true,
       });
       expect(body.slots_updated).toBeGreaterThanOrEqual(1);
 
@@ -504,15 +507,15 @@ describe("printer-sync integration", () => {
     it("E6: multiple slots in single sync → all updated", async () => {
       const { body } = await sync({
         print_state: "idle",
-        slot_1_type: "PLA",
-        slot_1_color: "FFFFFFFF",
-        slot_1_empty: false,
-        slot_2_type: "PETG",
-        slot_2_color: "000000FF",
-        slot_2_empty: false,
-        slot_3_type: "ABS",
-        slot_3_color: "FF0000FF",
-        slot_3_empty: false,
+        slot_ams_0_0_type: "PLA",
+        slot_ams_0_0_color: "FFFFFFFF",
+        slot_ams_0_0_empty: false,
+        slot_ams_0_1_type: "PETG",
+        slot_ams_0_1_color: "000000FF",
+        slot_ams_0_1_empty: false,
+        slot_ams_0_2_type: "ABS",
+        slot_ams_0_2_color: "FF0000FF",
+        slot_ams_0_2_empty: false,
       });
       expect(body.slots_updated).toBeGreaterThanOrEqual(3);
     });
@@ -706,11 +709,11 @@ describe("printer-sync integration", () => {
 
       const { body } = await sync({
         print_state: "idle",
-        slot_1_type: "PLA",
-        slot_1_color: "00FF00FF",
-        slot_1_tag: weightSyncTagUid,
-        slot_1_remain: 80,
-        slot_1_empty: false,
+        slot_ams_0_0_type: "PLA",
+        slot_ams_0_0_color: "00FF00FF",
+        slot_ams_0_0_tag: weightSyncTagUid,
+        slot_ams_0_0_remain: 80,
+        slot_ams_0_0_empty: false,
       });
       const weightSyncs = body.weight_syncs as Array<{ spoolId: string; from: number; to: number; remain: number }>;
       expect(weightSyncs.length).toBeGreaterThanOrEqual(1);
@@ -735,11 +738,11 @@ describe("printer-sync integration", () => {
         print_name: `test-print-I2-${Date.now()}`,
         print_weight: 50,
         active_slot_tag: weightSyncTagUid,
-        slot_1_type: "PLA",
-        slot_1_color: "00FF00FF",
-        slot_1_tag: weightSyncTagUid,
-        slot_1_remain: 50,
-        slot_1_empty: false,
+        slot_ams_0_0_type: "PLA",
+        slot_ams_0_0_color: "00FF00FF",
+        slot_ams_0_0_tag: weightSyncTagUid,
+        slot_ams_0_0_remain: 50,
+        slot_ams_0_0_empty: false,
       });
       expect(r1.body.print_transition).toBe("started");
 
@@ -762,11 +765,11 @@ describe("printer-sync integration", () => {
 
       const { body } = await sync({
         print_state: "idle",
-        slot_1_type: "PLA",
-        slot_1_color: "00FF00FF",
-        slot_1_tag: weightSyncTagUid,
-        slot_1_remain: 90,
-        slot_1_empty: false,
+        slot_ams_0_0_type: "PLA",
+        slot_ams_0_0_color: "00FF00FF",
+        slot_ams_0_0_tag: weightSyncTagUid,
+        slot_ams_0_0_remain: 90,
+        slot_ams_0_0_empty: false,
       });
       const weightSyncs = body.weight_syncs as Array<{ spoolId: string }>;
       const entry = weightSyncs.find((s) => s.spoolId === weightSyncSpoolId);
@@ -906,11 +909,11 @@ describe("printer-sync integration", () => {
       // First sync: old spool in slot_1
       await sync({
         print_state: "idle",
-        slot_1_type: "PLA",
-        slot_1_color: "FF0000FF",
-        slot_1_tag: oldTag,
-        slot_1_remain: 80,
-        slot_1_empty: false,
+        slot_ams_0_0_type: "PLA",
+        slot_ams_0_0_color: "FF0000FF",
+        slot_ams_0_0_tag: oldTag,
+        slot_ams_0_0_remain: 80,
+        slot_ams_0_0_empty: false,
       });
 
       // New spool replaces old in same slot
@@ -920,11 +923,11 @@ describe("printer-sync integration", () => {
 
       await sync({
         print_state: "idle",
-        slot_1_type: "PLA",
-        slot_1_color: "FF0000FF",
-        slot_1_tag: newTag,
-        slot_1_remain: 100,
-        slot_1_empty: false,
+        slot_ams_0_0_type: "PLA",
+        slot_ams_0_0_color: "FF0000FF",
+        slot_ams_0_0_tag: newTag,
+        slot_ams_0_0_remain: 100,
+        slot_ams_0_0_empty: false,
       });
 
       // Old spool should be moved to workbench (not surplus, because slot is now occupied)
@@ -940,11 +943,11 @@ describe("printer-sync integration", () => {
       // First sync: unknown-vendor black PLA in slot 4 (auto-creates a draft)
       await sync({
         print_state: "idle",
-        slot_4_type: "PLA",
-        slot_4_color: "000000FF",
-        slot_4_tag: "0000000000000000",
-        slot_4_remain: 80,
-        slot_4_empty: false,
+        slot_ams_0_3_type: "PLA",
+        slot_ams_0_3_color: "000000FF",
+        slot_ams_0_3_tag: "0000000000000000",
+        slot_ams_0_3_remain: 80,
+        slot_ams_0_3_empty: false,
       });
 
       const slotAfterFirst = await db.query.amsSlots.findFirst({
@@ -961,11 +964,11 @@ describe("printer-sync integration", () => {
       // Second sync: filament SWAPPED — same type, different color (green)
       await sync({
         print_state: "idle",
-        slot_4_type: "PLA",
-        slot_4_color: "0ACC38FF",
-        slot_4_tag: "0000000000000000",
-        slot_4_remain: 100,
-        slot_4_empty: false,
+        slot_ams_0_3_type: "PLA",
+        slot_ams_0_3_color: "0ACC38FF",
+        slot_ams_0_3_tag: "0000000000000000",
+        slot_ams_0_3_remain: 100,
+        slot_ams_0_3_empty: false,
       });
 
       const slotAfterSwap = await db.query.amsSlots.findFirst({
@@ -1025,11 +1028,11 @@ describe("printer-sync integration", () => {
       // Sync with a slightly different red (ΔE < 1 — should NOT trigger swap)
       await sync({
         print_state: "idle",
-        slot_4_type: "PLA",
-        slot_4_color: "E23630FF",
-        slot_4_tag: "0000000000000000",
-        slot_4_remain: 78,
-        slot_4_empty: false,
+        slot_ams_0_3_type: "PLA",
+        slot_ams_0_3_color: "E23630FF",
+        slot_ams_0_3_tag: "0000000000000000",
+        slot_ams_0_3_remain: 78,
+        slot_ams_0_3_empty: false,
       });
 
       // Spool location should still be "ams" — not moved to workbench by
@@ -1087,8 +1090,8 @@ describe("printer-sync integration", () => {
       const r1 = await sync({
         gcode_state: "RUNNING",
         print_name: `test-print-J8-${Date.now()}`,
-        slot_1_remain: 80,
-        slot_3_remain: 55,
+        slot_ams_0_0_remain: 80,
+        slot_ams_0_2_remain: 55,
       });
       expect(r1.body.print_transition).toBe("started");
 
@@ -1096,8 +1099,8 @@ describe("printer-sync integration", () => {
         where: eq(prints.id, r1.body.print_id as string),
       });
       const snapshot = JSON.parse(print!.remainSnapshot!);
-      expect(snapshot.slot_1).toBe(80);
-      expect(snapshot.slot_3).toBe(55);
+      expect(snapshot.slot_ams_0_0).toBe(80);
+      expect(snapshot.slot_ams_0_2).toBe(55);
 
       // Clean up
       await sync({ gcode_state: "FINISH" });
@@ -1132,8 +1135,8 @@ describe("printer-sync integration", () => {
         print_name: `test-print-J9-${Date.now()}`,
         print_weight: 100,
         active_slot_tag: tag1,
-        slot_1_remain: 100,
-        slot_2_remain: 100,
+        slot_ams_0_0_remain: 100,
+        slot_ams_0_1_remain: 100,
       });
       expect(r1.body.print_transition).toBe("started");
 
@@ -1149,8 +1152,8 @@ describe("printer-sync integration", () => {
       await sync({
         gcode_state: "FINISH",
         print_weight: 100,
-        slot_1_remain: 75,
-        slot_2_remain: 50,
+        slot_ams_0_0_remain: 75,
+        slot_ams_0_1_remain: 50,
       });
 
       // Check usage records
