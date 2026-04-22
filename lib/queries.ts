@@ -16,15 +16,52 @@ import {
   sqlNowMinusSixMonths,
 } from "@/lib/db/sql-helpers";
 
-export async function getRackConfig(): Promise<{ rows: number; columns: number }> {
-  const [rowsSetting, colsSetting] = await Promise.all([
-    db.query.settings.findFirst({ where: eq(schema.settings.key, "rack_rows") }),
-    db.query.settings.findFirst({ where: eq(schema.settings.key, "rack_columns") }),
-  ]);
-  return {
-    rows: rowsSetting ? parseInt(rowsSetting.value, 10) : 3,
-    columns: colsSetting ? parseInt(colsSetting.value, 10) : 10,
-  };
+export interface ActiveRack {
+  id: string;
+  name: string;
+  rows: number;
+  cols: number;
+  sortOrder: number;
+}
+
+export async function getActiveRacks(): Promise<ActiveRack[]> {
+  const rows = await db
+    .select({
+      id: schema.racks.id,
+      name: schema.racks.name,
+      rows: schema.racks.rows,
+      cols: schema.racks.cols,
+      sortOrder: schema.racks.sortOrder,
+    })
+    .from(schema.racks)
+    .where(sql`${schema.racks.archivedAt} IS NULL`)
+    .orderBy(schema.racks.sortOrder, schema.racks.createdAt);
+  return rows;
+}
+
+export async function getPrinterAmsUnits(printerId: string) {
+  return db
+    .select()
+    .from(schema.printerAmsUnits)
+    .where(
+      and(
+        eq(schema.printerAmsUnits.printerId, printerId),
+        eq(schema.printerAmsUnits.enabled, true),
+      ),
+    )
+    .orderBy(schema.printerAmsUnits.slotType, schema.printerAmsUnits.amsIndex);
+}
+
+/**
+ * @deprecated Reads the first active rack's dimensions for legacy callers
+ * that still expect a flat rack-config. New code should use getActiveRacks()
+ * and render per-rack.
+ */
+export async function getRackConfig(): Promise<{ rows: number; columns: number; rackId: string | null }> {
+  const racks = await getActiveRacks();
+  if (racks.length === 0) return { rows: 3, columns: 10, rackId: null };
+  const first = racks[0];
+  return { rows: first.rows, columns: first.cols, rackId: first.id };
 }
 
 export async function getSyncLog(limit = 50) {
