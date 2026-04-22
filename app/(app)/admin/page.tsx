@@ -3,12 +3,13 @@ export const dynamic = "force-dynamic";
 import { getSystemStats, getPrinterStatus, getRackConfig } from "@/lib/queries";
 import { formatDateTime, formatDate } from "@/lib/date";
 import { db } from "@/lib/db";
-import { spools, printers as printersTable, syncLog, settings, hmsEvents } from "@/lib/db/schema";
+import { spools, printers as printersTable, syncLog, settings, hmsEvents, racks } from "@/lib/db/schema";
 import { eq, ne, desc } from "drizzle-orm";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { SyncLogTable } from "./sync-log-table";
+import { RacksCard } from "./racks-card";
 import { ImportOrdersCard } from "./import-orders-card";
 import { AdminTools } from "./admin-tools";
 import { PrinterMappings } from "./printer-mappings";
@@ -51,15 +52,25 @@ export default async function AdminPage() {
     nodeEnv: process.env.NODE_ENV,
   };
 
-  const [stats, [lastSyncEntry], printerStatus, rackConfig, activePrinter, energyEntityRow, energyPriceRow] = await Promise.all([
+  const [stats, [lastSyncEntry], printerStatus, rackConfig, allRacksRaw, activePrinter, energyEntityRow, energyPriceRow] = await Promise.all([
     getSystemStats(),
     db.select().from(syncLog).orderBy(desc(syncLog.createdAt)).limit(1),
     getPrinterStatus(),
     getRackConfig(),
+    db.select().from(racks).orderBy(racks.sortOrder, racks.createdAt),
     db.query.printers.findFirst({ where: eq(printersTable.isActive, true) }),
     db.query.settings.findFirst({ where: eq(settings.key, "energy_sensor_entity_id") }),
     db.query.settings.findFirst({ where: eq(settings.key, "electricity_price_per_kwh") }),
   ]);
+  // Serialize Date → string for Client Component boundary
+  const allRacks = allRacksRaw.map((r) => ({
+    id: r.id,
+    name: r.name,
+    rows: r.rows,
+    cols: r.cols,
+    sortOrder: r.sortOrder,
+    archivedAt: r.archivedAt ? r.archivedAt.toISOString() : null,
+  }));
 
   // ── Config details ────────────────────────────────────────────────────────
   const isAddon = process.env.HA_ADDON === "true";
@@ -223,14 +234,12 @@ export default async function AdminPage() {
       {/* ── Rack Configuration ─ pairs with Energy on desktop ──────────── */}
       <Card className="p-4 space-y-3">
         <div>
-          <h2 className="text-sm font-semibold">Rack Configuration</h2>
+          <h2 className="text-sm font-semibold">Racks</h2>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Currently {rackConfig.rows} rows × {rackConfig.columns} columns · R1 is the bottom-left shelf
-          </p>
-          <p className="text-xs text-muted-foreground mt-2">
-            Rack management UI ships in Phase 3 — use <code className="bg-muted px-1 rounded text-[10px]">/api/v1/racks</code> for now.
+            R1 is the bottom shelf · archived racks can be restored
           </p>
         </div>
+        <RacksCard initialRacks={allRacks} />
       </Card>
 
       {/* ── Energy Tracking ───────────────────────────────────────────── */}
