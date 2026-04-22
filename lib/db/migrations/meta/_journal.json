@@ -57,6 +57,13 @@
       "when": 1776416957472,
       "tag": "0007_clumsy_old_lace",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1776881643962,
+      "tag": "0008_create_racks_table",
+      "breakpoints": true
     }
   ]
 }

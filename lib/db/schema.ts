@@ -316,6 +316,18 @@ export const printUsageRelations = relations(printUsage, ({ one }) => ({
   }),
 }));
 
+// ─── Racks ──────────────────────────────────────────────────────────────────
+
+export const racks = sqliteTable("racks", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  name: text("name").notNull(),
+  rows: integer("rows").notNull(),
+  cols: integer("cols").notNull(),
+  sortOrder: integer("sort_order").notNull().default(0),
+  archivedAt: tsCol("archived_at"),
+  createdAt: tsCol("created_at").notNull().default(sql`(datetime('now'))`),
+});
+
 // ─── Orders ─────────────────────────────────────────────────────────────────
 
 export const orders = sqliteTable("orders", {
