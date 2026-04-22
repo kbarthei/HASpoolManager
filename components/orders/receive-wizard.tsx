@@ -12,8 +12,16 @@ import { Progress } from "@/components/ui/progress";
 import { SpoolColorDot } from "@/components/spool/spool-color-dot";
 import { SpoolMaterialBadge } from "@/components/spool/spool-material-badge";
 import { receiveOrder } from "@/lib/actions";
+import { formatRackLocation } from "@/lib/rack-helpers";
 import { cn } from "@/lib/utils";
 import { Check } from "lucide-react";
+
+export interface ReceiveWizardRack {
+  id: string;
+  name: string;
+  rows: number;
+  cols: number;
+}
 
 interface ReceiveWizardProps {
   open: boolean;
@@ -36,9 +44,9 @@ interface ReceiveWizardProps {
       }>;
     }>;
   };
-  rackRows: number;
-  rackCols: number;
-  occupiedPositions: string[]; // ["1-3", "2-5", ...] already occupied rack positions
+  racks: ReceiveWizardRack[];
+  /** Positions already occupied, keyed as "<rackId>:R-C". */
+  occupiedPositions: string[];
 }
 
 interface Placement {
@@ -78,16 +86,20 @@ function buildSpoolList(
 
 // Mini rack grid — compact, ~40px cells
 function MiniRackGrid({
+  rackId,
   rows,
   cols,
   occupiedPositions,
   placedPositions,
   onSelectCell,
 }: {
+  rackId: string;
   rows: number;
   cols: number;
+  /** Keyed "<rackId>:R-C" — only entries matching rackId are rendered as occupied. */
   occupiedPositions: Set<string>;
-  placedPositions: Set<string>; // positions placed in this wizard session
+  /** Keyed "<rackId>:R-C". */
+  placedPositions: Set<string>;
   onSelectCell: (pos: string) => void;
 }) {
   const colHeaders = Array.from({ length: cols }, (_, i) => `S${i + 1}`);
@@ -128,8 +140,9 @@ function MiniRackGrid({
               {Array.from({ length: cols }, (_, colIdx) => {
                 const col = colIdx + 1;
                 const pos = `${row}-${col}`;
-                const isOccupied = occupiedPositions.has(pos);
-                const isPlaced = placedPositions.has(pos);
+                const key = `${rackId}:${pos}`;
+                const isOccupied = occupiedPositions.has(key);
+                const isPlaced = placedPositions.has(key);
 
                 if (isOccupied && !isPlaced) {
                   return (
@@ -179,8 +192,7 @@ export function ReceiveWizard({
   open,
   onClose,
   order,
-  rackRows,
-  rackCols,
+  racks,
   occupiedPositions,
 }: ReceiveWizardProps) {
   const spoolList = useMemo(() => buildSpoolList(order.items), [order.items]);
@@ -188,11 +200,18 @@ export function ReceiveWizard({
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [placements, setPlacements] = useState<Placement[]>([]);
+  /** Placed positions this session, keyed "<rackId>:R-C". */
   const [placedPositions, setPlacedPositions] = useState<Set<string>>(
     new Set()
   );
+  const [selectedRackId, setSelectedRackId] = useState<string>(racks[0]?.id ?? "");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDone, setIsDone] = useState(false);
+
+  const selectedRack = useMemo(
+    () => racks.find((r) => r.id === selectedRackId) ?? racks[0],
+    [racks, selectedRackId],
+  );
 
   const occupiedSet = useMemo(
     () => new Set(occupiedPositions),
@@ -203,15 +222,18 @@ export function ReceiveWizard({
 
   const handleSelectCell = useCallback(
     (pos: string) => {
-      if (!currentSpool) return;
-      const [row, col] = pos.split("-");
-      const location = `rack:${row}-${col}`;
+      if (!currentSpool || !selectedRack) return;
+      const [rowStr, colStr] = pos.split("-");
+      const row = parseInt(rowStr, 10);
+      const col = parseInt(colStr, 10);
+      const location = formatRackLocation(selectedRack.id, row, col);
+      const placedKey = `${selectedRack.id}:${pos}`;
 
       setPlacements((prev) => [
         ...prev,
         { spoolId: currentSpool.spoolId, location },
       ]);
-      setPlacedPositions((prev) => new Set([...prev, pos]));
+      setPlacedPositions((prev) => new Set([...prev, placedKey]));
 
       if (currentIndex + 1 >= total) {
         setIsDone(true);
@@ -219,7 +241,7 @@ export function ReceiveWizard({
         setCurrentIndex((i) => i + 1);
       }
     },
-    [currentSpool, currentIndex, total]
+    [currentSpool, currentIndex, total, selectedRack]
   );
 
   const handleSurplus = useCallback(() => {
@@ -338,16 +360,44 @@ export function ReceiveWizard({
                 Select a rack slot or store in surplus
               </p>
 
+              {/* Rack selector (only when >1 active rack) */}
+              {racks.length > 1 && (
+                <div className="flex flex-wrap gap-1.5 justify-center" data-testid="rack-selector">
+                  {racks.map((r) => (
+                    <button
+                      key={r.id}
+                      type="button"
+                      onClick={() => setSelectedRackId(r.id)}
+                      className={cn(
+                        "px-2.5 py-1 rounded-md text-xs border transition",
+                        selectedRackId === r.id
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-border text-muted-foreground hover:border-muted-foreground"
+                      )}
+                    >
+                      {r.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+
               {/* Mini rack grid */}
-              <div className="flex justify-center">
-                <MiniRackGrid
-                  rows={rackRows}
-                  cols={rackCols}
-                  occupiedPositions={occupiedSet}
-                  placedPositions={placedPositions}
-                  onSelectCell={handleSelectCell}
-                />
-              </div>
+              {selectedRack ? (
+                <div className="flex justify-center">
+                  <MiniRackGrid
+                    rackId={selectedRack.id}
+                    rows={selectedRack.rows}
+                    cols={selectedRack.cols}
+                    occupiedPositions={occupiedSet}
+                    placedPositions={placedPositions}
+                    onSelectCell={handleSelectCell}
+                  />
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground text-center">
+                  No active rack — create one in Admin first.
+                </p>
+              )}
 
               {/* Surplus button */}
               <Button

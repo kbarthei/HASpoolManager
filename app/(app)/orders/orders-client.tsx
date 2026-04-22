@@ -49,8 +49,8 @@ interface Order {
 }
 
 interface RackInfo {
-  rows: number;
-  cols: number;
+  racks: Array<{ id: string; name: string; rows: number; cols: number }>;
+  /** Keyed "<rackId>:R-C". */
   occupiedPositions: string[];
 }
 
@@ -531,8 +531,7 @@ export function OrdersClient({
           open={receiveOpen}
           onClose={handleReceiveClose}
           order={receiveWizardOrder}
-          rackRows={rack.rows}
-          rackCols={rack.cols}
+          racks={rack.racks}
           occupiedPositions={rack.occupiedPositions}
         />
       )}

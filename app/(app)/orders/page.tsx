@@ -4,7 +4,8 @@ import Link from "next/link";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { or, like, eq, desc } from "drizzle-orm";
-import { getOrders, getShoppingListWithPrices } from "@/lib/queries";
+import { getOrders, getShoppingListWithPrices, getActiveRacks } from "@/lib/queries";
+import { parseRackLocation } from "@/lib/rack-helpers";
 import { OrdersClient } from "./orders-client";
 import { SupplyAlertsSection } from "./supply-alerts-section";
 import { SupplyRules } from "@/components/orders/supply-rules";
@@ -32,6 +33,7 @@ export default async function OrdersPage({
     supplyRulesList,
     budgetRow,
     budgetStartRow,
+    activeRacks,
   ] = await Promise.all([
     getOrders(),
     db.query.spools.findMany({
@@ -61,14 +63,15 @@ export default async function OrdersPage({
     }),
     db.query.settings.findFirst({ where: eq(schema.settings.key, "monthly_filament_budget") }),
     db.query.settings.findFirst({ where: eq(schema.settings.key, "budget_period_start_day") }),
+    getActiveRacks(),
   ]);
 
-  // Build occupied rack positions list for ReceiveWizard
+  // Build occupied rack positions list for ReceiveWizard (keyed "<rackId>:R-C")
   const occupiedPositions: string[] = [];
   for (const spool of rackSpools) {
-    const match = spool.location?.match(/^rack:(\d+)-(\d+)$/);
-    if (match) {
-      occupiedPositions.push(`${match[1]}-${match[2]}`);
+    const parsed = parseRackLocation(spool.location);
+    if (parsed) {
+      occupiedPositions.push(`${parsed.rackId}:${parsed.row}-${parsed.col}`);
     }
   }
 
@@ -113,7 +116,10 @@ export default async function OrdersPage({
     return { ...order, items: enrichedItems };
   });
 
-  const rack = { rows: 4, cols: 8, occupiedPositions };
+  const rack = {
+    racks: activeRacks.map((r) => ({ id: r.id, name: r.name, rows: r.rows, cols: r.cols })),
+    occupiedPositions,
+  };
 
   const filamentList = allFilaments.map(f => ({
     id: f.id,
