@@ -34,7 +34,7 @@ describe("HMS events integration", () => {
     await setupTestDb();
     const { makeVendor, makeFilament, makeSpool, makePrinter, makeAmsSlot } = await import("../fixtures/seed");
 
-    testPrinterId = await makePrinter({ name: "H2S-HMS", amsCount: 1 });
+    testPrinterId = await makePrinter({ name: "H2S-HMS" });
 
     const vendorId = await makeVendor("TestVendor");
     testFilamentId = await makeFilament(vendorId, {

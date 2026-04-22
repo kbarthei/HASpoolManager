@@ -59,7 +59,6 @@ export async function PUT(
       mqttTopic,
       haDeviceId,
       ipAddress,
-      amsCount,
       isActive,
     } = body;
 
@@ -72,7 +71,6 @@ export async function PUT(
         mqttTopic,
         haDeviceId,
         ipAddress,
-        amsCount,
         isActive,
         updatedAt: new Date(),
       })

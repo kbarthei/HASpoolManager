@@ -1,0 +1,1 @@
+ALTER TABLE `printers` DROP COLUMN `ams_count`;

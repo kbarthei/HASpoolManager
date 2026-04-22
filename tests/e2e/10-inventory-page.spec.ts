@@ -38,7 +38,6 @@ test.describe("inventory page", () => {
         id: PRINTER_ID,
         name: "E2E Printer 10",
         model: "Bambu H2S",
-        amsCount: 1,
       }).onConflictDoNothing();
 
       // Create AMS slots for the printer

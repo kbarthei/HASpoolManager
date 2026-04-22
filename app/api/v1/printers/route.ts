@@ -44,7 +44,6 @@ export async function POST(request: NextRequest) {
         name: body.name,
         model: body.model,
         ipAddress: body.ipAddress,
-        amsCount: body.amsCount,
       })
       .returning();
 
