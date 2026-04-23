@@ -69,6 +69,28 @@ const migrations = [
       db.exec("ALTER TABLE prints DROP COLUMN active_spool_id");
     },
   },
+  {
+    name: "drop dead external_id + auto_supply_log_id columns",
+    check: () => {
+      const filaments = db.pragma("table_info(filaments)");
+      const spools = db.pragma("table_info(spools)");
+      const orders = db.pragma("table_info(orders)");
+      // All three must be gone for the migration to be considered done.
+      return (
+        !filaments.some((c) => c.name === "external_id") &&
+        !spools.some((c) => c.name === "external_id") &&
+        !orders.some((c) => c.name === "auto_supply_log_id")
+      );
+    },
+    apply: () => {
+      // Drop in order; each is independent. SQLite 3.35+ DROP COLUMN.
+      // Drift column on orders — not in schema.ts but still in live DB; FK
+      // pointed at the long-deleted auto_supply_log table.
+      db.exec("ALTER TABLE filaments DROP COLUMN external_id");
+      db.exec("ALTER TABLE spools DROP COLUMN external_id");
+      db.exec("ALTER TABLE orders DROP COLUMN auto_supply_log_id");
+    },
+  },
 ];
 
 // ── Run migrations ──────────────────────────────────────────────────────────

@@ -85,6 +85,13 @@
       "when": 1776933483953,
       "tag": "0011_drop_active_spool_id",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1776934668929,
+      "tag": "0012_drop_external_ids",
+      "breakpoints": true
     }
   ]
 }
