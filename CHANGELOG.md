@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- **fix:** wait for hydration before clicking add-rack-btn (`fb68ae3`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`f6dbbae`)
 - **chore:** bump version to 1.1.0 for multi-AMS + multi-rack release (`0849904`)
 - **feat:** backwards-compat aliases for legacy slot_1_*/slot_ht_* payload (`e0d91ac`)
 - **docs:** update test-strategy + api-reference + data-model for Multi-AMS/Multi-Rack (`f2188c7`)
