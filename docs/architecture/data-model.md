@@ -98,7 +98,7 @@ Physical spool instances. Each purchase creates one or more spool rows.
 | `currency` | text | Default "EUR" |
 | `initial_weight` | integer | Net filament weight at purchase, grams |
 | `remaining_weight` | integer | Current remaining weight, grams |
-| `location` | text | `storage`, `ams`, `ams-ht`, `external` |
+| `location` | text | `rack:<rackId>:R-C` (canonical), `ams`, `ams-ht`, `external`, `storage`, `surplus`, `workbench`, `archive`, `ordered` |
 | `status` | text | `active`, `archived`, `empty`, `returned` |
 | `first_used_at` | timestamptz | Set on first print |
 | `last_used_at` | timestamptz | Updated after each print |
@@ -144,10 +144,30 @@ Registered 3D printers. Each printer has its own set of AMS slots.
 | `mqtt_topic` | text | MQTT device topic |
 | `ha_device_id` | text | Home Assistant device ID |
 | `ip_address` | text | Local IP |
-| `ams_count` | integer | Number of AMS units |
 | `is_active` | boolean | Default true |
 
-**Relations:** has many ams_slots, prints.
+**Relations:** has many ams_slots, ams_units, prints.
+
+> The legacy `ams_count` column was dropped in 1.x (Multi-AMS migration). Active AMS unit count is now `COUNT(*) FROM printer_ams_units WHERE printer_id = ? AND enabled = 1`.
+
+---
+
+#### `printer_ams_units`
+
+Topology of AMS units per printer. Auto-discovered from HA, individually enableable, user-renameable.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | uuid PK | |
+| `printer_id` | uuid FK → printers | CASCADE delete |
+| `ams_index` | integer | 0, 2, 3, ... for AMS; 1 reserved for HT (legacy convention) |
+| `slot_type` | text | `ams` or `ams_ht` (external is not a unit) |
+| `ha_device_id` | text | HA device ID, used to match on re-discovery |
+| `display_name` | text NOT NULL | User-editable; default "AMS N" / "AMS HT" |
+| `enabled` | boolean | Toggling false moves loaded spools to storage |
+| `discovered_at` | timestamptz | Refreshed on each successful discovery |
+
+**Unique index:** `(printer_id, ams_index, slot_type)`
 
 ---
 
@@ -431,3 +451,26 @@ Time-series price snapshots for each shop listing. Appended on every price crawl
 | `recorded_at` | timestamptz | |
 
 **Indexes:** `listing_id`, `recorded_at`
+
+---
+
+### Storage
+
+#### `racks`
+
+Physical filament storage racks. Multiple racks per install supported (e.g. "Main", "Lager Keller"). Soft-archive preserves history when a rack is decommissioned.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | uuid PK | |
+| `name` | text NOT NULL | Display name (e.g. "Main", "Werkstatt") |
+| `rows` | integer NOT NULL | 1–10 |
+| `cols` | integer NOT NULL | 1–20 |
+| `sort_order` | integer | Render order on /inventory; default 0 |
+| `archived_at` | timestamptz | NULL = active; non-null = soft-archived |
+| `created_at` | timestamptz | |
+
+**Spool location format (canonical):** `rack:<rackId>:R-C` (e.g. `rack:abc-123:2-5`).
+Migration from legacy `rack:R-C` runs once per DB at addon start.
+
+> **Why two formats existed:** in v1.x there was an implicit single rack with dimensions in `settings.rack_rows` / `settings.rack_columns`. The 1.x Multi-AMS migration created a default rack named "Main", rewrote every spool's location to include the new rack UUID, and dropped the legacy settings rows.

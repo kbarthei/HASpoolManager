@@ -959,3 +959,134 @@ Run a single write statement (UPDATE/INSERT/DELETE) with positional parameter bi
   "dryRun": false
 }
 ```
+
+## 9. Racks (multi-rack support)
+
+### `GET /api/v1/racks`
+
+List racks. By default returns only active racks; pass `?includeArchived=1` to include soft-archived ones.
+
+- **Auth:** optional (browser UI is read-only)
+- **Query:** `includeArchived=1` (optional)
+
+**Response**
+```json
+[
+  {
+    "id": "uuid",
+    "name": "Main",
+    "rows": 3,
+    "cols": 10,
+    "sortOrder": 0,
+    "archivedAt": null,
+    "createdAt": "2026-04-22T20:13:00.000Z"
+  }
+]
+```
+
+### `POST /api/v1/racks`
+
+Create a new rack.
+
+- **Auth:** required (Bearer token)
+- **Body:**
+  ```json
+  { "name": "Lager Keller", "rows": 4, "cols": 6, "sortOrder": 1 }
+  ```
+
+**Response (201)** — created rack row.
+
+### `PATCH /api/v1/racks/[id]`
+
+Update a rack. All fields optional.
+
+- **Auth:** required
+- **Body:** `{ "name"?: string, "rows"?: number, "cols"?: number, "sortOrder"?: number }`
+- **Errors:** 404 if rack not found, 400 on invalid input.
+
+### `DELETE /api/v1/racks/[id]`
+
+Soft-archive a rack. Side effect: all spools in the rack (location matching `rack:<id>:%`) are moved to `location='storage'`. Reversible via PATCH after manually clearing `archivedAt`.
+
+- **Auth:** required
+
+**Response**
+```json
+{ "id": "uuid", "archived": true }
+```
+
+## 10. Printer AMS Units (multi-AMS topology)
+
+### `GET /api/v1/printers/[id]/ams-units`
+
+List AMS units for a printer (all units, including disabled).
+
+- **Auth:** optional
+
+**Response**
+```json
+[
+  {
+    "id": "uuid",
+    "printerId": "printer-uuid",
+    "amsIndex": 0,
+    "slotType": "ams",
+    "haDeviceId": "...",
+    "displayName": "AMS Werkstatt",
+    "enabled": true,
+    "discoveredAt": "2026-04-22T20:00:00.000Z"
+  }
+]
+```
+
+### `PATCH /api/v1/printers/[id]/ams-units/[unitId]`
+
+Update an AMS unit. Renames or toggles enable state.
+
+- **Auth:** required
+- **Body:** `{ "displayName"?: string, "enabled"?: boolean }`
+- **Side effect (disable):** when transitioning enabled `true → false`, all spools currently loaded in any of the unit's amsSlots rows are moved to `location='storage'` and the slot rows are unlinked (`spoolId=null`, `isEmpty=true`). Re-enabling does not auto-restore spools — they must be reassigned via the regular load flow.
+- **Errors:** 404 if unit not found, 400 on invalid input.
+
+### `POST /api/v1/printers/[id]/ams-units/discover`
+
+Bulk-upsert from sync-worker discovery. Called by the sync worker after HA discovery returns the list of AMS devices.
+
+- **Auth:** required
+- **Body:**
+  ```json
+  {
+    "devices": [
+      { "id": "ha-device-id", "model": "AMS", "name": "H2S_AMS_1" },
+      { "id": "ha-device-id-2", "model": "AMS HT", "name": "H2S_AMS_HT" }
+    ]
+  }
+  ```
+- **Behavior:** matches existing rows by `haDeviceId` and refreshes `discoveredAt` only — user-edited `displayName` and `enabled` are preserved on re-discovery.
+
+**Response**
+```json
+{ "created": 1, "refreshed": 1 }
+```
+
+### `GET /api/v1/printers/[id]/ams-config`
+
+Topology endpoint for the HA companion script. Returns the enabled units plus the slot-key/slotType/amsIndex/trayIndex mapping the script must use to build the printer-sync payload.
+
+- **Auth:** optional
+
+**Response**
+```json
+{
+  "units": [
+    { "amsIndex": 0, "slotType": "ams", "displayName": "AMS Werkstatt" }
+  ],
+  "slotDefs": [
+    { "key": "slot_ams_0_0", "slotType": "ams", "amsIndex": 0, "trayIndex": 0 },
+    { "key": "slot_ams_0_1", "slotType": "ams", "amsIndex": 0, "trayIndex": 1 },
+    { "key": "slot_ams_0_2", "slotType": "ams", "amsIndex": 0, "trayIndex": 2 },
+    { "key": "slot_ams_0_3", "slotType": "ams", "amsIndex": 0, "trayIndex": 3 },
+    { "key": "slot_ext", "slotType": "external", "amsIndex": -1, "trayIndex": 0 }
+  ]
+}
+```
