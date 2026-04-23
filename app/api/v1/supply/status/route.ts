@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const statuses = await runSupplyAnalysis();
-    return NextResponse.json({ data: statuses });
+    return NextResponse.json(statuses);
   } catch (error) {
     console.error("GET /api/v1/supply/status error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

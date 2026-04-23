@@ -136,7 +136,7 @@ describe("HMS events integration", () => {
     const { status, body } = await getHms("limit=10");
     expect(status).toBe(200);
 
-    const data = body.data as Array<Record<string, unknown>>;
+    const data = body as unknown as Array<Record<string, unknown>>;
     expect(data.length).toBeGreaterThanOrEqual(2);
 
     // Most recent first

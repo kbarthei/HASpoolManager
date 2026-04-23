@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     },
   });
 
-  return NextResponse.json({ data: rules });
+  return NextResponse.json(rules);
 }
 
 export async function POST(request: NextRequest) {
@@ -45,5 +45,5 @@ export async function POST(request: NextRequest) {
     maxPricePerSpool: max_price_per_spool ?? null,
   }).returning();
 
-  return NextResponse.json({ data: rule }, { status: 201 });
+  return NextResponse.json(rule, { status: 201 });
 }
