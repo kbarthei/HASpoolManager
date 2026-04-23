@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- **fix:** retry click+visibility via expect.toPass for hydration race (`8818e63`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`40ab7c4`)
 - **fix:** wait for hydration before clicking add-rack-btn (`fb68ae3`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`f6dbbae`)
 - **chore:** bump version to 1.1.0 for multi-AMS + multi-rack release (`0849904`)
