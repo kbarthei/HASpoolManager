@@ -21,10 +21,17 @@ Read these before starting any implementation:
 - `docs/architecture/overview.md` — system architecture, container layout, request flow
 - `docs/architecture/data-model.md` — ER diagram and every table explained
 - `docs/architecture/state-machine.md` — print-lifecycle state machine + spool-match decision tree
-- `docs/architecture/sync-worker.md` — websocket sync worker, discovery, watchdog (once written)
+- `docs/architecture/sync-worker.md` — websocket sync worker, discovery, watchdog
+- `docs/architecture/security-model.md` — auth tiers, two-port model, SSRF guardrails
 - `docs/reference/api.md` — every `/api/v1/*` endpoint with request/response examples
+- `docs/reference/error-codes.md` — Bambu `print_error` + HMS + API error shapes
 - `docs/operator/configuration.md` — all config options, HA integration, network ports
+- `docs/operator/operations-runbook.md` — break-fix recipes with admin SQL
+- `docs/development/getting-started.md` — dev setup, first change, loop
 - `docs/development/testing.md` — test pyramid, CI pipeline, spec catalogue
+- `docs/development/database-changes.md` — schema-change three-step dance
+- `docs/development/release-process.md` — deploy pipeline + rollback
+- `docs/development/contributing.md` — commit style, PR workflow, conventions
 
 ## Context
 
@@ -111,6 +118,44 @@ E2e tests run against the real HA addon stack: `npm run build` with `HA_ADDON=tr
 - No external secrets needed — everything runs against local SQLite
 - **CI must be green after every push.** Check `gh run list --limit 5` after pushing. If any workflow fails, fix it before moving on. Never leave CI red.
 - A `UserPromptSubmit` hook in `.claude/settings.json` checks CI status at the start of every conversation and warns about failures.
+
+## Documentation Convention
+
+**Every feature, fix, or refactor lands as code AND documentation in the same PR.** The `docs/` tree is the single source of truth for how the app works; if the code and docs disagree, the change is incomplete.
+
+### What to update where
+
+| Change type | Required doc update |
+|-------------|--------------------|
+| New or changed API route | `docs/reference/api.md` — request/response shape, auth tier, examples |
+| New DB table / column / index | `docs/architecture/data-model.md` — ER table, cardinalities |
+| Schema migration added | `docs/development/database-changes.md` — add to worked-example list if the pattern is new |
+| Sync-worker state transition / new edge case | `docs/architecture/state-machine.md` + `docs/architecture/sync-worker.md` |
+| New printer / HA entity support | `docs/reference/ha-entities.md` + `docs/reference/bambu-printer-states.md` |
+| New Bambu error code handled | `docs/reference/error-codes.md` |
+| New env var / config option | `docs/reference/env-vars.md` + `docs/operator/configuration.md` |
+| New operator-facing UI page / workflow | `docs/operator/user-guide.md` + screenshot if helpful |
+| New break-fix recipe discovered | `docs/operator/operations-runbook.md` |
+| New test added / removed / renamed | `docs/development/testing.md` §4 (spec catalogue) + §1 (pyramid counts) |
+| Security tier / guardrail change | `docs/architecture/security-model.md` |
+| Deploy pipeline / rollback behavior | `docs/development/release-process.md` |
+| Convention / code-style change | `docs/development/contributing.md` + this CLAUDE.md |
+
+### Rules
+
+- **A PR without the matching doc update is incomplete.** Reviewer (or future-you) must reject.
+- **Docs describe the current solution, not history.** No "legacy", no "used to work this way" — use git for that.
+- **Examples in docs must be copy-pasteable and current.** If you rename a flag, grep the docs.
+- **Architecture docs live in `docs/architecture/`**, operator-facing in `docs/operator/`, API/reference tables in `docs/reference/`, contributor how-to in `docs/development/`. Don't cross the streams.
+- **Brainstorming, plans, research → `workdir/plans/`**, never `docs/`. Nothing in `workdir/` ships to GitHub.
+- **`docs/development/testing.md` is the canonical test catalogue.** When counts or spec names change, update it in the same commit.
+
+### Anti-patterns
+
+- Shipping a feature PR and "doing the docs later" — they never get done
+- Copy-pasting API examples that hallucinate fields the route doesn't return
+- Leaving stale doc sections describing the pre-refactor behavior ("TODO: update after migration")
+- Documenting implementation details that belong in code comments (the doc should explain *what* + *why*, not line-by-line *how*)
 
 ## Conventions
 
@@ -250,8 +295,7 @@ Never edit a committed migration file — generate a follow-up migration instead
 ### Comments & Documentation
 - Only add comments for **non-obvious logic** — the code should explain the "what", comments explain the "why"
 - No commented-out code — use git history instead
-- Update `docs/development/testing.md` when adding/removing tests (it's the single source of truth)
-- API endpoint changes → update `docs/reference/api.md`
+- **Every code change must include the matching doc update** in the same PR. See "Documentation Convention" above for the change-type → doc mapping. No exceptions.
 
 ## CRITICAL: Bash Commands
 
