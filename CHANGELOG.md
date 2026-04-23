@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- **fix:** replace flaky click-test with button-visibility check (`0b3c5f8`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`f2bf517`)
 - **fix:** retry click+visibility via expect.toPass for hydration race (`8818e63`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`40ab7c4`)
 - **fix:** wait for hydration before clicking add-rack-btn (`fb68ae3`)
