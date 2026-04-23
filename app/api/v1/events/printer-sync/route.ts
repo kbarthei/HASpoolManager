@@ -222,7 +222,6 @@ async function autoCreateDraftSpool(
  * Reads activeSpoolIds (accumulated during print) from the print record.
  * Uses proportional weight distribution based on remain deltas when available.
  * Falls back to equal split if deltas are all zero or unavailable.
- * Falls back to single activeSpoolId for backward compatibility.
  */
 async function createPrintUsage(
   printId: string,
@@ -241,10 +240,6 @@ async function createPrintUsage(
     let spoolIds: string[] = [];
     if (print?.activeSpoolIds) {
       try { spoolIds = JSON.parse(print.activeSpoolIds); } catch { /* ignore */ }
-    }
-    // Fallback to single spool for backward compatibility
-    if (spoolIds.length === 0 && print?.activeSpoolId) {
-      spoolIds = [print.activeSpoolId];
     }
     if (spoolIds.length === 0) {
       console.log(`[printer-sync] No spool IDs stored on print, skipping usage record`);
@@ -539,7 +534,6 @@ export async function POST(request: NextRequest) {
           startedAt: new Date(),
           totalLayers: printLayersTotal || null,
           printWeight: printWeight || null,
-          activeSpoolId: startActiveSpoolId,
           activeSpoolIds: JSON.stringify(startIds),
           remainSnapshot: Object.keys(remainSnapshot).length > 0 ? JSON.stringify(remainSnapshot) : null,
           haEventId,
@@ -672,9 +666,6 @@ export async function POST(request: NextRequest) {
           tray_index: 0,
         });
         if (activeMatch.match) {
-          // Still update single activeSpoolId for backward compatibility
-          updates.activeSpoolId = activeMatch.match.spool_id;
-
           // Accumulate all spool IDs seen during this print
           const existingIds: string[] = runningPrint.activeSpoolIds
             ? (() => { try { return JSON.parse(runningPrint.activeSpoolIds); } catch { return []; } })()
