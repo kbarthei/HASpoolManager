@@ -346,6 +346,45 @@ export function parseHmsCodeString(hmsCode: string): ParsedHmsCode | null {
   return parseHmsCode(attr, codeInt);
 }
 
+// ─── Legacy payload aliases ──────────────────────────────────────────────────
+// Maps the pre-1.x H2S sync payload keys to the new multi-AMS keys so an
+// unmodified HA script keeps working post-deploy. New keys win when both are
+// present.
+//
+//   slot_1_*    → slot_ams_0_0_*       slot_3_*  → slot_ams_0_2_*
+//   slot_2_*    → slot_ams_0_1_*       slot_4_*  → slot_ams_0_3_*
+//   slot_ht_*   → slot_ht_1_*          slot_ext_* unchanged
+//
+// Once the HA script is rewritten to use the new keys directly, this can be
+// retired.
+
+const LEGACY_KEY_PREFIXES: ReadonlyArray<readonly [string, string]> = [
+  ["slot_1", "slot_ams_0_0"],
+  ["slot_2", "slot_ams_0_1"],
+  ["slot_3", "slot_ams_0_2"],
+  ["slot_4", "slot_ams_0_3"],
+  ["slot_ht", "slot_ht_1"],
+];
+
+export function applyLegacyPayloadAliases(
+  body: Record<string, unknown>,
+): Record<string, unknown> {
+  const result: Record<string, unknown> = { ...body };
+  for (const key of Object.keys(body)) {
+    for (const [legacy, modern] of LEGACY_KEY_PREFIXES) {
+      if (key.startsWith(`${legacy}_`)) {
+        const suffix = key.slice(legacy.length);
+        const modernKey = `${modern}${suffix}`;
+        // Don't clobber an explicit modern key — caller controls precedence
+        if (result[modernKey] === undefined) {
+          result[modernKey] = body[key];
+        }
+      }
+    }
+  }
+  return result;
+}
+
 // ─── buildSlotDefs ──────────────────────────────────────────────────────────
 // Generates the slot-key/slotType/amsIndex/trayIndex mapping dynamically from
 // the enabled printer_ams_units rows. Replaces the former hardcoded 6-entry
