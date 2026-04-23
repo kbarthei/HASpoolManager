@@ -54,12 +54,18 @@ curl -X POST http://homeassistant:3001/api/v1/printers \
 | `ams_ht` | 1 | Yes | AMS HT (high temp) |
 | `external` | 1 | No | External spool holder |
 
-## 6. Spool Rack
+## 6. Spool Racks
 
-Default grid is 4 rows x 8 columns (32 slots). Positions use the format `rack:R-C`:
+Multiple physical racks are supported. Each rack has a UUID, a user-facing
+name, and `rows × cols` dimensions configured via `/admin` → Racks card.
 
-- `rack:1-1` = Row 1, Column 1 (top-left)
-- `rack:4-8` = Row 4, Column 8 (bottom-right)
+Spool positions are stored on `spools.location` with the format
+`rack:<rackId>:R-C`:
+
+- `rack:abc-123:1-1` = Row 1, Column 1 in rack `abc-123`
+- `rack:abc-123:3-10` = Row 3, Column 10 in rack `abc-123`
+
+The default rack created at first install is named **"Main"** with 3 rows × 10 columns.
 
 ## 7. Energy Tracking
 

@@ -6,38 +6,29 @@ Technical reference for the printer sync pipeline -- the core runtime loop of HA
 
 ## 1. Overview
 
-Home Assistant sends the full printer state to `POST /api/v1/events/printer-sync` via two automations:
+The addon contains a background **sync worker** (`lib/sync-worker.ts`) that
+connects directly to Home Assistant via websocket and posts state snapshots
+to `POST /api/v1/events/printer-sync`. Three paths feed the endpoint:
 
-1. **Periodic sync** -- every 60 seconds while the printer is online.
-2. **State-change sync** -- fires immediately when a monitored HA entity changes (gcode_state, AMS slots, print progress).
+| Path | Trigger | Frequency | Purpose |
+|---|---|---|---|
+| **WebSocket `state_changed`** | HA entity value change (`gcode_state`, AMS tray sensors, etc.) | Real-time, ~seconds | Immediate print-start/-end, AMS-tray swap |
+| **WebSocket `bambu_lab_event`** | Bambu HMS events (`event_print_error`) | On demand | Precise runout / error codes |
+| **Watchdog REST poll** | Timer | Every 2 min (active print) / 5 min (idle) | Fallback against missed events, reconnect recovery |
+
+**Auto-discovery:** Printers are discovered automatically from the bambu_lab
+integration's entity registry. Entity mapping uses `original_name` with
+support for English and German HA installations (see `lib/ha-discovery.ts`).
+
+**Background process:** The sync worker runs as a separate Node.js process
+alongside Next.js, started by `run.sh`. Both share the same SQLite database.
 
 The sync handler processes each payload through four stages:
 
-1. **Print lifecycle** -- detect state transitions, create/finish/fail print records.
-2. **AMS slot tracking** -- update slot assignments, remain percentages, colors, material types.
-3. **Spool matching** -- identify which spool is in each slot using RFID, Bambu index, or fuzzy scoring.
-4. **Weight deduction** -- calculate and apply filament usage when a print finishes or fails.
-
----
-
-## 1b. Sync Architecture (v1.0.38+)
-
-The addon contains a background sync worker that connects directly to HA via
-websocket. This replaces the previous approach of HA rest_command + automations.
-
-**Event channels:**
-| Channel | Events | Purpose |
-|---------|--------|---------|
-| `bambu_lab_event` | print_started, print_finished, print_canceled, print_failed | Print lifecycle |
-| `state_changed` | gcode_state, print_error, active_tray, tray sensors | State transitions + AMS changes |
-| Watchdog poll | All states | Fallback every 2 min (active) / 5 min (idle) |
-
-**Auto-discovery:** Printers are discovered automatically from the bambu_lab
-integration's entity registry. Entity mapping uses `original_name` with support
-for English and German HA installations.
-
-**Background process:** The sync worker runs as a separate Node.js process
-alongside Next.js, started by `run.sh`. It shares the SQLite database.
+1. **Print lifecycle** — detect state transitions, create/finish/fail print records.
+2. **AMS slot tracking** — update slot assignments, remain percentages, colors, material types.
+3. **Spool matching** — identify which spool is in each slot using RFID, Bambu index, or fuzzy scoring.
+4. **Weight deduction** — calculate and apply filament usage when a print finishes or fails.
 
 ---
 

@@ -26,7 +26,9 @@ describe("API health + harness smoke", () => {
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(data.status).toBe("ok");
-    expect(data.version).toBe("0.1.0");
+    // Version comes from package.json; assert shape not specific value.
+    expect(typeof data.version).toBe("string");
+    expect(data.version).toMatch(/^\d+\.\d+\.\d+/);
     expect(typeof data.timestamp).toBe("string");
   });
 

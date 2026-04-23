@@ -106,8 +106,8 @@ File: `tests/integration/<endpoint>.test.ts`
 ```typescript
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 
-// Skip if no DATABASE_URL (CI without DB)
-const skip = !process.env.DATABASE_URL;
+// Skip if no SQLite DB path set (CI without DB)
+const skip = !process.env.SQLITE_PATH;
 
 const BASE = "http://localhost:3000";
 const AUTH = { Authorization: "Bearer test-dev-key-2026" };

@@ -182,10 +182,10 @@ npm run db:studio          # Drizzle Studio
 
 | Level | Tests | Files |
 |-------|------:|------:|
-| Unit | 419 | 10 |
-| Integration | 75 | 7 |
-| E2e | 25 | 10 |
-| **Total** | **519** | **27** |
+| Unit | 485 | 17 |
+| Integration | 130 | 14 |
+| E2e | ~50 | 18 |
+| **Total** | **~665** | **49** |
 
 Unit tests cover the spool matching engine (RFID, CIE Delta-E, fuzzy), API route validation (Zod schemas), cost calculation, and data transformation utilities. Integration tests call route handlers directly against a per-worker SQLite harness. E2e tests run against the full addon stack: Next.js standalone, Docker nginx with production config, and a Node.js ingress simulator.
 

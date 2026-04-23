@@ -195,5 +195,4 @@ flowchart TD
 The SQLite database contains 20 tables covering vendors, filaments, spools, storage locations, AMS slots, print jobs, usage records, orders, price history, and more.
 
 For full schema details, see:
-- [Data Model](architecture/data-model.md) -- table definitions and relationships
-- [ER Diagram](er-diagram.md) -- visual entity-relationship diagram
+- [Data Model](architecture/data-model.md) — ER diagram + per-table reference

@@ -21,10 +21,13 @@ No auth required. Returns service status and version.
 ```json
 {
   "status": "ok",
-  "version": "0.1.0",
-  "timestamp": "2026-03-30T12:00:00.000Z"
+  "version": "1.1.3",
+  "timestamp": "2026-04-23T12:00:00.000Z"
 }
 ```
+
+> The `version` field reflects `package.json` which is kept in sync with
+> the HA addon version in `ha-addon/haspoolmanager/config.yaml`.
 
 **curl**
 ```bash

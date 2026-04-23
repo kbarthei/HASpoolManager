@@ -26,6 +26,10 @@ if [ "${1:-}" != "--no-bump" ]; then
 fi
 version=$(grep -E '^version:' "$CONFIG_YAML" | sed -E 's/.*"([^"]+)".*/\1/')
 
+# Keep package.json version in sync with addon config so /api/v1/health
+# reports the right version.
+sed -i '' "s/\"version\": \"[^\"]*\"/\"version\": \"${version}\"/" "$REPO_DIR/package.json"
+
 # ── Build ───────────────────────────────────────────────────────────────────
 bash ha-addon/build-addon.sh
 
