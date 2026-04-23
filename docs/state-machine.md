@@ -221,9 +221,9 @@ the print. Each time the active spool changes (detected via RFID or fuzzy matchi
 on each sync), the new spool ID is appended to the array. At print end, proportional
 weight distribution uses remain deltas to split weight between all spools used.
 
-**Note**: The planned `print_error` code parsing for exact runout slot identification
-(documented in `docs/plan-ha-native-sync.md`) is not yet implemented. The current
-`printError` field is a boolean, not the raw integer error code.
+**Note**: Exact runout-slot identification via `print_error` code parsing
+is implemented in `lib/sync-worker.ts` (`parseRunoutError`) — codes `0x07*`
+(AMS) and `0x18*` (AMS HT) decode to `{amsUnit, trayIndex}`.
 
 ---
 
@@ -465,21 +465,22 @@ error code. The boolean is used solely to distinguish between:
 
 ### Bambu Lab error codes (from MQTT `print_error` integer field)
 
-These are documented in `docs/07-bambulab-printer-states.md` and `docs/plan-ha-native-sync.md`
-but are **not yet parsed** by the current implementation:
+Background reference: `docs/07-bambulab-printer-states.md`. The codes are
+parsed by `lib/sync-worker.ts:parseRunoutError` to derive the exact slot
+that ran out, enabling precise weight split at the runout point.
 
-| Error Code | Hex | Meaning | Current Handling |
-|---|---|---|---|
-| `0` | `0x00000000` | No error | `printError=false` |
-| `50348044` | `0x0300800C` | User cancel | Mapped to `gcode_state=FAILED` → status `"failed"` |
-| `0x07008011` | AMS tray 0 | AMS filament runout (slot 1) | `printError=true` → keep running |
-| `0x07018011` | AMS tray 1 | AMS filament runout (slot 2) | `printError=true` → keep running |
-| `0x07028011` | AMS tray 2 | AMS filament runout (slot 3) | `printError=true` → keep running |
-| `0x07038011` | AMS tray 3 | AMS filament runout (slot 4) | `printError=true` → keep running |
-| `0x18008011` | AMS HT tray 0 | AMS HT filament runout | `printError=true` → keep running |
-| `0x07FF8011` | External | External spool runout | `printError=true` → keep running |
+| Error Code | Hex | Meaning |
+|---|---|---|
+| `0` | `0x00000000` | No error |
+| `50348044` | `0x0300800C` | User cancel → mapped to `gcode_state=FAILED` |
+| `0x07008011` | AMS tray 0 | AMS filament runout (slot 1) |
+| `0x07018011` | AMS tray 1 | AMS filament runout (slot 2) |
+| `0x07028011` | AMS tray 2 | AMS filament runout (slot 3) |
+| `0x07038011` | AMS tray 3 | AMS filament runout (slot 4) |
+| `0x18008011` | AMS HT tray 0 | AMS HT filament runout |
+| `0x07FF8011` | External | External spool runout |
 
-### Error code structure (planned, not implemented)
+### Error code structure
 
 ```
 0xMMSS8011
@@ -487,12 +488,6 @@ but are **not yet parsed** by the current implementation:
   SS = slot:    0x00-0x03 (AMS),  0x00 (AMS HT),  0xFF (external)
   8011 = runout error suffix (constant)
 ```
-
-### Planned improvement
-
-The `docs/plan-ha-native-sync.md` describes parsing the raw integer error code to identify
-the exact slot that ran out, enabling precise weight split at the runout point. This would
-require receiving `print_error` as an integer rather than a boolean from HA.
 
 ---
 

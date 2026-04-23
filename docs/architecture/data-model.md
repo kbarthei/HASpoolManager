@@ -10,25 +10,26 @@ erDiagram
     FILAMENTS ||--o{ SHOP_LISTINGS : "listed at"
     FILAMENTS ||--o{ ORDER_ITEMS : "orders of"
     FILAMENTS ||--o{ SHOPPING_LIST_ITEMS : "want to buy"
-    FILAMENTS ||--o{ REORDER_RULES : "triggers reorder"
-    FILAMENTS ||--o{ AUTO_SUPPLY_RULES : "governs supply"
+    FILAMENTS ||--o{ SUPPLY_RULES : "governs supply"
+    FILAMENTS ||--o{ SUPPLY_ALERTS : "triggers alert"
+    FILAMENTS ||--o{ CONSUMPTION_STATS : "tracked by"
+    FILAMENTS ||--o{ HMS_EVENTS : "attributed to"
     SPOOLS ||--o{ TAG_MAPPINGS : "tagged with"
     SPOOLS ||--o{ PRINT_USAGE : "used in"
     SPOOLS ||--o{ ORDER_ITEMS : "received as"
     PRINTERS ||--o{ AMS_SLOTS : "has slots"
+    PRINTERS ||--o{ PRINTER_AMS_UNITS : "has units"
     AMS_SLOTS }o--o| SPOOLS : "loaded with"
     PRINTS ||--o{ PRINT_USAGE : "uses"
     PRINTERS ||--o{ PRINTS : "prints on"
+    PRINTERS ||--o{ HMS_EVENTS : "reports"
     PRINT_USAGE }o--o| AMS_SLOTS : "via slot"
+    PRINTS ||--o{ HMS_EVENTS : "during"
     SHOPS ||--o{ ORDERS : "source of"
     ORDERS ||--o{ ORDER_ITEMS : "contains"
     SHOPS ||--o{ SHOP_LISTINGS : "sells at"
-    SHOPS ||--o{ AUTO_SUPPLY_RULES : "preferred shop"
+    SHOPS ||--o{ SUPPLY_RULES : "preferred shop"
     SHOP_LISTINGS ||--o{ SHOP_LISTING_PRICE_HISTORY : "price history"
-    SHOP_LISTINGS ||--o{ AUTO_SUPPLY_LOG : "evaluated listing"
-    REORDER_RULES ||--o{ AUTO_SUPPLY_LOG : "triggered by"
-    AUTO_SUPPLY_RULES ||--o{ AUTO_SUPPLY_LOG : "executed by"
-    ORDERS ||--o{ AUTO_SUPPLY_LOG : "resulted in"
 ```
 
 ---
@@ -80,7 +81,7 @@ Filament product definitions. One filament type = one row (e.g. "Bambu Lab PLA M
 **Unique index:** `(vendor_id, name, color_hex)`
 **Indexes:** `material`, `bambu_idx`
 
-**Relations:** belongs to vendor; has many spools, order_items, reorder_rules, shop_listings, shopping_list_items.
+**Relations:** belongs to vendor; has many spools, order_items, shop_listings, shopping_list_items, supply_rules, supply_alerts, consumption_stats, hms_events.
 
 ---
 
@@ -258,20 +259,19 @@ Online stores where filament is purchased. Separate from vendors (a shop can sel
 | `currency` | text | Default "EUR" |
 | `is_active` | boolean | |
 
-**Relations:** has many shop_listings, orders, auto_supply_rules.
+**Relations:** has many shop_listings, orders, supply_rules.
 
 ---
 
 #### `orders`
 
-Purchase orders. Can be manually entered or created by the auto-supply engine.
+Purchase orders. Manually entered, or proposed via the supply-engine alerts and confirmed by the user.
 
 | Column | Type | Notes |
 |--------|------|-------|
 | `id` | uuid PK | |
 | `vendor_id` | uuid FK → vendors | Nullable |
 | `shop_id` | uuid FK → shops | SET NULL on delete |
-| `auto_supply_log_id` | uuid | Reference to the auto_supply_log entry that created this order |
 | `order_number` | text | Shop order reference |
 | `order_date` | date NOT NULL | |
 | `expected_delivery` | date | |
@@ -370,69 +370,6 @@ Immutable event log for all data changes. Uses `bigint` identity column (not UUI
 | `created_at` | timestamptz | |
 
 **Indexes:** `(entity_type, entity_id)`, `created_at`
-
----
-
-#### `reorder_rules`
-
-Per-filament thresholds that trigger reorder notifications or auto-supply.
-
-| Column | Type | Notes |
-|--------|------|-------|
-| `id` | uuid PK | |
-| `filament_id` | uuid FK → filaments | CASCADE delete |
-| `min_spools` | integer | Alert when fewer than N spools remain |
-| `min_weight` | integer | Alert when total remaining weight (g) falls below threshold |
-| `auto_notify` | boolean | Send HA notification |
-| `auto_order` | boolean | Trigger auto-supply engine |
-
-**Relations:** has many auto_supply_log entries.
-
----
-
-#### `auto_supply_rules`
-
-Strategy rules for the auto-supply engine — defines how to choose listings and cap spending.
-
-| Column | Type | Notes |
-|--------|------|-------|
-| `id` | uuid PK | |
-| `name` | text NOT NULL | |
-| `is_enabled` | boolean | |
-| `shop_id` | uuid FK → shops | Optional preferred shop |
-| `filament_id` | uuid FK → filaments | Specific filament, or null for material-level rule |
-| `material` | text | Material filter (e.g. "PLA") when no filament_id |
-| `max_price_per_spool` | numeric(8,2) | Price ceiling |
-| `max_monthly_spend` | numeric(8,2) | Monthly budget cap |
-| `budget_period_start` | integer | Day of month when budget resets |
-| `prefer_strategy` | text | `cheapest`, `fastest`, `preferred_shop`, `manual` |
-| `auto_execute` | boolean | Execute automatically vs. pending approval |
-| `priority` | integer | Lower = higher priority |
-
-**Constraint:** prefer_strategy IN ('cheapest','fastest','preferred_shop','manual')
-
----
-
-#### `auto_supply_log`
-
-Audit trail for every auto-supply evaluation. One row per reorder-rule trigger.
-
-| Column | Type | Notes |
-|--------|------|-------|
-| `id` | uuid PK | |
-| `reorder_rule_id` | uuid FK → reorder_rules | CASCADE delete |
-| `supply_rule_id` | uuid FK → auto_supply_rules | SET NULL on delete |
-| `listing_id` | uuid FK → shop_listings | SET NULL on delete |
-| `order_id` | uuid FK → orders | SET NULL on delete |
-| `trigger_reason` | text NOT NULL | Why the reorder rule fired |
-| `action_taken` | text NOT NULL | Outcome |
-| `evaluated_price` | numeric(8,2) | Price considered |
-| `monthly_spend_at_time` | numeric(8,2) | Spend at time of evaluation |
-| `agent_session_id` | text | AI agent session (if used) |
-| `details` | jsonb | Additional context |
-
-**Constraint:** action_taken IN ('auto_ordered','pending_approval','blocked_budget','blocked_price','no_listing','notify_only','agent_executing','agent_completed','agent_failed','error')
-**Indexes:** `created_at`, `action_taken`, `reorder_rule_id`
 
 ---
 
