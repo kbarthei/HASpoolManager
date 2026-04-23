@@ -139,31 +139,4 @@ describe("printer-sync with multiple AMS units", () => {
     expect(slotHt?.bambuType).toBe("PC");
     expect(slotHt?.amsIndex).toBe(1);
   });
-
-  it("backwards-compat: accepts legacy slot_1_* payload from old HA script", async () => {
-    const { db } = await import("@/lib/db");
-    const { amsSlots } = await import("@/lib/db/schema");
-    const { eq, and } = await import("drizzle-orm");
-    const { makePrinter, makeAmsUnit } = await import("../fixtures/seed");
-
-    const printerId = await makePrinter({ name: "H2S-LegacyKeys" });
-    await makeAmsUnit(printerId, { amsIndex: 0, slotType: "ams" });
-    await makeAmsUnit(printerId, { amsIndex: 1, slotType: "ams_ht" });
-
-    const r = await sync(printerId, {
-      // Legacy keys — pretend the HA script wasn't updated
-      slot_1_type: "PLA", slot_1_color: "FFFFFFFF", slot_1_empty: false,
-      slot_ht_type: "PC", slot_ht_empty: false,
-    });
-    expect(r.status).toBe(200);
-
-    const slot00 = await db.query.amsSlots.findFirst({
-      where: and(eq(amsSlots.printerId, printerId), eq(amsSlots.amsIndex, 0), eq(amsSlots.trayIndex, 0)),
-    });
-    const slotHt = await db.query.amsSlots.findFirst({
-      where: and(eq(amsSlots.printerId, printerId), eq(amsSlots.slotType, "ams_ht")),
-    });
-    expect(slot00?.bambuType).toBe("PLA");
-    expect(slotHt?.bambuType).toBe("PC");
-  });
 });

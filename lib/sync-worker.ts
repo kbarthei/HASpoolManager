@@ -511,7 +511,7 @@ async function discoverAndRegister(deviceId: string): Promise<PrinterSyncState |
 
     if (!printer) {
       // Check if this is an AMS device — find the parent printer
-      const parentPrinter = discovered.find((p) => p.amsDeviceIds.includes(deviceId));
+      const parentPrinter = discovered.find((p) => p.amsDevices.some((d) => d.id === deviceId));
       if (parentPrinter) {
         return registerPrinter(parentPrinter);
       }

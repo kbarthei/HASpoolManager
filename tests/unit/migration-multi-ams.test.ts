@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { rewriteRackLocation, deriveAmsUnitsFromSlots } from "@/lib/migration-helpers";
-import { buildSlotDefs, applyLegacyPayloadAliases } from "@/lib/printer-sync-helpers";
+import { buildSlotDefs } from "@/lib/printer-sync-helpers";
 
 describe("rewriteRackLocation", () => {
   const defaultRackId = "abc-123-def-456";
@@ -81,63 +81,5 @@ describe("buildSlotDefs", () => {
       "slot_ams_0_0", "slot_ams_0_1", "slot_ams_0_2", "slot_ams_0_3",
       "slot_ams_2_0", "slot_ams_2_1", "slot_ams_2_2", "slot_ams_2_3",
     ]);
-  });
-});
-
-describe("applyLegacyPayloadAliases", () => {
-  it("maps legacy slot_1_* to slot_ams_0_0_*", () => {
-    const input = {
-      printer_id: "p1",
-      slot_1_type: "PLA",
-      slot_1_color: "FF0000FF",
-      slot_1_remain: 75,
-      slot_1_empty: false,
-    };
-    const result = applyLegacyPayloadAliases(input);
-    expect(result.slot_ams_0_0_type).toBe("PLA");
-    expect(result.slot_ams_0_0_color).toBe("FF0000FF");
-    expect(result.slot_ams_0_0_remain).toBe(75);
-    expect(result.slot_ams_0_0_empty).toBe(false);
-    // Original keys are preserved (harmless)
-    expect(result.slot_1_type).toBe("PLA");
-    expect(result.printer_id).toBe("p1");
-  });
-
-  it("maps slot_ht_* to slot_ht_1_*", () => {
-    const result = applyLegacyPayloadAliases({ slot_ht_type: "PC", slot_ht_empty: false });
-    expect(result.slot_ht_1_type).toBe("PC");
-    expect(result.slot_ht_1_empty).toBe(false);
-  });
-
-  it("does not clobber explicit modern keys", () => {
-    const result = applyLegacyPayloadAliases({
-      slot_1_type: "PLA",
-      slot_ams_0_0_type: "PETG", // explicit modern wins
-    });
-    expect(result.slot_ams_0_0_type).toBe("PETG");
-  });
-
-  it("leaves slot_ext_* alone (no alias needed)", () => {
-    const result = applyLegacyPayloadAliases({ slot_ext_type: "PLA", slot_ext_empty: false });
-    expect(result.slot_ext_type).toBe("PLA");
-    expect(result.slot_ext_empty).toBe(false);
-  });
-
-  it("ignores unrelated keys", () => {
-    const result = applyLegacyPayloadAliases({ printer_id: "p1", gcode_state: "RUNNING" });
-    expect(Object.keys(result).sort()).toEqual(["gcode_state", "printer_id"]);
-  });
-
-  it("handles all 4 AMS slots + HT in one pass", () => {
-    const input = {
-      slot_1_type: "PLA", slot_2_type: "PETG", slot_3_type: "ABS", slot_4_type: "TPU",
-      slot_ht_type: "PC",
-    };
-    const result = applyLegacyPayloadAliases(input);
-    expect(result.slot_ams_0_0_type).toBe("PLA");
-    expect(result.slot_ams_0_1_type).toBe("PETG");
-    expect(result.slot_ams_0_2_type).toBe("ABS");
-    expect(result.slot_ams_0_3_type).toBe("TPU");
-    expect(result.slot_ht_1_type).toBe("PC");
   });
 });

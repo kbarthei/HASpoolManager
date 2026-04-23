@@ -11,7 +11,7 @@ import {
   classifyGcodeState, isCalibrationJob,
   buildEventId, bambuColorName, bambuFilamentName, calculateWeightSync,
   calculateEnergyCost,
-  buildSlotDefs, applyLegacyPayloadAliases, type SlotDef,
+  buildSlotDefs, type SlotDef,
 } from "@/lib/printer-sync-helpers";
 import { sqlCount, sqlNowMinusHours } from "@/lib/db/sql-helpers";
 
@@ -401,10 +401,7 @@ export async function POST(request: NextRequest) {
   if (!auth.authenticated) return auth.response;
 
   try {
-    const rawBody = await request.json();
-    // Legacy payload compat: rewrite slot_1_*/slot_ht_*/etc. to the new
-    // multi-AMS keys so an unmodified HA script keeps syncing post-deploy.
-    const body = applyLegacyPayloadAliases(rawBody);
+    const body = await request.json();
 
     // ── Extract and normalize values ──────────────────────────────────────
     const printer_id = str(body.printer_id);
