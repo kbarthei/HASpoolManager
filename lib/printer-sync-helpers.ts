@@ -28,33 +28,6 @@ export function classifyGcodeState(raw: string): "active" | "finished" | "failed
 // Used for DISPLAY and ACTIVE SPOOL TRACKING only, NOT for lifecycle decisions
 // Source: Bambu Lab MQTT stg_cur, sensor.h2s_aktueller_arbeitsschritt in HA
 
-// Keep the old sets for backward compatibility (used in tests and display logic)
-export const ACTIVE_STATES = new Set([
-  "RUNNING", "PRINTING", "PREPARE", "SLICING", "PAUSE",
-  "DRUCKEN", "VORBEREITEN",
-  "CALIBRATING_EXTRUSION", "CLEANING_NOZZLE_TIP", "SWEEPING_XY_MECH_MODE",
-  "HEATBED_PREHEATING", "NOZZLE_PREHEATING",
-  "CHANGE_FILAMENT", "CHANGING_FILAMENT",
-  "M400_PAUSE", "FILAMENT_RUNOUT_PAUSE", "FRONT_COVER_PAUSE",
-  "AUTO_BED_LEVELING", "HOMING_TOOLHEAD", "HOMING",
-  "CHECKING_EXTRUDER_TEMP", "HEATING", "BED_LEVELING",
-  "CALIBRATING_MOTOR_NOISE",
-  "OFFLINE", "UNKNOWN",
-]);
-export const FINISH_STATES = new Set(["FINISH", "FINISHED", "COMPLETE", "COMPLETED"]);
-export const FAILED_STATES = new Set(["FAILED", "CANCELED", "CANCELLED", "ERROR"]);
-export const IDLE_STATES = new Set(["IDLE", ""]);
-
-/** Legacy classifier — kept for backward compatibility with existing tests/code.
- *  New code should use classifyGcodeState() instead. */
-export function classifyState(rawState: string): "active" | "finished" | "failed" | "idle" {
-  const upper = rawState.toUpperCase().trim();
-  if (ACTIVE_STATES.has(upper)) return "active";
-  if (FINISH_STATES.has(upper)) return "finished";
-  if (FAILED_STATES.has(upper)) return "failed";
-  return "idle";
-}
-
 // ── Calibration name filter ──────────────────────────────────────────────────
 // Auto-calibration routines are NOT print jobs — don't create records for them
 
@@ -344,45 +317,6 @@ export function parseHmsCodeString(hmsCode: string): ParsedHmsCode | null {
 
   if (isNaN(attr) || isNaN(codeInt)) return null;
   return parseHmsCode(attr, codeInt);
-}
-
-// ─── Legacy payload aliases ──────────────────────────────────────────────────
-// Maps the pre-1.x H2S sync payload keys to the new multi-AMS keys so an
-// unmodified HA script keeps working post-deploy. New keys win when both are
-// present.
-//
-//   slot_1_*    → slot_ams_0_0_*       slot_3_*  → slot_ams_0_2_*
-//   slot_2_*    → slot_ams_0_1_*       slot_4_*  → slot_ams_0_3_*
-//   slot_ht_*   → slot_ht_1_*          slot_ext_* unchanged
-//
-// Once the HA script is rewritten to use the new keys directly, this can be
-// retired.
-
-const LEGACY_KEY_PREFIXES: ReadonlyArray<readonly [string, string]> = [
-  ["slot_1", "slot_ams_0_0"],
-  ["slot_2", "slot_ams_0_1"],
-  ["slot_3", "slot_ams_0_2"],
-  ["slot_4", "slot_ams_0_3"],
-  ["slot_ht", "slot_ht_1"],
-];
-
-export function applyLegacyPayloadAliases(
-  body: Record<string, unknown>,
-): Record<string, unknown> {
-  const result: Record<string, unknown> = { ...body };
-  for (const key of Object.keys(body)) {
-    for (const [legacy, modern] of LEGACY_KEY_PREFIXES) {
-      if (key.startsWith(`${legacy}_`)) {
-        const suffix = key.slice(legacy.length);
-        const modernKey = `${modern}${suffix}`;
-        // Don't clobber an explicit modern key — caller controls precedence
-        if (result[modernKey] === undefined) {
-          result[modernKey] = body[key];
-        }
-      }
-    }
-  }
-  return result;
 }
 
 // ─── buildSlotDefs ──────────────────────────────────────────────────────────

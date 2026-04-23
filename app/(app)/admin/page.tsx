@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 
-import { getSystemStats, getPrinterStatus, getRackConfig } from "@/lib/queries";
+import { getSystemStats, getPrinterStatus } from "@/lib/queries";
 import { formatDateTime, formatDate } from "@/lib/date";
 import { db } from "@/lib/db";
 import { spools, printers as printersTable, syncLog, settings, hmsEvents, racks, printerAmsUnits } from "@/lib/db/schema";
@@ -53,11 +53,10 @@ export default async function AdminPage() {
     nodeEnv: process.env.NODE_ENV,
   };
 
-  const [stats, [lastSyncEntry], printerStatus, rackConfig, allRacksRaw, activePrinter, allPrinters, allAmsUnitsRaw, energyEntityRow, energyPriceRow] = await Promise.all([
+  const [stats, [lastSyncEntry], printerStatus, allRacksRaw, activePrinter, allPrinters, allAmsUnitsRaw, energyEntityRow, energyPriceRow] = await Promise.all([
     getSystemStats(),
     db.select().from(syncLog).orderBy(desc(syncLog.createdAt)).limit(1),
     getPrinterStatus(),
-    getRackConfig(),
     db.select().from(racks).orderBy(racks.sortOrder, racks.createdAt),
     db.query.printers.findFirst({ where: eq(printersTable.isActive, true) }),
     db.select().from(printersTable).orderBy(printersTable.name),

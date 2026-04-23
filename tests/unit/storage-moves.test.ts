@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseRackLocation, formatRackLocation, parseLegacyRackLocation } from "@/lib/rack-helpers";
+import { parseRackLocation, formatRackLocation } from "@/lib/rack-helpers";
 
 // parseRackLocation / formatRackLocation are the real production helpers.
 // The move/assign/unload server actions (moveSpoolInRack, moveSpoolTo, etc.)
@@ -102,15 +102,5 @@ describe("parseRackLocation — canonical (rack:<id>:R-C) format", () => {
 describe("formatRackLocation", () => {
   it("builds canonical rack-location string", () => {
     expect(formatRackLocation("abc-123", 2, 5)).toBe("rack:abc-123:2-5");
-  });
-});
-
-describe("parseLegacyRackLocation — pre-migration format only", () => {
-  it("parses 'rack:R-C'", () => {
-    expect(parseLegacyRackLocation("rack:1-3")).toEqual({ row: 1, col: 3 });
-  });
-
-  it("returns null for canonical format", () => {
-    expect(parseLegacyRackLocation("rack:abc-123:1-3")).toBeNull();
   });
 });

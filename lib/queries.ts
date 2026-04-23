@@ -52,17 +52,6 @@ export async function getPrinterAmsUnits(printerId: string) {
     .orderBy(schema.printerAmsUnits.slotType, schema.printerAmsUnits.amsIndex);
 }
 
-/**
- * @deprecated Reads the first active rack's dimensions for legacy callers
- * that still expect a flat rack-config. New code should use getActiveRacks()
- * and render per-rack.
- */
-export async function getRackConfig(): Promise<{ rows: number; columns: number; rackId: string | null }> {
-  const racks = await getActiveRacks();
-  if (racks.length === 0) return { rows: 3, columns: 10, rackId: null };
-  const first = racks[0];
-  return { rows: first.rows, columns: first.cols, rackId: first.id };
-}
 
 export async function getSyncLog(limit = 50) {
   return db.query.syncLog.findMany({

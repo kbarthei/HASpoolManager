@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { amsSlots, spools, shops, orders, orderItems, filaments, vendors, shoppingListItems, shopListings, tagMappings, printUsage, prints, settings, racks } from "@/lib/db/schema";
 import { eq, and, like, sql, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { getActiveRacks, getRackConfig } from "@/lib/queries";
+import { getActiveRacks } from "@/lib/queries";
 import { formatRackLocation, parseRackLocation } from "@/lib/rack-helpers";
 import { resolveVendorName } from "@/lib/vendor-aliases";
 import { normalizeName } from "@/lib/name-normalize";

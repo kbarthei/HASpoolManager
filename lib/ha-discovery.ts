@@ -89,8 +89,6 @@ export interface DiscoveredPrinter {
   name: string;
   model: string | null;
   serial: string | null;
-  /** @deprecated kept for back-compat — prefer amsDevices which carries model info */
-  amsDeviceIds: string[];
   amsDevices: DiscoveredAmsDevice[];
   mappings: EntityMapping[];
   unmappedEntities: Array<{ entityId: string; originalName: string }>;
@@ -182,13 +180,18 @@ export function discoverPrinters(
         const parentDevice = bambuDevices.find((d) => d.id === entity.device_id);
         const parentModel = (parentDevice?.model || "").toLowerCase();
 
+        // Multi-AMS key format:
+        //   AMS trays  → slot_ams_<amsIndex>_<trayIndex>
+        //   AMS HT     → slot_ht_<amsIndex> (amsIndex=1 by legacy convention)
+        //
+        // For single-AMS setup (current reality), the AMS unit is amsIndex=0
+        // and the AMS HT is amsIndex=1. Multi-AMS support requires per-device
+        // amsIndex assignment — left as a follow-up when a 2nd AMS is added.
         let field: string;
         if (parentModel.includes("ams ht") || parentModel.includes("ams-ht")) {
-          field = "slot_ht";
-        } else if (parentModel.includes("ams")) {
-          field = `slot_${trayIndex + 1}`;
+          field = `slot_ht_1`;
         } else {
-          field = `slot_${trayIndex + 1}`;
+          field = `slot_ams_0_${trayIndex}`;
         }
 
         mappings.push({
@@ -212,7 +215,6 @@ export function discoverPrinters(
       name: printer.name || printer.model || "Unknown Printer",
       model: printer.model,
       serial: printer.serial_number,
-      amsDeviceIds,
       amsDevices,
       mappings,
       unmappedEntities,

@@ -3,7 +3,6 @@ import {
   num,
   bool,
   str,
-  classifyState,
   classifyGcodeState,
   isCalibrationJob,
   buildEventId,
@@ -167,89 +166,6 @@ describe("str()", () => {
 
   it("uses custom default when value is null", () => {
     expect(str(null, "fallback")).toBe("fallback");
-  });
-});
-
-// ── classifyState() ───────────────────────────────────────────────────────────
-
-describe("classifyState()", () => {
-  it.each([
-    "PRINTING", "RUNNING", "PAUSE", "PREPARE", "SLICING",
-  ])("classifies '%s' as active", (state) => {
-    expect(classifyState(state)).toBe("active");
-  });
-
-  it.each([
-    "CALIBRATING_EXTRUSION",
-    "CLEANING_NOZZLE_TIP",
-    "SWEEPING_XY_MECH_MODE",
-    "HEATBED_PREHEATING",
-    "CHANGING_FILAMENT",
-    "CHANGE_FILAMENT",
-  ])("classifies calibration state '%s' as active", (state) => {
-    expect(classifyState(state)).toBe("active");
-  });
-
-  it.each([
-    "FINISH", "FINISHED", "COMPLETE",
-  ])("classifies '%s' as finished", (state) => {
-    expect(classifyState(state)).toBe("finished");
-  });
-
-  it.each([
-    "FAILED", "CANCELED", "CANCELLED",
-  ])("classifies '%s' as failed", (state) => {
-    expect(classifyState(state)).toBe("failed");
-  });
-
-  it.each([
-    "IDLE", "",
-  ])("classifies '%s' as idle", (state) => {
-    expect(classifyState(state)).toBe("idle");
-  });
-
-  it.each([
-    "OFFLINE", "UNKNOWN",
-  ])("classifies '%s' as active (network glitch, printer may still be printing)", (state) => {
-    expect(classifyState(state)).toBe("active");
-  });
-
-  it.each([
-    "AUTO_BED_LEVELING", "HOMING_TOOLHEAD", "HOMING",
-  ])("classifies prep state '%s' as active", (state) => {
-    expect(classifyState(state)).toBe("active");
-  });
-
-  it("classifies truly unknown string as idle", () => {
-    expect(classifyState("SOMETHING_RANDOM")).toBe("idle");
-  });
-
-  it("is case insensitive: 'printing' → active", () => {
-    expect(classifyState("printing")).toBe("active");
-  });
-
-  it("is case insensitive: 'finished' → finished", () => {
-    expect(classifyState("finished")).toBe("finished");
-  });
-
-  it("is case insensitive: 'failed' → failed", () => {
-    expect(classifyState("failed")).toBe("failed");
-  });
-
-  it("classifies German variant 'DRUCKEN' as active", () => {
-    expect(classifyState("DRUCKEN")).toBe("active");
-  });
-
-  it("classifies German variant in lowercase as active", () => {
-    expect(classifyState("drucken")).toBe("active");
-  });
-
-  it("classifies COMPLETED as finished", () => {
-    expect(classifyState("COMPLETED")).toBe("finished");
-  });
-
-  it("classifies ERROR as failed", () => {
-    expect(classifyState("ERROR")).toBe("failed");
   });
 });
 
