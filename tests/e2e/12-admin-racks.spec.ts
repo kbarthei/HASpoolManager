@@ -34,9 +34,12 @@ test.describe("admin RacksCard", () => {
   test("'Add Rack' button opens the new-rack dialog", async ({ page }) => {
     await page.goto("ingress/admin");
     await expect(page.getByTestId("racks-card")).toBeVisible({ timeout: 15_000 });
+    // Wait for React hydration before clicking, otherwise the onClick may
+    // fire before the handler is bound and the dialog won't open.
+    await page.waitForLoadState("networkidle");
 
     await page.getByTestId("add-rack-btn").click();
-    await expect(page.getByTestId("new-rack-name")).toBeVisible();
-    await expect(page.getByTestId("confirm-create-rack")).toBeVisible();
+    await expect(page.getByTestId("new-rack-name")).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByTestId("confirm-create-rack")).toBeVisible({ timeout: 10_000 });
   });
 });
