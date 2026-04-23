@@ -66,7 +66,6 @@ export async function PUT(
       firstUsedAt,
       lastUsedAt,
       notes,
-      externalId,
     } = body;
 
     const [updated] = await db
@@ -84,7 +83,6 @@ export async function PUT(
         firstUsedAt,
         lastUsedAt,
         notes,
-        externalId,
         updatedAt: new Date(),
       })
       .where(eq(spools.id, id))
