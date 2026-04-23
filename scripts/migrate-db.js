@@ -49,7 +49,26 @@ try {
 //     },
 
 const migrations = [
-  // No pending migrations.
+  {
+    name: "drop prints.active_spool_id (replaced by active_spool_ids)",
+    check: () => {
+      const cols = db.pragma("table_info(prints)");
+      return !cols.some((c) => c.name === "active_spool_id");
+    },
+    apply: () => {
+      // Backfill: ensure every legacy print also has the JSON-array column populated.
+      const result = db.prepare(
+        "UPDATE prints SET active_spool_ids = json_array(active_spool_id) " +
+        "WHERE active_spool_id IS NOT NULL AND active_spool_ids IS NULL"
+      ).run();
+      if (result.changes > 0) {
+        console.log(`[migrate]   → Backfilled active_spool_ids for ${result.changes} legacy print(s)`);
+      }
+      // SQLite 3.35+ supports DROP COLUMN natively (better-sqlite3 bundles 3.40+).
+      // The FK reference to spools(id) goes with the column.
+      db.exec("ALTER TABLE prints DROP COLUMN active_spool_id");
+    },
+  },
 ];
 
 // ── Run migrations ──────────────────────────────────────────────────────────

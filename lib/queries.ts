@@ -199,10 +199,6 @@ export async function getPrinterStatus() {
     if (runningPrint.activeSpoolIds) {
       try { spoolIds = JSON.parse(runningPrint.activeSpoolIds); } catch { /* ignore */ }
     }
-    // Fallback to single spool
-    if (spoolIds.length === 0 && runningPrint.activeSpoolId) {
-      spoolIds = [runningPrint.activeSpoolId];
-    }
 
     if (spoolIds.length > 0) {
       const spoolRecords = await Promise.all(

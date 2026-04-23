@@ -250,7 +250,6 @@ export const prints = sqliteTable(
     energyStartKwh: real("energy_start_kwh"),
     energyEndKwh: real("energy_end_kwh"),
     totalCost: real("total_cost"),
-    activeSpoolId: text("active_spool_id").references(() => spools.id),
     activeSpoolIds: text("active_spool_ids"), // JSON array of all spool IDs seen during print
     remainSnapshot: text("remain_snapshot"), // JSON: {"slot_1": 80, "slot_2": 100, ...} — captured at print start
     spoolSwaps: text("spool_swaps"), // JSON array of mid-print spool swaps: [{trayIndex, oldSpoolId, newSpoolId, progressAtSwap}]

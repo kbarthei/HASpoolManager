@@ -547,7 +547,7 @@ describe("printer-sync integration", () => {
       await makeTagMapping(trackingSpoolId, trackingTagUid);
     });
 
-    it("F1: PRINTING with active_slot_tag → stores activeSpoolId", async () => {
+    it("F1: PRINTING with active_slot_tag → records spool in activeSpoolIds", async () => {
       const { db } = await import("@/lib/db");
       const { prints } = await import("@/lib/db/schema");
       const { eq } = await import("drizzle-orm");
@@ -564,10 +564,11 @@ describe("printer-sync integration", () => {
       trackingPrintId = body.print_id as string;
 
       const print = await db.query.prints.findFirst({ where: eq(prints.id, trackingPrintId) });
-      expect(print!.activeSpoolId).toBe(trackingSpoolId);
+      const ids = JSON.parse(print!.activeSpoolIds!);
+      expect(ids).toContain(trackingSpoolId);
     });
 
-    it("F2: continued PRINTING keeps activeSpoolId stable", async () => {
+    it("F2: continued PRINTING keeps spool in activeSpoolIds stable", async () => {
       const { db } = await import("@/lib/db");
       const { prints } = await import("@/lib/db/schema");
       const { eq } = await import("drizzle-orm");
@@ -581,7 +582,8 @@ describe("printer-sync integration", () => {
       });
       expect(body.print_transition).toBe("none");
       const print = await db.query.prints.findFirst({ where: eq(prints.id, trackingPrintId) });
-      expect(print!.activeSpoolId).toBe(trackingSpoolId);
+      const ids = JSON.parse(print!.activeSpoolIds!);
+      expect(ids).toContain(trackingSpoolId);
     });
 
     it("F3: on finish, creates print_usage with correct weight + cost", async () => {
