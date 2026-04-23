@@ -17,13 +17,13 @@ This rewrite:
 
 ```
 ┌──────────────────────────────────────────────┐
-│ E2e (Playwright + Docker nginx + ingress)    │  41 tests (15 specs)
+│ E2e (Playwright + Docker nginx + ingress)    │  47 tests (18 specs)
 ├──────────────────────────────────────────────┤
-│ Integration (Vitest + SQLite file DB)        │ 110 tests (11 files)
+│ Integration (Vitest + SQLite file DB)        │ 134 tests (15 files)
 ├──────────────────────────────────────────────┤
-│ Unit (Vitest, no DB)                         │  512 tests (16 files)
+│ Unit (Vitest, no DB)                         │  525 tests (17 files)
 └──────────────────────────────────────────────┘
-Total: 663 tests — CI runs all three layers, ~2 min total.
+Total: 706 tests — CI runs all three layers, ~2 min total.
 ```
 
 ### Layer responsibilities
@@ -90,7 +90,7 @@ Before rewriting tests, the codebase must lose its dual-driver baggage:
 
 The following specs replace the old `tests/e2e/*.spec.ts` files. Each file is ~50-150 lines of Playwright, seeds minimal data, runs 3-8 assertions.
 
-#### Implemented (37 tests across 14 spec files) ✅
+#### Implemented (43 tests across 17 spec files) ✅
 
 | Spec file | Journey | Tests |
 |-----------|---------|-------|
@@ -108,6 +108,9 @@ The following specs replace the old `tests/e2e/*.spec.ts` files. Each file is ~5
 | `12-scan-flow.spec.ts` | Paste synthetic tag on /scan, assert match result | 2 |
 | `13-mobile-viewport.spec.ts` | All key pages render correctly at 375×667 | 5 |
 | `14-analytics-page.spec.ts` | /analytics renders (page-analytics testid) + reachable via top-tabs nav | 2 |
+| `11-inventory-multi.spec.ts` | Inventory renders enabled AMS unit by displayName, hides disabled unit; both rack-section testids visible | 2 |
+| `12-admin-racks.spec.ts` | Admin RacksCard renders seeded rack; "Add Rack" opens new-rack dialog | 2 |
+| `13-admin-ams-units.spec.ts` | Admin AmsUnitsCard renders seeded unit row; toggle switch present with aria-checked | 2 |
 
 > **Pages note:** `/inventory` is the single entry point for AMS + rack + workbench + surplus. Older `/ams` and `/storage` routes were removed in the 3.2 redesign (2026-04-21).
 > Real pages with anchors: dashboard, spools, inventory, orders, prints, history, admin, scan (8 total, 7 navigable + root).
