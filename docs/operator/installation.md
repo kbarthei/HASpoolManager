@@ -121,4 +121,4 @@ npm run test:e2e           # E2e tests (requires Docker)
 1. Open the dashboard. It shows an empty state with no spools.
 2. Go to **Orders** and click **"+ Add Order"**. Paste an order confirmation email and the AI parser extracts filament details automatically (requires `anthropic_api_key` / `ANTHROPIC_API_KEY`).
 3. Alternatively, add data manually: create vendors, filaments, and spools through the UI.
-4. Printer sync starts automatically — the addon discovers your Bambu Lab printer via HA websocket. No YAML configuration needed. See `docs/printer-sync.md` for details.
+4. Printer sync starts automatically — the addon discovers your Bambu Lab printer via HA websocket. No YAML configuration needed. See `docs/architecture/sync-worker.md` for details.

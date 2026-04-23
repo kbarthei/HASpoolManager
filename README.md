@@ -168,12 +168,12 @@ npm run db:studio          # Drizzle Studio
 
 | Document | Description |
 |----------|-------------|
-| [Architecture](docs/architecture.md) | System design, data flow, tech decisions |
-| [Installation](docs/installation.md) | Installation and setup guide |
-| [Configuration](docs/configuration.md) | Configuration reference |
-| [API Reference](docs/architecture/api-reference.md) | All API endpoints with request/response examples |
-| [Printer Sync](docs/printer-sync.md) | Printer sync, RFID matching, and fuzzy matching |
-| [Test Strategy](docs/test-strategy.md) | Test pyramid, CI pipeline, spec catalogue |
+| [Docs index](docs/README.md) | Entry point for all documentation |
+| [Architecture](docs/architecture/overview.md) | System design, data flow, tech decisions |
+| [Installation](docs/operator/installation.md) | Installation and setup guide |
+| [Configuration](docs/operator/configuration.md) | Configuration reference |
+| [API Reference](docs/reference/api.md) | All API endpoints with request/response examples |
+| [Testing](docs/development/testing.md) | Test pyramid, CI pipeline, spec catalogue |
 | [User Stories](docs/user-stories/) | Procurement, printing, and spool management workflows |
 
 ---

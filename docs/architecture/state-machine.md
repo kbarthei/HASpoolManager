@@ -465,7 +465,7 @@ error code. The boolean is used solely to distinguish between:
 
 ### Bambu Lab error codes (from MQTT `print_error` integer field)
 
-Background reference: `docs/07-bambulab-printer-states.md`. The codes are
+Background reference: `docs/reference/bambu-printer-states.md`. The codes are
 parsed by `lib/sync-worker.ts:parseRunoutError` to derive the exact slot
 that ran out, enabling precise weight split at the runout point.
 

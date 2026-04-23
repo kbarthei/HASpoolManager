@@ -143,7 +143,7 @@ Every PR:
 □ Zod schema validates request body
 □ data-testid on any new page root + interactive elements
 □ E2e spec for any new user journey
-□ docs/test-strategy.md updated if pyramid counts or spec catalogue changed
+□ docs/development/testing.md updated if pyramid counts or spec catalogue changed
 □ CI green (lint + unit + integration on every push, e2e on main)
 ```
 

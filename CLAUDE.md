@@ -17,11 +17,14 @@
 
 Read these before starting any implementation:
 
-- `docs/architecture.md` — System architecture, container layout, request flow, matching engine
-- `docs/configuration.md` — All config options, HA integration, network ports
-- `docs/printer-sync.md` — Print lifecycle, weight deduction, spool matching, AMS tracking
-- `docs/architecture/api-reference.md` — All 22 API endpoints with request/response examples
-- `docs/architecture/data-model.md` — ER diagram and all 20 tables explained
+- `docs/README.md` — index of all documentation
+- `docs/architecture/overview.md` — system architecture, container layout, request flow
+- `docs/architecture/data-model.md` — ER diagram and every table explained
+- `docs/architecture/state-machine.md` — print-lifecycle state machine + spool-match decision tree
+- `docs/architecture/sync-worker.md` — websocket sync worker, discovery, watchdog (once written)
+- `docs/reference/api.md` — every `/api/v1/*` endpoint with request/response examples
+- `docs/operator/configuration.md` — all config options, HA integration, network ports
+- `docs/development/testing.md` — test pyramid, CI pipeline, spec catalogue
 
 ## Context
 
@@ -79,7 +82,7 @@ testdata/                  # Test data files
 - **Run `npm run test:unit` before committing** — must pass
 - **Run `npm run test:integration` if backend changed** — must pass
 - **New pages need `data-testid="page-<name>"`** on the root element
-- **Keep `docs/test-strategy.md` in sync** — when adding/removing/renaming specs or changing test counts, update the spec catalogue in §4 and the pyramid counts in §1. The strategy doc is the single source of truth for what is tested and what is planned.
+- **Keep `docs/development/testing.md` in sync** — when adding/removing/renaming specs or changing test counts, update the spec catalogue in §4 and the pyramid counts in §1. The strategy doc is the single source of truth for what is tested and what is planned.
 
 ### Test architecture
 
@@ -247,8 +250,8 @@ Never edit a committed migration file — generate a follow-up migration instead
 ### Comments & Documentation
 - Only add comments for **non-obvious logic** — the code should explain the "what", comments explain the "why"
 - No commented-out code — use git history instead
-- Update `docs/test-strategy.md` when adding/removing tests (it's the single source of truth)
-- API endpoint changes → update `docs/architecture/api-reference.md`
+- Update `docs/development/testing.md` when adding/removing tests (it's the single source of truth)
+- API endpoint changes → update `docs/reference/api.md`
 
 ## CRITICAL: Bash Commands
 
