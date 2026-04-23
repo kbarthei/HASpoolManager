@@ -6,6 +6,22 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- - ci: re-trigger CI after webhook miss on dad6cbc (`b7bf81e`)
+- **docs:** encode docs-first rule + refresh key-docs index (`dad6cbc`)
+- **docs:** add 3 development guides + drop legacy printer-sync (Phase C Batch 5) (`d54a8b7`)
+- **docs:** add 3 reference tables (Phase C Batch 4) (`fc6997f`)
+- **docs:** add 3 operator guides (Phase C Batch 3) (`d3e89af`)
+- **docs:** add 5 architecture deep-dives (Phase C Batch 2) (`fdfe7a5`)
+- **docs:** add index + developer getting-started (Phase C Batch 1) (`2755a1a`)
+- **docs:** restructure into audience-based directory layout (Phase B) (`87da771`)
+- **chore:** fix stale content flagged by audit (`3180b19`)
+- **docs:** clean up legacy doc cruft — current solution only (`cf4b1c6`)
+- - refactor(api): normalize response shape — drop legacy {data:} wrapper (`39397d5`)
+- **chore:** drop dead columns — D.2 + E.1 + E.2 — aggressive cleanup (`3dafc1c`)
+- **feat:** drop prints.active_spool_id (D.1) — fully unified spool tracking (`bffa3e6`)
+- **chore:** eliminate historical migration cruft — Phase 2 (B.1–B.4) (`7de15ee`)
+- **chore:** eliminate legacy back-compat layer — Phase 1 (A + C.1–C.5) (`30e457d`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`d4b2667`)
 - **fix:** replace flaky click-test with button-visibility check (`0b3c5f8`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`f2bf517`)
 - **fix:** retry click+visibility via expect.toPass for hydration race (`8818e63`)
