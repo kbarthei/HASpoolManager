@@ -6,6 +6,10 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- **fix:** two-step confirm for bulk add — click selects, button creates (`bf47dac`)
+- **fix:** upload/delete photos via Server Actions — not fetch + requireAuth (`5dce660`)
+- **chore:** sync v1.1.5 version bump from last deploy (`ecdde0b`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`f0e8fae`)
 - **fix:** use named fs import instead of require() (`e97864e`)
 - **feat:** unified photo gallery + fix broken cover/snapshot capture (E4) (`08f0d8f`)
 - **feat:** live filament cost preview for running prints (C2) (`2674d84`)
