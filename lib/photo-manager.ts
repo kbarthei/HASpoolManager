@@ -1,4 +1,4 @@
-import { mkdirSync, readdirSync, statSync, unlinkSync, writeFileSync } from "fs";
+import { mkdirSync, readdirSync, rmdirSync, statSync, unlinkSync, writeFileSync } from "fs";
 import path from "path";
 import { eq } from "drizzle-orm";
 import { db } from "./db";
@@ -130,7 +130,7 @@ export function deletePrintPhotoDir(printId: string): void {
       }
     }
     try {
-      require("fs").rmdirSync(dir);
+      rmdirSync(dir);
     } catch {
     }
   } catch {
