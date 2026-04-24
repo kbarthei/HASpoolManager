@@ -6,6 +6,16 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- **fix:** use named fs import instead of require() (`e97864e`)
+- **feat:** unified photo gallery + fix broken cover/snapshot capture (E4) (`08f0d8f`)
+- **feat:** live filament cost preview for running prints (C2) (`2674d84`)
+- **feat:** bulk-add 1–100 identical spools in one action (C3) (`0ee654b`)
+- **feat:** CSV export for prints/spools/orders (E8) (`3d0e599`)
+- **feat:** warn on print-start without matched spools (H1) (`77d884f`)
+- **feat:** scheduled daily SQLite backups with manual trigger (J2) (`be1db2e`)
+- **feat:** import Bambu HMS message catalog for diagnostics (A2) (`ca746e1`)
+- **chore:** sync v1.1.4 version bump from last deploy (`f6edd26`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`8e9f365`)
 - - ci: re-trigger CI after webhook miss on dad6cbc (`b7bf81e`)
 - **docs:** encode docs-first rule + refresh key-docs index (`dad6cbc`)
 - **docs:** add 3 development guides + drop legacy printer-sync (Phase C Batch 5) (`d54a8b7`)
