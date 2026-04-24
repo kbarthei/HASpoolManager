@@ -12,6 +12,7 @@ import { costTooltip } from "@/lib/format-cost";
 import { CostTooltip } from "@/components/prints/cost-tooltip";
 import { ClearStaleButton } from "@/components/prints/clear-stale-button";
 import { ExportCsvButton } from "@/components/export-csv-button";
+import { computeCostEstimate } from "@/lib/print-cost-estimate";
 import { cn } from "@/lib/utils";
 import {
   getPrintStuck,
@@ -122,6 +123,12 @@ export default async function PrintHistoryPage({
 
   const runningPrints = allPrints.filter((p) => p.status === "running");
   const completedPrints = allPrints.filter((p) => p.status !== "running");
+
+  const runningEstimates = new Map(
+    await Promise.all(
+      runningPrints.map(async (p) => [p.id, await computeCostEstimate(p.id)] as const),
+    ),
+  );
 
   const totalWeight = allPrints.reduce((sum, p) => {
     const w = p.usage.reduce((s, u) => s + u.weightUsed, 0);
@@ -263,6 +270,19 @@ export default async function PrintHistoryPage({
                       {Math.round(printerStatus.remainingTime ?? 0)}min left
                     </span>
                   )}
+                  {(() => {
+                    const est = runningEstimates.get(print.id);
+                    if (!est || est.estimated_cost_eur == null) return null;
+                    return (
+                      <span
+                        className="font-[family-name:var(--font-geist-mono)] tabular-nums text-primary"
+                        title={`${est.estimated_weight_used_g.toFixed(1)} g of ${est.total_weight_g ?? "?"} g at ${est.progress_percent}% · Ø ${(est.spools.reduce((s, x) => s + (x.cost_per_gram ?? 0), 0) / Math.max(1, est.spools.filter((x) => x.cost_per_gram != null).length)).toFixed(4)} ${est.currency}/g`}
+                        data-testid="print-cost-estimate"
+                      >
+                        ≈ {est.currency === "EUR" ? "€" : est.currency} {est.estimated_cost_eur.toFixed(2)}
+                      </span>
+                    );
+                  })()}
                 </div>
               </Card>
             ))}

@@ -358,6 +358,41 @@ Update a print record (e.g. add notes, correct status).
 - **Body:** Any subset of print fields; `finishedAt` parsed as ISO date
 - **Response:** `Print` or `404`
 
+#### `GET /api/v1/prints/:id/cost-estimate`
+
+Live cost estimate for a running or finished print. For running prints
+the estimate is `printWeight × progress% × avg(cost_per_gram across active spools)`.
+Finished prints are treated as 100% progress.
+
+- **Auth:** `optionalAuth`
+- **Response:**
+```json
+{
+  "print_id": "uuid",
+  "status": "running",
+  "progress_percent": 40,
+  "total_weight_g": 100,
+  "estimated_weight_used_g": 40,
+  "estimated_cost_eur": 0.8,
+  "currency": "EUR",
+  "spools": [
+    {
+      "spool_id": "uuid",
+      "vendor": "Bambu Lab",
+      "material": "PLA",
+      "purchase_price": 20.0,
+      "initial_weight": 1000,
+      "cost_per_gram": 0.02
+    }
+  ],
+  "warnings": []
+}
+```
+
+Common `warnings` entries: `"No sync data yet for this printer"`,
+`"Active spools have no purchase price — cost cannot be estimated"`,
+`"Print weight not yet known"`, `"No active spools matched"`.
+
 ---
 
 ### Orders
