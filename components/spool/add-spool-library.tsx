@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { SpoolColorDot } from "./spool-color-dot";
 import { SpoolMaterialBadge } from "./spool-material-badge";
 import { createSpoolsFromFilament } from "@/lib/actions";
 import { toast } from "sonner";
-import { Loader2, Search } from "lucide-react";
+import { Loader2, Search, Check } from "lucide-react";
 
 type FilamentOption = {
   id: string;
@@ -27,7 +28,8 @@ export function AddSpoolLibrary({
   const [search, setSearch] = useState("");
   const [count, setCount] = useState(1);
   const [lotBase, setLotBase] = useState("");
-  const [creating, setCreating] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
 
   const filtered = filaments.filter((f) => {
     if (!search.trim()) return true;
@@ -40,11 +42,14 @@ export function AddSpoolLibrary({
     );
   });
 
-  async function handleSelect(filamentId: string) {
-    setCreating(filamentId);
+  const selected = filaments.find((f) => f.id === selectedId) ?? null;
+
+  async function handleConfirm() {
+    if (!selected) return;
+    setCreating(true);
     try {
       const safeCount = Math.max(1, Math.min(100, count));
-      const created = await createSpoolsFromFilament(filamentId, {
+      const created = await createSpoolsFromFilament(selected.id, {
         initialWeight: 1000,
         count: safeCount,
         lotNumber: lotBase.trim() || null,
@@ -54,7 +59,7 @@ export function AddSpoolLibrary({
     } catch {
       toast.error("Failed to create spool");
     } finally {
-      setCreating(null);
+      setCreating(false);
     }
   }
 
@@ -98,56 +103,86 @@ export function AddSpoolLibrary({
           />
         </div>
       </div>
-      {count > 1 && (
-        <p className="text-[10px] text-muted-foreground">
-          {count} spools werden erzeugt
-          {lotBase.trim() && `, Lot-Nummern: ${lotBase.trim()}-001 … ${lotBase.trim()}-${String(count).padStart(3, "0")}`}
-          .
-        </p>
-      )}
 
-      <div className="max-h-[320px] overflow-y-auto space-y-1 pr-1">
+      <div className="max-h-[280px] overflow-y-auto space-y-1 pr-1">
         {filtered.length === 0 ? (
           <p className="text-xs text-muted-foreground text-center py-8">
             No filaments found.
           </p>
         ) : (
-          filtered.map((f) => (
-            <button
-              key={f.id}
-              disabled={creating === f.id}
-              onClick={() => handleSelect(f.id)}
-              className="flex items-center gap-2.5 w-full rounded-lg border border-border bg-card px-3 py-2 text-left transition-colors hover:bg-muted/50 disabled:opacity-50"
-            >
-              <SpoolColorDot hex={f.colorHex ?? "888888"} size="sm" />
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium truncate">
-                  {f.vendor.name} {f.name}
-                </p>
-                <div className="flex items-center gap-1.5 mt-0.5">
-                  <SpoolMaterialBadge material={f.material} />
-                  {f.colorName && (
-                    <span className="text-[10px] text-muted-foreground">
-                      {f.colorName}
-                    </span>
-                  )}
+          filtered.map((f) => {
+            const isSelected = f.id === selectedId;
+            return (
+              <button
+                key={f.id}
+                type="button"
+                disabled={creating}
+                onClick={() => setSelectedId(f.id)}
+                data-testid={`filament-option-${f.id}`}
+                className={`flex items-center gap-2.5 w-full rounded-lg border px-3 py-2 text-left transition-colors ${
+                  isSelected
+                    ? "bg-primary/15 border-primary ring-2 ring-primary/40"
+                    : "bg-card border-border hover:bg-muted/50"
+                } disabled:opacity-50`}
+              >
+                <SpoolColorDot hex={f.colorHex ?? "888888"} size="sm" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium truncate">
+                    {f.vendor.name} {f.name}
+                  </p>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <SpoolMaterialBadge material={f.material} />
+                    {f.colorName && (
+                      <span className="text-[10px] text-muted-foreground">
+                        {f.colorName}
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </div>
-              {creating === f.id ? (
-                <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
-              ) : (
-                <span className="text-xs text-muted-foreground">+</span>
-              )}
-            </button>
-          ))
+                {isSelected && <Check className="size-4 text-primary shrink-0" />}
+              </button>
+            );
+          })
         )}
       </div>
 
-      {filaments.length > 0 && (
-        <p className="text-[10px] text-muted-foreground text-center">
-          {filaments.length} filament{filaments.length !== 1 ? "s" : ""} in library
-        </p>
-      )}
+      <div className="sticky bottom-0 bg-background border-t border-border pt-3 -mx-1 px-1 flex items-center gap-2">
+        <div className="flex-1 text-[11px] text-muted-foreground">
+          {selected ? (
+            <>
+              <strong className="text-foreground">{selected.vendor.name} {selected.name}</strong>
+              {count > 1 && <span> × {count}</span>}
+              {lotBase.trim() && count > 1 && (
+                <span className="block mt-0.5">
+                  Lot: {lotBase.trim()}-001 … {lotBase.trim()}-{String(count).padStart(3, "0")}
+                </span>
+              )}
+              {lotBase.trim() && count === 1 && (
+                <span className="block mt-0.5">Lot: {lotBase.trim()}</span>
+              )}
+            </>
+          ) : (
+            <span>Select a filament to create spools.</span>
+          )}
+        </div>
+        <Button
+          type="button"
+          size="sm"
+          disabled={!selected || creating}
+          onClick={handleConfirm}
+          data-testid="bulk-confirm-btn"
+          className="shrink-0"
+        >
+          {creating ? (
+            <>
+              <Loader2 className="size-3.5 animate-spin" />
+              Creating…
+            </>
+          ) : (
+            <>Create {count > 1 ? `${count} spools` : "spool"}</>
+          )}
+        </Button>
+      </div>
     </div>
   );
 }

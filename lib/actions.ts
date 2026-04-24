@@ -957,6 +957,64 @@ export async function deleteBackupAction(filename: string): Promise<{ ok: boolea
   }
 }
 
+export async function uploadPrintPhotoAction(
+  printId: string,
+  formData: FormData,
+): Promise<{ ok: boolean; photo?: { path: string; kind: string; captured_at: string | null }; error?: string }> {
+  try {
+    const {
+      ALLOWED_MIME_TYPES,
+      MAX_PHOTO_BYTES,
+      MAX_USER_PHOTOS_PER_PRINT,
+      getPhotos,
+      listUserPhotoCount,
+      savePhoto,
+    } = await import("./photo-manager");
+
+    const existing = await db.query.prints.findFirst({ where: eq(prints.id, printId), columns: { id: true } });
+    if (!existing) return { ok: false, error: "Print not found" };
+
+    const current = await getPhotos(printId);
+    if (listUserPhotoCount(current) >= MAX_USER_PHOTOS_PER_PRINT) {
+      return { ok: false, error: `User-photo limit reached (${MAX_USER_PHOTOS_PER_PRINT})` };
+    }
+
+    const file = formData.get("photo");
+    if (!(file instanceof File)) return { ok: false, error: "Missing photo" };
+    if (file.size > MAX_PHOTO_BYTES) {
+      return { ok: false, error: `Photo too large (max ${Math.round(MAX_PHOTO_BYTES / 1024 / 1024)}MB)` };
+    }
+    if (!ALLOWED_MIME_TYPES.has(file.type)) {
+      return { ok: false, error: `Unsupported mime type ${file.type}` };
+    }
+
+    const ext = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const saved = await savePhoto(printId, buffer, "user", ext);
+    revalidatePath("/prints");
+    return { ok: true, photo: saved };
+  } catch (error) {
+    console.error("uploadPrintPhotoAction error:", error);
+    return { ok: false, error: "Upload failed" };
+  }
+}
+
+export async function deletePrintPhotoAction(
+  printId: string,
+  filename: string,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const { deletePhoto } = await import("./photo-manager");
+    const ok = await deletePhoto(printId, filename);
+    if (!ok) return { ok: false, error: "Photo not found" };
+    revalidatePath("/prints");
+    return { ok: true };
+  } catch (error) {
+    console.error("deletePrintPhotoAction error:", error);
+    return { ok: false, error: "Delete failed" };
+  }
+}
+
 export async function updateEnergySettings(data: {
   energySensorEntityId: string | null;
   electricityPricePerKwh: number | null;
