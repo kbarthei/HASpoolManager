@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- **fix:** ship app as tarball + ADD to bypass BuildKit checksum bug (`14fa951`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`c46300d`)
 - **fix:** two-step confirm for bulk add — click selects, button creates (`bf47dac`)
 - **fix:** upload/delete photos via Server Actions — not fetch + requireAuth (`5dce660`)
 - **chore:** sync v1.1.5 version bump from last deploy (`ecdde0b`)
