@@ -3,6 +3,7 @@
 import { useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Image as ImageIcon, Trash2, Upload } from "lucide-react";
+import { uploadPrintPhotoAction, deletePrintPhotoAction } from "@/lib/actions";
 
 export interface PhotoEntry {
   path: string;
@@ -42,17 +43,17 @@ export function PrintPhotoGallery({ printId, initialPhotos }: PrintPhotoGalleryP
       const body = new FormData();
       body.append("photo", file);
       try {
-        const res = await fetch(`/api/v1/prints/${printId}/photos`, {
-          method: "POST",
-          body,
-        });
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({ error: "Upload failed" }));
-          toast.error(err.error ?? "Upload failed");
+        const result = await uploadPrintPhotoAction(printId, body);
+        if (!result.ok) {
+          toast.error(result.error ?? "Upload failed");
           return;
         }
-        const data = await res.json();
-        setPhotos((prev) => [...prev, data.photo]);
+        if (result.photo) {
+          setPhotos((prev) => [
+            ...prev,
+            { path: result.photo!.path, kind: result.photo!.kind as PhotoEntry["kind"], captured_at: result.photo!.captured_at },
+          ]);
+        }
         toast.success("Photo uploaded");
       } catch {
         toast.error("Upload failed");
@@ -64,12 +65,9 @@ export function PrintPhotoGallery({ printId, initialPhotos }: PrintPhotoGalleryP
     if (!confirm(`Delete this ${entry.kind}?`)) return;
     const filename = filenameOf(entry);
     try {
-      const res = await fetch(
-        `/api/v1/prints/${printId}/photos/${encodeURIComponent(filename)}`,
-        { method: "DELETE" },
-      );
-      if (!res.ok) {
-        toast.error("Delete failed");
+      const result = await deletePrintPhotoAction(printId, filename);
+      if (!result.ok) {
+        toast.error(result.error ?? "Delete failed");
         return;
       }
       setPhotos((prev) => prev.filter((p) => p.path !== entry.path));
