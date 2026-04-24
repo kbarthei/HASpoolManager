@@ -6,8 +6,12 @@ RUN apk add --no-cache nodejs npm jq nginx wget icu-data-full
 
 WORKDIR /app
 
-# Copy the pre-built Next.js standalone output (staged by build-addon.sh)
-COPY app/ ./
+# Copy the pre-built Next.js standalone output (staged by build-addon.sh).
+# Use ADD with a tarball instead of COPY on a directory tree: HA's BuildKit
+# hits a path-checksum bug on the large recursive app/ dir, yielding
+# `"/app": not found` during the COPY step. Shipping as a single .tar.gz
+# avoids the directory traversal entirely; ADD auto-extracts.
+ADD app.tar.gz ./
 
 # Next.js standalone stripped better-sqlite3 down to its .node binary
 # (built for the dev host's arch). Install a fresh copy so prebuild-install

@@ -63,7 +63,17 @@ if [ ! -f "$STAGE_DIR/haspoolmanager/app/server.js" ]; then
   exit 1
 fi
 
-echo "==> Packing tar..."
+echo "==> Packing app into inner tarball (workaround for BuildKit directory-checksum bug on HA)..."
+# HA's BuildKit fails to compute checksums for the recursive app/ directory
+# when it contains many files, yielding '"/app": not found' during COPY.
+# Shipping the app as a single tar.gz file inside the addon dir lets the
+# Dockerfile use ADD, which reads one file and auto-extracts.
+cd "$STAGE_DIR/haspoolmanager" \
+  && tar -czf app.tar.gz -C app . \
+  && rm -rf app \
+  && cd "$REPO_DIR"
+
+echo "==> Packing outer tar..."
 rm -f "$TAR_OUT"
 tar -czf "$TAR_OUT" -C "$STAGE_DIR" haspoolmanager
 
