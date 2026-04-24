@@ -14,6 +14,7 @@ import { RacksCard } from "./racks-card";
 import { AmsUnitsCard } from "./ams-units-card";
 import { ImportOrdersCard } from "./import-orders-card";
 import { AdminTools } from "./admin-tools";
+import { BackupsCard } from "./backups-card";
 import { PrinterMappings } from "./printer-mappings";
 import { EnergySettings } from "./energy-settings";
 import { DataQualityCard } from "./data-quality-card";
@@ -442,6 +443,9 @@ export default async function AdminPage() {
         <h2 className="text-sm font-semibold">Build &amp; Cache</h2>
         <AdminTools buildInfo={buildInfo} />
       </Card>
+
+      {/* ── Backups ──────────────────────────────────────────────────── */}
+      <BackupsCard />
 
       </div>
     </div>

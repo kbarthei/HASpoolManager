@@ -963,6 +963,56 @@ Run a single write statement (UPDATE/INSERT/DELETE) with positional parameter bi
 }
 ```
 
+### `GET /api/v1/admin/backup`
+
+List all automated backups.
+
+- **Auth:** `optionalAuth`
+- **Response:**
+```json
+{
+  "backups": [
+    {
+      "filename": "haspoolmanager-2026-04-24T03-00-05.db.gz",
+      "size": 2847293,
+      "createdAt": "2026-04-24T01:00:05.000Z"
+    }
+  ],
+  "retentionDays": 14
+}
+```
+
+### `POST /api/v1/admin/backup`
+
+Trigger an on-demand backup. Also runs retention cleanup.
+
+- **Auth:** `requireAuth`
+- **Response:**
+```json
+{
+  "ok": true,
+  "filename": "haspoolmanager-2026-04-24T09-17-44.db.gz",
+  "size": 2847293,
+  "durationMs": 142,
+  "cleanupDeleted": 0
+}
+```
+
+### `GET /api/v1/admin/backup/[filename]`
+
+Stream a backup file as gzip download. Filename is validated against
+the `haspoolmanager-*.db.gz` pattern; path traversal is blocked.
+
+- **Auth:** `optionalAuth` (LAN-only; file is also accessible via SMB)
+- **Response:** `application/gzip` stream with `Content-Disposition: attachment`
+
+### `DELETE /api/v1/admin/backup/[filename]`
+
+Delete a single backup file.
+
+- **Auth:** `requireAuth`
+- **Response:** `{ "ok": true }` or `404` if the filename doesn't resolve.
+
 ## 9. Racks (multi-rack support)
 
 ### `GET /api/v1/racks`

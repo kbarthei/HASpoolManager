@@ -912,6 +912,36 @@ export async function purgeAllCaches() {
   return true;
 }
 
+export async function triggerBackupAction(): Promise<{ ok: boolean; filename?: string; size?: number; error?: string }> {
+  try {
+    const { runBackup, cleanupOldBackups } = await import("./backup-manager");
+    const result = await runBackup();
+    cleanupOldBackups();
+    revalidatePath("/admin");
+    return { ok: true, filename: result.filename, size: result.size };
+  } catch (error) {
+    console.error("triggerBackupAction error:", error);
+    return { ok: false, error: "Backup failed" };
+  }
+}
+
+export async function deleteBackupAction(filename: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const { resolveBackupFile } = await import("./backup-manager");
+    const fullPath = resolveBackupFile(filename);
+    if (!fullPath) {
+      return { ok: false, error: "Backup not found" };
+    }
+    const { unlinkSync } = await import("fs");
+    unlinkSync(fullPath);
+    revalidatePath("/admin");
+    return { ok: true };
+  } catch (error) {
+    console.error("deleteBackupAction error:", error);
+    return { ok: false, error: "Delete failed" };
+  }
+}
+
 export async function updateEnergySettings(data: {
   energySensorEntityId: string | null;
   electricityPricePerKwh: number | null;

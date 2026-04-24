@@ -58,6 +58,8 @@ function parseRunoutError(errorCode: number): { amsUnit: number; trayIndex: numb
 const printers = new Map<string, PrinterSyncState>(); // deviceId → state
 let wsClient: HAWebSocketClient | null = null;
 let watchdogTimer: ReturnType<typeof setInterval> | null = null;
+let backupSchedulerTimer: ReturnType<typeof setInterval> | null = null;
+let backupSmokeTimer: ReturnType<typeof setTimeout> | null = null;
 
 // ── Energy tracking cache ───────────────────────────────────────────────────
 let energySensorEntityId: string | null = null;
@@ -689,6 +691,60 @@ function startWatchdog() {
   }, 30_000); // check every 30s
 }
 
+// ── Backup scheduler ─────────────────────────────────────────────────────────
+
+const BACKUP_TIMEZONE = "Europe/Berlin";
+const BACKUP_HOUR = 3;
+
+function getLocalDateKey(date: Date = new Date()): string {
+  return date.toLocaleDateString("en-CA", { timeZone: BACKUP_TIMEZONE });
+}
+
+function getLocalHour(date: Date = new Date()): number {
+  const hourStr = date.toLocaleTimeString("en-GB", { timeZone: BACKUP_TIMEZONE, hour: "2-digit", hour12: false });
+  return parseInt(hourStr.split(":")[0] ?? "0", 10);
+}
+
+async function maybeRunScheduledBackup(): Promise<void> {
+  try {
+    const { listBackups, runBackup, cleanupOldBackups } = await import("./backup-manager");
+    const todayKey = getLocalDateKey();
+    const backups = listBackups();
+    const hasTodayBackup = backups.some((b) => getLocalDateKey(b.createdAt) === todayKey);
+    if (hasTodayBackup) return;
+    const hour = getLocalHour();
+    if (hour !== BACKUP_HOUR) return;
+    console.log("[backup] starting scheduled daily backup");
+    const result = await runBackup();
+    const cleanup = cleanupOldBackups();
+    console.log(`[backup] ${result.filename} (${Math.round(result.size / 1024)}KB, ${result.durationMs}ms); deleted ${cleanup.deleted.length} old backup(s)`);
+  } catch (error) {
+    console.error("[backup] scheduled backup failed:", (error as Error).message);
+  }
+}
+
+async function runSmokeBackup(): Promise<void> {
+  try {
+    const { listBackups, runBackup } = await import("./backup-manager");
+    const backups = listBackups();
+    if (backups.length > 0) {
+      console.log(`[backup] smoke-test skipped — ${backups.length} existing backup(s) found`);
+      return;
+    }
+    console.log("[backup] running startup smoke-test backup (first run)");
+    const result = await runBackup();
+    console.log(`[backup] smoke-test ok: ${result.filename} (${Math.round(result.size / 1024)}KB, ${result.durationMs}ms)`);
+  } catch (error) {
+    console.error("[backup] smoke-test failed:", (error as Error).message);
+  }
+}
+
+function startBackupScheduler(): void {
+  backupSchedulerTimer = setInterval(maybeRunScheduledBackup, 60 * 60 * 1000);
+  backupSmokeTimer = setTimeout(runSmokeBackup, 60_000);
+  console.log(`[backup] scheduler started — daily at ${String(BACKUP_HOUR).padStart(2, "0")}:00 ${BACKUP_TIMEZONE}`);
+}
+
 // ── Main ─────────────────────────────────────────────────────────────────────
 
 export async function startSyncWorker(): Promise<void> {
@@ -722,6 +778,9 @@ export async function startSyncWorker(): Promise<void> {
 
         // Start watchdog
         startWatchdog();
+
+        // Start backup scheduler
+        startBackupScheduler();
       } catch (error) {
         console.error("[sync-worker] subscription error:", error);
       }
@@ -744,6 +803,14 @@ export function stopSyncWorker(): void {
   if (watchdogTimer) {
     clearInterval(watchdogTimer);
     watchdogTimer = null;
+  }
+  if (backupSchedulerTimer) {
+    clearInterval(backupSchedulerTimer);
+    backupSchedulerTimer = null;
+  }
+  if (backupSmokeTimer) {
+    clearTimeout(backupSmokeTimer);
+    backupSmokeTimer = null;
   }
   wsClient?.destroy();
   wsClient = null;

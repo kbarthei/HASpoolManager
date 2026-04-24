@@ -95,6 +95,12 @@ around for at least 30 days after a feature ships. See
 [`../operator/operations-runbook.md`](../operator/operations-runbook.md) §3
 for the restore sequence.
 
+**Note on automated backups:** the sync-worker runs a daily gzipped
+backup at 03:00 Europe/Berlin into `/config/haspoolmanager/backups/`
+(retention 14d). That cadence is a safety net for day-to-day
+corruption — it does **not** replace the named pre-deploy snapshot
+above. Always snapshot manually before schema changes.
+
 ---
 
 ## 5. Post-deploy verification
