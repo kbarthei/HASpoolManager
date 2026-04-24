@@ -26,6 +26,7 @@ import {
 } from "@/lib/actions";
 import { IdentifySpoolDialog } from "./identify-spool-dialog";
 import { AddSpoolDialog } from "@/components/spool/add-spool-dialog";
+import { ExportCsvButton } from "@/components/export-csv-button";
 
 type Spool = {
   id: string;
@@ -168,6 +169,7 @@ export function SpoolsClient({
           </span>
         </h1>
         <div className="flex items-center gap-2">
+          <ExportCsvButton href="/api/v1/export/spools" />
           <ViewToggle view={initialView} onViewChange={handleViewChange} />
           {!isArchiveView && (
             <AddSpoolDialog filaments={allFilaments} spools={spools} />

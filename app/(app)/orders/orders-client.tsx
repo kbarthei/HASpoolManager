@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { Plus, ShoppingCart, Check, ChevronRight } from "lucide-react";
+import { ExportCsvButton } from "@/components/export-csv-button";
 import { useRouter } from "next/navigation";
 import { ShoppingList } from "@/components/orders/shopping-list";
 
@@ -443,14 +444,17 @@ export function OrdersClient({
       {/* Page header */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">Orders</h1>
-        <Button
-          size="sm"
-          data-testid="btn-add-order"
-          onClick={() => setAddOpen(true)}
-          className="h-9 text-sm gap-1.5"
-        >
-          <Plus className="h-3.5 w-3.5" /> Add Order
-        </Button>
+        <div className="flex items-center gap-2">
+          <ExportCsvButton href="/api/v1/export/orders" />
+          <Button
+            size="sm"
+            data-testid="btn-add-order"
+            onClick={() => setAddOpen(true)}
+            className="h-9 text-sm gap-1.5"
+          >
+            <Plus className="h-3.5 w-3.5" /> Add Order
+          </Button>
+        </div>
       </div>
 
       {/* 2-column grid on desktop; single-column on mobile */}

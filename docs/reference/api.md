@@ -1013,6 +1013,37 @@ Delete a single backup file.
 - **Auth:** `requireAuth`
 - **Response:** `{ "ok": true }` or `404` if the filename doesn't resolve.
 
+## 8b. Export (CSV)
+
+Flat-file exports of the three primary domain tables. One row per record,
+RFC-4180-compliant CSV with UTF-8 encoding. Same data the corresponding
+list pages render — intended for external analysis (Excel, tax prep,
+archival).
+
+All three use `optionalAuth` (matches the list endpoints the browser
+already hits) and stream the result with `Content-Disposition: attachment`.
+
+### `GET /api/v1/export/prints`
+
+- **Query params:** `from=YYYY-MM-DD`, `to=YYYY-MM-DD` — optional, filter by `started_at`.
+- **Columns:** `id, name, printer_name, status, started_at, finished_at, duration_seconds, print_weight_g, filament_cost, energy_cost, total_cost, gcode_file`.
+- **Filename:** `haspoolmanager-prints-YYYY-MM-DD.csv`.
+
+### `GET /api/v1/export/spools`
+
+- **Query params:** `include_archived=1` — include spools with `status='archived'` (excluded by default).
+- **Columns:** `id, filament_name, vendor, material, color_hex, bambu_idx, initial_weight_g, remaining_weight_g, location, status, purchase_price, currency, purchase_date, lot_number, first_used_at, last_used_at`.
+- **Filename:** `haspoolmanager-spools-YYYY-MM-DD.csv`.
+
+### `GET /api/v1/export/orders`
+
+- **Query params:** `from=YYYY-MM-DD`, `to=YYYY-MM-DD` — optional, filter by `order_date`.
+- **Columns:** `id, order_date, order_number, vendor, status, item_count, total_cost, shipping_cost, currency, expected_delivery, actual_delivery, source_url`.
+- **Filename:** `haspoolmanager-orders-YYYY-MM-DD.csv`.
+
+xlsx export is deliberately out of scope for Wave 1 — if needed later,
+add a `format=xlsx` branch driven by an optional `exceljs` dependency.
+
 ## 9. Racks (multi-rack support)
 
 ### `GET /api/v1/racks`

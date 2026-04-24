@@ -11,6 +11,7 @@ import { formatDateTime, formatDateLong, formatDateShort } from "@/lib/date";
 import { costTooltip } from "@/lib/format-cost";
 import { CostTooltip } from "@/components/prints/cost-tooltip";
 import { ClearStaleButton } from "@/components/prints/clear-stale-button";
+import { ExportCsvButton } from "@/components/export-csv-button";
 import { cn } from "@/lib/utils";
 import {
   getPrintStuck,
@@ -162,12 +163,15 @@ export default async function PrintHistoryPage({
       )}
 
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Print History</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          {allPrints.length} prints · {totalWeight.toFixed(0)} g filament used
-          {totalCost > 0 && ` · €${totalCost.toFixed(2)} spent`}
-        </p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Print History</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            {allPrints.length} prints · {totalWeight.toFixed(0)} g filament used
+            {totalCost > 0 && ` · €${totalCost.toFixed(2)} spent`}
+          </p>
+        </div>
+        <ExportCsvButton href="/api/v1/export/prints" />
       </div>
 
       {/* 3-up summary */}
