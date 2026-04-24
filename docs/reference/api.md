@@ -358,6 +358,48 @@ Update a print record (e.g. add notes, correct status).
 - **Body:** Any subset of print fields; `finishedAt` parsed as ISO date
 - **Response:** `Print` or `404`
 
+#### `GET /api/v1/prints/:id/photos`
+
+List photos attached to a print — system-captured (cover/snapshot) and
+user-uploaded.
+
+- **Auth:** `optionalAuth`
+- **Response:**
+```json
+{
+  "photos": [
+    { "path": "<printId>/cover-2026-04-24T10-00-00-000Z-ab12cd34.jpg",
+      "kind": "cover",
+      "captured_at": "2026-04-24T10:00:00.000Z" },
+    { "path": "<printId>/user-2026-04-24T11-30-00-000Z-ef56gh78.jpg",
+      "kind": "user",
+      "captured_at": "2026-04-24T11:30:00.000Z" }
+  ]
+}
+```
+
+#### `POST /api/v1/prints/:id/photos`
+
+Upload a user photo (multipart/form-data, field name `photo`).
+
+- **Auth:** `requireAuth`
+- **Limits:** 5 user photos per print, max 5 MB each, `image/jpeg | image/png | image/webp`. Cover + snapshot don't count toward the user-photo limit.
+- **Response:** `201 { ok: true, photo: PhotoEntry }` or `400` on limit/mime/size violation or `404` for unknown print.
+
+#### `GET /api/v1/prints/:id/photos/:filename`
+
+Stream a photo file with its mime type.
+
+- **Auth:** `optionalAuth`
+- **Response:** `image/jpeg | image/png | image/webp` stream, or `404` if filename contains path traversal chars or does not exist.
+
+#### `DELETE /api/v1/prints/:id/photos/:filename`
+
+Remove a single photo (file + JSON-array entry). Works for all kinds.
+
+- **Auth:** `requireAuth`
+- **Response:** `{ ok: true }` or `404`.
+
 #### `GET /api/v1/prints/:id/cost-estimate`
 
 Live cost estimate for a running or finished print. For running prints

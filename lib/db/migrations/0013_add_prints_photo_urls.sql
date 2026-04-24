@@ -1,0 +1,1 @@
+ALTER TABLE `prints` ADD `photo_urls` text;

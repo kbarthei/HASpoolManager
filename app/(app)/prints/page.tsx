@@ -12,7 +12,25 @@ import { costTooltip } from "@/lib/format-cost";
 import { CostTooltip } from "@/components/prints/cost-tooltip";
 import { ClearStaleButton } from "@/components/prints/clear-stale-button";
 import { ExportCsvButton } from "@/components/export-csv-button";
+import { PrintPhotoGallery, type PhotoEntry } from "@/components/prints/print-photo-gallery";
 import { computeCostEstimate } from "@/lib/print-cost-estimate";
+
+function parsePhotos(photoUrls: string | null): PhotoEntry[] {
+  if (!photoUrls) return [];
+  try {
+    const parsed = JSON.parse(photoUrls);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (e): e is PhotoEntry =>
+        e &&
+        typeof e === "object" &&
+        typeof e.path === "string" &&
+        (e.kind === "cover" || e.kind === "snapshot" || e.kind === "user"),
+    );
+  } catch {
+    return [];
+  }
+}
 import { cn } from "@/lib/utils";
 import {
   getPrintStuck,
@@ -323,27 +341,13 @@ export default async function PrintHistoryPage({
                       )}
                     </div>
 
-                    {/* Thumbnails */}
-                    {(print.coverImagePath || print.snapshotPath) && (
-                      <div className="flex gap-1 shrink-0">
-                        {print.coverImagePath && (
-                          <img
-                            src={`/api/v1/snapshots/${print.coverImagePath.replace("snapshots/", "")}`}
-                            alt="3D preview"
-                            className="h-10 w-10 rounded-md object-cover bg-muted"
-                            loading="lazy"
-                          />
-                        )}
-                        {print.snapshotPath && (
-                          <img
-                            src={`/api/v1/snapshots/${print.snapshotPath.replace("snapshots/", "")}`}
-                            alt="Print result"
-                            className="h-10 w-10 rounded-md object-cover bg-muted"
-                            loading="lazy"
-                          />
-                        )}
-                      </div>
-                    )}
+                    {/* Photo Gallery (cover + snapshot + user uploads) */}
+                    <div className="shrink-0">
+                      <PrintPhotoGallery
+                        printId={print.id}
+                        initialPhotos={parsePhotos(print.photoUrls)}
+                      />
+                    </div>
 
                     {/* Body */}
                     <div className="flex-1 min-w-0">

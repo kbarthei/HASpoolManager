@@ -217,11 +217,25 @@ Print job records. Created by `print-started` event, closed by `print-finished`.
 | `print_weight` | real | Actual weight used (grams) |
 | `print_length` | real | Actual length used (mm) |
 | `total_cost` | numeric(8,2) | Sum of per-spool costs |
+| `cover_image_path` | text | **Legacy** — 3D-model preview path. Backfilled into `photo_urls`; will be dropped in a later cleanup |
+| `snapshot_path` | text | **Legacy** — camera still path. Backfilled into `photo_urls`; will be dropped in a later cleanup |
+| `photo_urls` | text | JSON array of `{path, kind: "cover"\|"snapshot"\|"user", captured_at}`. Files live at `<PHOTO_DIR>/<print-id>/`. See below. |
 | `ha_event_id` | text | Idempotency key from HA event |
 | `notes` | text | |
 
 **Constraint:** status IN ('running','finished','failed','cancelled')
 **Indexes:** `printer_id`, `status`, `started_at`
+
+**Photo storage:** Files for `photo_urls` entries live at
+`/config/haspoolmanager/photos/<print-id>/` (configurable via `PHOTO_DIR`
+env var). Three kinds:
+
+- `cover` — 3D-model preview from `image.<printer>_titelbild` HA entity, captured at `event_print_started`
+- `snapshot` — camera still from `camera.snapshot` HA service, captured at `event_print_finished|canceled|failed`
+- `user` — user-uploaded via `POST /api/v1/prints/:id/photos`
+
+Limits: 5 user photos per print, 5 MB each, `image/jpeg|png|webp`. Auto-
+captures don't count toward the user-photo limit.
 
 ---
 
