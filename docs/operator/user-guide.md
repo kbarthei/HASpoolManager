@@ -135,6 +135,19 @@ Inventory → "+ Add Spool" → pick filament from dropdown (or create new
 filament + vendor on the fly) → enter initial weight + optional lot
 number + position.
 
+### Adding many spools at once
+
+Same dialog, Library tab — two extra fields:
+
+- **Anzahl** (1–100): how many identical spools to create in one go
+- **Lot-Nummer** (optional): a base string like `B2026Q2`
+
+When count > 1, the lot-number gets a zero-padded sequence suffix:
+`B2026Q2-001`, `B2026Q2-002`, … `B2026Q2-100`. When count = 1, the
+lot-number is used as-is. Values are clamped: below 1 → 1, above 100
+→ 100. All spools land in `location = workbench` with the chosen
+initial weight; position them afterwards by drag-drop.
+
 ### Identifying a spool physically
 
 Inventory → click any spool → right-side drawer shows weight, location,

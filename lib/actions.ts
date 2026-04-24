@@ -611,17 +611,32 @@ export async function restoreRack(id: string) {
   revalidatePath("/");
 }
 
-export async function createSpoolFromFilament(filamentId: string, initialWeight: number = 1000) {
-  const [spool] = await db.insert(spools).values({
+export async function createSpoolsFromFilament(
+  filamentId: string,
+  options: { initialWeight?: number; count?: number; lotNumber?: string | null } = {},
+) {
+  const initialWeight = options.initialWeight ?? 1000;
+  const count = Math.max(1, Math.min(100, options.count ?? 1));
+  const lotBase = options.lotNumber?.trim() || null;
+
+  const rows = Array.from({ length: count }, (_, i) => ({
     filamentId,
     initialWeight,
     remainingWeight: initialWeight,
-    status: "active",
-    location: "workbench",
-  }).returning();
+    status: "active" as const,
+    location: "workbench" as const,
+    lotNumber: lotBase
+      ? count > 1
+        ? `${lotBase}-${String(i + 1).padStart(3, "0")}`
+        : lotBase
+      : null,
+  }));
+
+  const inserted = await db.insert(spools).values(rows).returning();
+
   revalidatePath("/spools");
   revalidatePath("/");
-  return spool;
+  return inserted;
 }
 
 export async function cloneSpool(sourceSpoolId: string, initialWeight: number = 1000) {
