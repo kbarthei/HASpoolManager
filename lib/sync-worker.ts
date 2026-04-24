@@ -58,6 +58,8 @@ function parseRunoutError(errorCode: number): { amsUnit: number; trayIndex: numb
 const printers = new Map<string, PrinterSyncState>(); // deviceId → state
 let wsClient: HAWebSocketClient | null = null;
 let watchdogTimer: ReturnType<typeof setInterval> | null = null;
+let backupSchedulerTimer: ReturnType<typeof setInterval> | null = null;
+let backupSmokeTimer: ReturnType<typeof setTimeout> | null = null;
 
 // ── Energy tracking cache ───────────────────────────────────────────────────
 let energySensorEntityId: string | null = null;
@@ -319,73 +321,117 @@ async function handleBambuEvent(event: Record<string, unknown>) {
 
   // Capture cover image at print start
   if (eventType === "event_print_started" && printer) {
+    console.log("[capture] cover: starting for event_print_started");
     const coverEntity = printer.fieldToEntity.get("cover_image");
-    if (coverEntity) {
+    if (!coverEntity) {
+      console.error("[capture] cover: no cover_image entity mapped for this printer");
+    } else {
       try {
+        console.log(`[capture] cover: reading state of ${coverEntity}`);
         const states = await getEntityStates([coverEntity]);
         const coverState = states.get(coverEntity);
-        const entityPicture = coverState?.attributes?.entity_picture as string;
-        if (entityPicture) {
-          // entity_picture has its own ?token= param, but we use the supervisor token
-          // Strip the entity token and use supervisor auth instead
+        const entityPicture = coverState?.attributes?.entity_picture as string | undefined;
+        if (!entityPicture) {
+          console.error(`[capture] cover: entity ${coverEntity} has no entity_picture attribute (state=${coverState?.state}, attrs=${JSON.stringify(Object.keys(coverState?.attributes ?? {}))})`);
+        } else {
           const imgUrl = entityPicture.split("?")[0];
+          console.log(`[capture] cover: fetching http://supervisor/core${imgUrl}`);
           const imgRes = await fetch(`http://supervisor/core${imgUrl}`, {
             headers: { Authorization: `Bearer ${process.env.SUPERVISOR_TOKEN}` },
           });
-          if (imgRes.ok) {
+          if (!imgRes.ok) {
+            console.error(`[capture] cover: supervisor fetch failed: ${imgRes.status} ${imgRes.statusText}`);
+          } else {
             const buffer = Buffer.from(await imgRes.arrayBuffer());
-            const { existsSync, mkdirSync, writeFileSync } = await import("fs");
-            const dir = "/config/snapshots";
-            if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-            const filename = `cover_${Date.now()}.jpg`;
-            writeFileSync(`${dir}/${filename}`, buffer);
-            // Store path on the print via internal API
-            const apiKey = process.env.API_SECRET_KEY || "";
-            const port = process.env.PORT || "3002";
-            const basePath = process.env.HA_ADDON === "true" ? "/ingress" : "";
-            await fetch(`http://127.0.0.1:${port}${basePath}/api/v1/prints/latest/cover`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json", ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}) },
-              body: JSON.stringify({ path: `snapshots/${filename}` }),
-            }).catch(() => {});
-            console.log(`[sync-worker] captured cover image: ${filename}`);
+            // Resolve the running print for this printer so we save into the right
+            // folder. Use dbPrinterId from the sync-worker state.
+            const { db } = await import("./db");
+            const { prints } = await import("./db/schema");
+            const { and, eq } = await import("drizzle-orm");
+            const runningPrint = await db.query.prints.findFirst({
+              where: and(eq(prints.printerId, printer.printerId), eq(prints.status, "running")),
+              columns: { id: true },
+            });
+            if (!runningPrint) {
+              console.error("[capture] cover: no running print found for printer; skipping save");
+            } else {
+              const { savePhoto } = await import("./photo-manager");
+              const saved = await savePhoto(runningPrint.id, buffer, "cover", "jpg");
+              console.log(`[capture] cover: saved ${saved.path} (${Math.round(buffer.byteLength / 1024)}KB) for print ${runningPrint.id}`);
+            }
           }
         }
       } catch (err) {
-        console.error("[sync-worker] cover image capture failed:", (err as Error).message);
+        console.error("[capture] cover: failure:", (err as Error).message, (err as Error).stack);
       }
     }
   }
 
-  // Capture camera snapshot at print end
+  // Capture camera snapshot at print end.
+  // HA's camera.snapshot service writes on HA's filesystem, but /config/ is
+  // shared with the addon container, so we point the service at a path inside
+  // /config/haspoolmanager/photos/<printId>/ and the addon can read/serve it
+  // without copying.
   if (["event_print_finished", "event_print_canceled", "event_print_failed"].includes(eventType) && printer) {
+    console.log(`[capture] snapshot: starting for ${eventType}`);
     try {
       const { callHAService } = await import("./ha-api");
-      const { existsSync, mkdirSync } = await import("fs");
-      const dir = "/config/snapshots";
-      if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-      const filename = `snapshot_${Date.now()}.jpg`;
-      // Use the mapped camera entity, or fall back to searching entity keys
+      const { db } = await import("./db");
+      const { prints } = await import("./db/schema");
+      const { eq } = await import("drizzle-orm");
+
       const targetCamera = printer.fieldToEntity.get("camera")
-        || Array.from(printer.entityToField.keys()).find(eid => eid.startsWith("camera."))
+        || Array.from(printer.entityToField.keys()).find((eid) => eid.startsWith("camera."))
         || "";
-      const success = await callHAService("camera", "snapshot", {
-        entity_id: targetCamera,
-        filename: `${dir}/${filename}`,
-      });
-      if (success) {
-        const apiKey = process.env.API_SECRET_KEY || "";
-        const port = process.env.PORT || "3002";
-        const basePath = process.env.HA_ADDON === "true" ? "/ingress" : "";
-        await fetch(`http://127.0.0.1:${port}${basePath}/api/v1/prints/latest/snapshot`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}) },
-          body: JSON.stringify({ path: `snapshots/${filename}` }),
-        }).catch(() => {});
-        console.log(`[sync-worker] captured camera snapshot: ${filename}`);
+      if (!targetCamera) {
+        console.error("[capture] snapshot: no camera entity mapped for this printer");
+      } else {
+        const latestPrint = await db.query.prints.findFirst({
+          where: eq(prints.printerId, printer.printerId),
+          orderBy: (p, { desc }) => [desc(p.startedAt)],
+          columns: { id: true },
+        });
+        if (!latestPrint) {
+          console.error("[capture] snapshot: no print found for printer; skipping save");
+        } else {
+          const { existsSync, mkdirSync, readFileSync } = await import("fs");
+          const photoRoot = process.env.PHOTO_DIR ?? "/config/haspoolmanager/photos";
+          const dir = `${photoRoot}/${latestPrint.id}`;
+          if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+          const filename = `snapshot-${new Date().toISOString().replace(/[:.]/g, "-")}.jpg`;
+          const fullPath = `${dir}/${filename}`;
+          console.log(`[capture] snapshot: camera.snapshot ${targetCamera} → ${fullPath}`);
+          const success = await callHAService("camera", "snapshot", {
+            entity_id: targetCamera,
+            filename: fullPath,
+          });
+          if (!success) {
+            console.error(`[capture] snapshot: camera.snapshot service call failed (entity=${targetCamera})`);
+          } else {
+            // Verify and register in photo_urls. HA writes async; give it a beat.
+            await new Promise((r) => setTimeout(r, 500));
+            if (!existsSync(fullPath)) {
+              console.error(`[capture] snapshot: camera.snapshot reported ok but file does not exist at ${fullPath} (HA likely wrote to its own FS, not the shared /config volume)`);
+            } else {
+              const size = readFileSync(fullPath).byteLength;
+              const { getPhotos } = await import("./photo-manager");
+              const current = await getPhotos(latestPrint.id);
+              const entry = {
+                path: `${latestPrint.id}/${filename}`,
+                kind: "snapshot" as const,
+                captured_at: new Date().toISOString(),
+              };
+              const next = [...current, entry];
+              await db.update(prints)
+                .set({ photoUrls: JSON.stringify(next), updatedAt: new Date() })
+                .where(eq(prints.id, latestPrint.id));
+              console.log(`[capture] snapshot: saved ${entry.path} (${Math.round(size / 1024)}KB) for print ${latestPrint.id}`);
+            }
+          }
+        }
       }
     } catch (err) {
-      console.error("[sync-worker] snapshot capture failed:", (err as Error).message);
+      console.error("[capture] snapshot: failure:", (err as Error).message, (err as Error).stack);
     }
   }
 
@@ -689,6 +735,60 @@ function startWatchdog() {
   }, 30_000); // check every 30s
 }
 
+// ── Backup scheduler ─────────────────────────────────────────────────────────
+
+const BACKUP_TIMEZONE = "Europe/Berlin";
+const BACKUP_HOUR = 3;
+
+function getLocalDateKey(date: Date = new Date()): string {
+  return date.toLocaleDateString("en-CA", { timeZone: BACKUP_TIMEZONE });
+}
+
+function getLocalHour(date: Date = new Date()): number {
+  const hourStr = date.toLocaleTimeString("en-GB", { timeZone: BACKUP_TIMEZONE, hour: "2-digit", hour12: false });
+  return parseInt(hourStr.split(":")[0] ?? "0", 10);
+}
+
+async function maybeRunScheduledBackup(): Promise<void> {
+  try {
+    const { listBackups, runBackup, cleanupOldBackups } = await import("./backup-manager");
+    const todayKey = getLocalDateKey();
+    const backups = listBackups();
+    const hasTodayBackup = backups.some((b) => getLocalDateKey(b.createdAt) === todayKey);
+    if (hasTodayBackup) return;
+    const hour = getLocalHour();
+    if (hour !== BACKUP_HOUR) return;
+    console.log("[backup] starting scheduled daily backup");
+    const result = await runBackup();
+    const cleanup = cleanupOldBackups();
+    console.log(`[backup] ${result.filename} (${Math.round(result.size / 1024)}KB, ${result.durationMs}ms); deleted ${cleanup.deleted.length} old backup(s)`);
+  } catch (error) {
+    console.error("[backup] scheduled backup failed:", (error as Error).message);
+  }
+}
+
+async function runSmokeBackup(): Promise<void> {
+  try {
+    const { listBackups, runBackup } = await import("./backup-manager");
+    const backups = listBackups();
+    if (backups.length > 0) {
+      console.log(`[backup] smoke-test skipped — ${backups.length} existing backup(s) found`);
+      return;
+    }
+    console.log("[backup] running startup smoke-test backup (first run)");
+    const result = await runBackup();
+    console.log(`[backup] smoke-test ok: ${result.filename} (${Math.round(result.size / 1024)}KB, ${result.durationMs}ms)`);
+  } catch (error) {
+    console.error("[backup] smoke-test failed:", (error as Error).message);
+  }
+}
+
+function startBackupScheduler(): void {
+  backupSchedulerTimer = setInterval(maybeRunScheduledBackup, 60 * 60 * 1000);
+  backupSmokeTimer = setTimeout(runSmokeBackup, 60_000);
+  console.log(`[backup] scheduler started — daily at ${String(BACKUP_HOUR).padStart(2, "0")}:00 ${BACKUP_TIMEZONE}`);
+}
+
 // ── Main ─────────────────────────────────────────────────────────────────────
 
 export async function startSyncWorker(): Promise<void> {
@@ -722,6 +822,9 @@ export async function startSyncWorker(): Promise<void> {
 
         // Start watchdog
         startWatchdog();
+
+        // Start backup scheduler
+        startBackupScheduler();
       } catch (error) {
         console.error("[sync-worker] subscription error:", error);
       }
@@ -744,6 +847,14 @@ export function stopSyncWorker(): void {
   if (watchdogTimer) {
     clearInterval(watchdogTimer);
     watchdogTimer = null;
+  }
+  if (backupSchedulerTimer) {
+    clearInterval(backupSchedulerTimer);
+    backupSchedulerTimer = null;
+  }
+  if (backupSmokeTimer) {
+    clearTimeout(backupSmokeTimer);
+    backupSmokeTimer = null;
   }
   wsClient?.destroy();
   wsClient = null;

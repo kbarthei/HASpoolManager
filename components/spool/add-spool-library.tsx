@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { SpoolColorDot } from "./spool-color-dot";
 import { SpoolMaterialBadge } from "./spool-material-badge";
-import { createSpoolFromFilament } from "@/lib/actions";
+import { createSpoolsFromFilament } from "@/lib/actions";
 import { toast } from "sonner";
 import { Loader2, Search } from "lucide-react";
 
@@ -25,6 +25,8 @@ export function AddSpoolLibrary({
   onSuccess: () => void;
 }) {
   const [search, setSearch] = useState("");
+  const [count, setCount] = useState(1);
+  const [lotBase, setLotBase] = useState("");
   const [creating, setCreating] = useState<string | null>(null);
 
   const filtered = filaments.filter((f) => {
@@ -41,8 +43,13 @@ export function AddSpoolLibrary({
   async function handleSelect(filamentId: string) {
     setCreating(filamentId);
     try {
-      await createSpoolFromFilament(filamentId, 1000);
-      toast.success("Spool created");
+      const safeCount = Math.max(1, Math.min(100, count));
+      const created = await createSpoolsFromFilament(filamentId, {
+        initialWeight: 1000,
+        count: safeCount,
+        lotNumber: lotBase.trim() || null,
+      });
+      toast.success(`${created.length} spool${created.length === 1 ? "" : "s"} created`);
       onSuccess();
     } catch {
       toast.error("Failed to create spool");
@@ -62,6 +69,42 @@ export function AddSpoolLibrary({
           className="pl-8"
         />
       </div>
+
+      <div className="grid grid-cols-[72px_1fr] gap-2">
+        <div>
+          <label className="text-[10px] font-medium text-muted-foreground block mb-1">
+            Anzahl
+          </label>
+          <Input
+            type="number"
+            min={1}
+            max={100}
+            value={count}
+            onChange={(e) => setCount(parseInt(e.target.value, 10) || 1)}
+            className="text-sm h-9"
+            data-testid="bulk-count-input"
+          />
+        </div>
+        <div>
+          <label className="text-[10px] font-medium text-muted-foreground block mb-1">
+            Lot-Nummer (optional)
+          </label>
+          <Input
+            placeholder="e.g. B2026Q2"
+            value={lotBase}
+            onChange={(e) => setLotBase(e.target.value)}
+            className="text-sm h-9"
+            data-testid="bulk-lot-input"
+          />
+        </div>
+      </div>
+      {count > 1 && (
+        <p className="text-[10px] text-muted-foreground">
+          {count} spools werden erzeugt
+          {lotBase.trim() && `, Lot-Nummern: ${lotBase.trim()}-001 … ${lotBase.trim()}-${String(count).padStart(3, "0")}`}
+          .
+        </p>
+      )}
 
       <div className="max-h-[320px] overflow-y-auto space-y-1 pr-1">
         {filtered.length === 0 ? (

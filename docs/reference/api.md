@@ -358,6 +358,83 @@ Update a print record (e.g. add notes, correct status).
 - **Body:** Any subset of print fields; `finishedAt` parsed as ISO date
 - **Response:** `Print` or `404`
 
+#### `GET /api/v1/prints/:id/photos`
+
+List photos attached to a print — system-captured (cover/snapshot) and
+user-uploaded.
+
+- **Auth:** `optionalAuth`
+- **Response:**
+```json
+{
+  "photos": [
+    { "path": "<printId>/cover-2026-04-24T10-00-00-000Z-ab12cd34.jpg",
+      "kind": "cover",
+      "captured_at": "2026-04-24T10:00:00.000Z" },
+    { "path": "<printId>/user-2026-04-24T11-30-00-000Z-ef56gh78.jpg",
+      "kind": "user",
+      "captured_at": "2026-04-24T11:30:00.000Z" }
+  ]
+}
+```
+
+#### `POST /api/v1/prints/:id/photos`
+
+Upload a user photo (multipart/form-data, field name `photo`).
+
+- **Auth:** `requireAuth`
+- **Limits:** 5 user photos per print, max 5 MB each, `image/jpeg | image/png | image/webp`. Cover + snapshot don't count toward the user-photo limit.
+- **Response:** `201 { ok: true, photo: PhotoEntry }` or `400` on limit/mime/size violation or `404` for unknown print.
+
+#### `GET /api/v1/prints/:id/photos/:filename`
+
+Stream a photo file with its mime type.
+
+- **Auth:** `optionalAuth`
+- **Response:** `image/jpeg | image/png | image/webp` stream, or `404` if filename contains path traversal chars or does not exist.
+
+#### `DELETE /api/v1/prints/:id/photos/:filename`
+
+Remove a single photo (file + JSON-array entry). Works for all kinds.
+
+- **Auth:** `requireAuth`
+- **Response:** `{ ok: true }` or `404`.
+
+#### `GET /api/v1/prints/:id/cost-estimate`
+
+Live cost estimate for a running or finished print. For running prints
+the estimate is `printWeight × progress% × avg(cost_per_gram across active spools)`.
+Finished prints are treated as 100% progress.
+
+- **Auth:** `optionalAuth`
+- **Response:**
+```json
+{
+  "print_id": "uuid",
+  "status": "running",
+  "progress_percent": 40,
+  "total_weight_g": 100,
+  "estimated_weight_used_g": 40,
+  "estimated_cost_eur": 0.8,
+  "currency": "EUR",
+  "spools": [
+    {
+      "spool_id": "uuid",
+      "vendor": "Bambu Lab",
+      "material": "PLA",
+      "purchase_price": 20.0,
+      "initial_weight": 1000,
+      "cost_per_gram": 0.02
+    }
+  ],
+  "warnings": []
+}
+```
+
+Common `warnings` entries: `"No sync data yet for this printer"`,
+`"Active spools have no purchase price — cost cannot be estimated"`,
+`"Print weight not yet known"`, `"No active spools matched"`.
+
 ---
 
 ### Orders
@@ -962,6 +1039,87 @@ Run a single write statement (UPDATE/INSERT/DELETE) with positional parameter bi
   "dryRun": false
 }
 ```
+
+### `GET /api/v1/admin/backup`
+
+List all automated backups.
+
+- **Auth:** `optionalAuth`
+- **Response:**
+```json
+{
+  "backups": [
+    {
+      "filename": "haspoolmanager-2026-04-24T03-00-05.db.gz",
+      "size": 2847293,
+      "createdAt": "2026-04-24T01:00:05.000Z"
+    }
+  ],
+  "retentionDays": 14
+}
+```
+
+### `POST /api/v1/admin/backup`
+
+Trigger an on-demand backup. Also runs retention cleanup.
+
+- **Auth:** `requireAuth`
+- **Response:**
+```json
+{
+  "ok": true,
+  "filename": "haspoolmanager-2026-04-24T09-17-44.db.gz",
+  "size": 2847293,
+  "durationMs": 142,
+  "cleanupDeleted": 0
+}
+```
+
+### `GET /api/v1/admin/backup/[filename]`
+
+Stream a backup file as gzip download. Filename is validated against
+the `haspoolmanager-*.db.gz` pattern; path traversal is blocked.
+
+- **Auth:** `optionalAuth` (LAN-only; file is also accessible via SMB)
+- **Response:** `application/gzip` stream with `Content-Disposition: attachment`
+
+### `DELETE /api/v1/admin/backup/[filename]`
+
+Delete a single backup file.
+
+- **Auth:** `requireAuth`
+- **Response:** `{ "ok": true }` or `404` if the filename doesn't resolve.
+
+## 8b. Export (CSV)
+
+Flat-file exports of the three primary domain tables. One row per record,
+RFC-4180-compliant CSV with UTF-8 encoding. Same data the corresponding
+list pages render — intended for external analysis (Excel, tax prep,
+archival).
+
+All three use `optionalAuth` (matches the list endpoints the browser
+already hits) and stream the result with `Content-Disposition: attachment`.
+
+### `GET /api/v1/export/prints`
+
+- **Query params:** `from=YYYY-MM-DD`, `to=YYYY-MM-DD` — optional, filter by `started_at`.
+- **Columns:** `id, name, printer_name, status, started_at, finished_at, duration_seconds, print_weight_g, filament_cost, energy_cost, total_cost, gcode_file`.
+- **Filename:** `haspoolmanager-prints-YYYY-MM-DD.csv`.
+
+### `GET /api/v1/export/spools`
+
+- **Query params:** `include_archived=1` — include spools with `status='archived'` (excluded by default).
+- **Columns:** `id, filament_name, vendor, material, color_hex, bambu_idx, initial_weight_g, remaining_weight_g, location, status, purchase_price, currency, purchase_date, lot_number, first_used_at, last_used_at`.
+- **Filename:** `haspoolmanager-spools-YYYY-MM-DD.csv`.
+
+### `GET /api/v1/export/orders`
+
+- **Query params:** `from=YYYY-MM-DD`, `to=YYYY-MM-DD` — optional, filter by `order_date`.
+- **Columns:** `id, order_date, order_number, vendor, status, item_count, total_cost, shipping_cost, currency, expected_delivery, actual_delivery, source_url`.
+- **Filename:** `haspoolmanager-orders-YYYY-MM-DD.csv`.
+
+xlsx export is deliberately out of scope for Wave 1 — if needed later,
+add a `format=xlsx` branch driven by an optional `exceljs` dependency.
 
 ## 9. Racks (multi-rack support)
 

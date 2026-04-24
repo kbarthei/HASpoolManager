@@ -11,6 +11,26 @@ import { formatDateTime, formatDateLong, formatDateShort } from "@/lib/date";
 import { costTooltip } from "@/lib/format-cost";
 import { CostTooltip } from "@/components/prints/cost-tooltip";
 import { ClearStaleButton } from "@/components/prints/clear-stale-button";
+import { ExportCsvButton } from "@/components/export-csv-button";
+import { PrintPhotoGallery, type PhotoEntry } from "@/components/prints/print-photo-gallery";
+import { computeCostEstimate } from "@/lib/print-cost-estimate";
+
+function parsePhotos(photoUrls: string | null): PhotoEntry[] {
+  if (!photoUrls) return [];
+  try {
+    const parsed = JSON.parse(photoUrls);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (e): e is PhotoEntry =>
+        e &&
+        typeof e === "object" &&
+        typeof e.path === "string" &&
+        (e.kind === "cover" || e.kind === "snapshot" || e.kind === "user"),
+    );
+  } catch {
+    return [];
+  }
+}
 import { cn } from "@/lib/utils";
 import {
   getPrintStuck,
@@ -122,6 +142,12 @@ export default async function PrintHistoryPage({
   const runningPrints = allPrints.filter((p) => p.status === "running");
   const completedPrints = allPrints.filter((p) => p.status !== "running");
 
+  const runningEstimates = new Map(
+    await Promise.all(
+      runningPrints.map(async (p) => [p.id, await computeCostEstimate(p.id)] as const),
+    ),
+  );
+
   const totalWeight = allPrints.reduce((sum, p) => {
     const w = p.usage.reduce((s, u) => s + u.weightUsed, 0);
     return sum + w;
@@ -162,12 +188,15 @@ export default async function PrintHistoryPage({
       )}
 
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Print History</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          {allPrints.length} prints · {totalWeight.toFixed(0)} g filament used
-          {totalCost > 0 && ` · €${totalCost.toFixed(2)} spent`}
-        </p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Print History</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            {allPrints.length} prints · {totalWeight.toFixed(0)} g filament used
+            {totalCost > 0 && ` · €${totalCost.toFixed(2)} spent`}
+          </p>
+        </div>
+        <ExportCsvButton href="/api/v1/export/prints" />
       </div>
 
       {/* 3-up summary */}
@@ -259,6 +288,19 @@ export default async function PrintHistoryPage({
                       {Math.round(printerStatus.remainingTime ?? 0)}min left
                     </span>
                   )}
+                  {(() => {
+                    const est = runningEstimates.get(print.id);
+                    if (!est || est.estimated_cost_eur == null) return null;
+                    return (
+                      <span
+                        className="font-[family-name:var(--font-geist-mono)] tabular-nums text-primary"
+                        title={`${est.estimated_weight_used_g.toFixed(1)} g of ${est.total_weight_g ?? "?"} g at ${est.progress_percent}% · Ø ${(est.spools.reduce((s, x) => s + (x.cost_per_gram ?? 0), 0) / Math.max(1, est.spools.filter((x) => x.cost_per_gram != null).length)).toFixed(4)} ${est.currency}/g`}
+                        data-testid="print-cost-estimate"
+                      >
+                        ≈ {est.currency === "EUR" ? "€" : est.currency} {est.estimated_cost_eur.toFixed(2)}
+                      </span>
+                    );
+                  })()}
                 </div>
               </Card>
             ))}
@@ -299,27 +341,13 @@ export default async function PrintHistoryPage({
                       )}
                     </div>
 
-                    {/* Thumbnails */}
-                    {(print.coverImagePath || print.snapshotPath) && (
-                      <div className="flex gap-1 shrink-0">
-                        {print.coverImagePath && (
-                          <img
-                            src={`/api/v1/snapshots/${print.coverImagePath.replace("snapshots/", "")}`}
-                            alt="3D preview"
-                            className="h-10 w-10 rounded-md object-cover bg-muted"
-                            loading="lazy"
-                          />
-                        )}
-                        {print.snapshotPath && (
-                          <img
-                            src={`/api/v1/snapshots/${print.snapshotPath.replace("snapshots/", "")}`}
-                            alt="Print result"
-                            className="h-10 w-10 rounded-md object-cover bg-muted"
-                            loading="lazy"
-                          />
-                        )}
-                      </div>
-                    )}
+                    {/* Photo Gallery (cover + snapshot + user uploads) */}
+                    <div className="shrink-0">
+                      <PrintPhotoGallery
+                        printId={print.id}
+                        initialPhotos={parsePhotos(print.photoUrls)}
+                      />
+                    </div>
 
                     {/* Body */}
                     <div className="flex-1 min-w-0">

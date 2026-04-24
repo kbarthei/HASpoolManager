@@ -299,6 +299,52 @@ least 30 days after a feature ships.
 
 ---
 
+## 11. Automated backups
+
+A scheduled backup runs **daily at 03:00 Europe/Berlin** inside the
+sync-worker process. Backups are gzipped SQLite dumps (WAL-safe via
+`better-sqlite3`'s `.backup()` API) stored at
+`/config/haspoolmanager/backups/haspoolmanager-YYYY-MM-DDTHH-MM-SS.db.gz`.
+
+Default retention: **14 days**. Older backups are deleted automatically
+after each successful run.
+
+### Trigger a backup manually
+
+- **UI:** `/admin` → "Automated Backups" card → "Backup now" button.
+- **API:** `POST /api/v1/admin/backup` (Bearer required); see
+  [`../reference/api.md`](../reference/api.md).
+- **On startup:** if the backup dir is empty, a smoke-test backup runs
+  60 s after sync-worker start to catch config issues early.
+
+### Restore from a backup
+
+```bash
+# Stop addon (so WAL writes don't race)
+ssh root@homeassistant "ha addons stop local_haspoolmanager"
+
+# Unpack the chosen backup
+ssh root@homeassistant "cd /config/haspoolmanager/backups && \
+  gzip -dc haspoolmanager-YYYY-MM-DDTHH-MM-SS.db.gz > /config/haspoolmanager.db && \
+  rm -f /config/haspoolmanager.db-wal /config/haspoolmanager.db-shm"
+
+# Start addon
+ssh root@homeassistant "ha addons start local_haspoolmanager"
+```
+
+Verify with `curl http://homeassistant:3001/api/v1/health` that the
+addon came back up, then open the UI and sanity-check recent prints
+and spool weights.
+
+### Relationship to manual snapshots
+
+Automated backups do **not** replace the manual pre-deploy snapshot
+policy (§10). They're an extra safety net for day-to-day data
+corruption; snapshots are for intentional risky operations where you
+want a named restore point under your direct control.
+
+---
+
 ## 11. Where to file feedback when a recipe is missing
 
 Open an issue — include:

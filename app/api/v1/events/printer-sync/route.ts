@@ -14,6 +14,7 @@ import {
   buildSlotDefs, type SlotDef,
 } from "@/lib/printer-sync-helpers";
 import { sqlCount, sqlNowMinusHours } from "@/lib/db/sql-helpers";
+import { sendHaPersistentNotification } from "@/lib/ha-notifications";
 
 /**
  * POST /api/v1/events/printer-sync
@@ -543,6 +544,24 @@ export async function POST(request: NextRequest) {
       affectedPrintId = newPrint.id;
       printTransition = "started";
       console.log(`[printer-sync] STARTED: "${printName}" id=${newPrint.id} event=${haEventId}`);
+
+      // Warn when a print starts without any matched spool — filament usage
+      // won't be deducted until a swap event brings in a match.
+      if (startIds.length === 0) {
+        const hintHadSlotData = Boolean(startType || (startTag && startTag !== "0000000000000000"));
+        const detail = hintHadSlotData
+          ? `AMS reported active slot (type="${startType}", tag="${startTag}") but no spool in the inventory matched.`
+          : "No active slot data was reported at print start.";
+        const message = `Print "${printName || "unknown"}" started without a matched spool. ${detail} Filament usage will not be recorded until a match is established.`;
+
+        console.error(`[printer-sync] MISSING_SPOOL print_id=${newPrint.id} printer=${printer_id} type="${startType}" tag="${startTag}" color="${startColor}" filament_id="${startFilamentId}"`);
+
+        sendHaPersistentNotification(
+          "HASpoolManager: Kein Spool zugeordnet",
+          message,
+          `haspoolmanager_missing_spool_${newPrint.id}`,
+        ).catch((err) => console.error("[printer-sync] missing-spool notification failed:", err));
+      }
     } else if (runningPrint && (isFinished || (isIdle && !printError))) {
       // Print completed (or idle = missed finish)
       const finalWeight = printWeight || runningPrint.printWeight;

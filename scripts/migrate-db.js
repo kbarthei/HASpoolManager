@@ -91,6 +91,50 @@ const migrations = [
       db.exec("ALTER TABLE orders DROP COLUMN auto_supply_log_id");
     },
   },
+  {
+    name: "add prints.photo_urls + backfill from cover_image_path / snapshot_path",
+    check: () => {
+      const cols = db.pragma("table_info(prints)");
+      return cols.some((c) => c.name === "photo_urls");
+    },
+    apply: () => {
+      db.exec("ALTER TABLE prints ADD COLUMN photo_urls TEXT");
+      // Backfill: for every row with a cover or snapshot path, build a JSON
+      // array preserving kind + captured_at. Non-destructive — the old
+      // cover_image_path and snapshot_path columns stay in place.
+      const rows = db.prepare(`
+        SELECT id, started_at, finished_at, cover_image_path, snapshot_path
+        FROM prints
+        WHERE cover_image_path IS NOT NULL OR snapshot_path IS NOT NULL
+      `).all();
+      const upd = db.prepare("UPDATE prints SET photo_urls = ? WHERE id = ?");
+      let backfilled = 0;
+      for (const row of rows) {
+        const entries = [];
+        if (row.cover_image_path) {
+          entries.push({
+            path: row.cover_image_path,
+            kind: "cover",
+            captured_at: row.started_at ?? null,
+          });
+        }
+        if (row.snapshot_path) {
+          entries.push({
+            path: row.snapshot_path,
+            kind: "snapshot",
+            captured_at: row.finished_at ?? row.started_at ?? null,
+          });
+        }
+        if (entries.length > 0) {
+          upd.run(JSON.stringify(entries), row.id);
+          backfilled++;
+        }
+      }
+      if (backfilled > 0) {
+        console.log(`[migrate]   → Backfilled photo_urls for ${backfilled} print(s)`);
+      }
+    },
+  },
 ];
 
 // ── Run migrations ──────────────────────────────────────────────────────────

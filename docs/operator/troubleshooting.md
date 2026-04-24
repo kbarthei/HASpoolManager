@@ -160,6 +160,39 @@ base-path rewriting is wrong.
 
 ---
 
+## HA notification: "HASpoolManager: Kein Spool zugeordnet"
+
+### Symptom: HA persistent notification when a print starts
+
+Appears when the printer-sync route creates a new `prints` record and
+cannot match any spool to the active AMS slot. The print still runs
+normally, but **filament usage won't be deducted** until the match is
+established (usually via a swap event or manual fix).
+
+Common causes:
+- The AMS tray has a Bambu spool whose RFID tag is not yet mapped to
+  an inventory record — scan the tag or map it from `/scan`.
+- The spool in the AMS is a third-party roll that hasn't been added to
+  inventory at all — add it via Inventory → "+ Add Spool" and load it
+  into the slot.
+- The active-slot reported by HA is `slot_ext` but the external holder
+  in inventory is empty / points at the wrong spool.
+
+Quick check on the live DB:
+
+```sql
+SELECT id, name, active_spool_ids, started_at
+FROM prints
+WHERE status = 'running';
+```
+
+If `active_spool_ids` is `[]`, the warning was correct. Fix by editing
+the print record with the right `active_spool_ids` (via `/admin/sql/execute`
+or the Prints detail page) before the print finishes — otherwise the
+`print_usage` row won't be created at finish.
+
+---
+
 ## `/admin/diagnostics` shows "Stuck Prints" that are not stuck
 
 ### Symptom: finished prints show in the stuck list

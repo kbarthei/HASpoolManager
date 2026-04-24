@@ -237,6 +237,19 @@ There is no process-level respawn. If the Node.js sync-worker process
 itself crashes (unhandled exception), it stays dead until the addon
 restarts — by design, to avoid masking real bugs in a restart loop.
 
+### Missing-spool warning on print start
+
+When the printer-sync route creates a new `prints` record and cannot
+match any spool to the active AMS slot, it:
+
+1. Logs `[printer-sync] MISSING_SPOOL print_id=… printer=… type=… tag=… color=… filament_id=…` (findable via `ha addons logs local_haspoolmanager | grep MISSING_SPOOL`)
+2. Sends a Home Assistant `persistent_notification` (titled "HASpoolManager: Kein Spool zugeordnet") with a unique `notification_id` of the form `haspoolmanager_missing_spool_<print-id>` — so duplicate notifications for the same print overwrite rather than stack
+
+The notification is fire-and-forget; if the HA API call fails, the
+error is logged and the print still records normally — just without
+filament deduction until a swap event produces a match. See
+`sendHaPersistentNotification` in `lib/ha-notifications.ts`.
+
 ---
 
 ## 7. Graceful shutdown
