@@ -8,6 +8,7 @@ import { eq, ne, desc } from "drizzle-orm";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { lookupHmsMessage } from "@/lib/hms-code-catalog";
 import { SyncLogTable } from "./sync-log-table";
 import { RacksCard } from "./racks-card";
 import { AmsUnitsCard } from "./ams-units-card";
@@ -474,6 +475,10 @@ async function HmsErrorLog() {
               ? `${evt.spool.filament.vendor?.name ?? ""} ${evt.spool.filament.material}`.trim()
               : null;
 
+            const catalogEntry = lookupHmsMessage(evt.hmsCode);
+            const displayMessage = evt.message || catalogEntry?.message_en || evt.hmsCode;
+            const displayWikiUrl = evt.wikiUrl || catalogEntry?.wiki_url || null;
+
             return (
               <div
                 key={evt.id}
@@ -491,7 +496,7 @@ async function HmsErrorLog() {
                   {evt.severity ?? "?"}
                 </span>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs truncate">{evt.message || evt.hmsCode}</p>
+                  <p className="text-xs truncate" title={displayMessage}>{displayMessage}</p>
                   <div className="flex items-center gap-2 mt-0.5 text-muted-foreground">
                     <span className="font-mono">{evt.hmsCode}</span>
                     {filamentName && <span>· {filamentName}</span>}
@@ -501,9 +506,9 @@ async function HmsErrorLog() {
                 <span className="text-muted-foreground shrink-0">
                   {evt.createdAt ? new Date(evt.createdAt).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : ""}
                 </span>
-                {evt.wikiUrl && (
+                {displayWikiUrl && (
                   <a
-                    href={evt.wikiUrl}
+                    href={displayWikiUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-primary hover:underline shrink-0"

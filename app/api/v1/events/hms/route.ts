@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { hmsEvents, prints, amsSlots, spools } from "@/lib/db/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
 import { parseHmsCodeString } from "@/lib/printer-sync-helpers";
+import { lookupHmsMessage } from "@/lib/hms-code-catalog";
 
 export const dynamic = "force-dynamic";
 
@@ -75,6 +76,8 @@ export async function POST(request: NextRequest) {
         ));
       if (dupCheck.count > 0) continue;
 
+      const catalogEntry = lookupHmsMessage(hmsCode);
+
       const [row] = await db.insert(hmsEvents).values({
         printerId: printer_id,
         printId: runningPrint?.id ?? null,
@@ -83,8 +86,8 @@ export async function POST(request: NextRequest) {
         hmsCode,
         module: moduleName,
         severity,
-        message: evt.message ?? null,
-        wikiUrl: evt.wiki_url ?? null,
+        message: evt.message ?? catalogEntry?.message_en ?? null,
+        wikiUrl: evt.wiki_url ?? catalogEntry?.wiki_url ?? null,
         slotKey,
         rawAttr: evt.raw_attr ?? null,
         rawCode: evt.raw_code ?? null,

@@ -121,6 +121,40 @@ Full Bambu wiki catalogue:
 `tests/unit/printer-sync-helpers.test.ts` covers `parseHmsCode()` +
 `parseHmsCodeString()` with known codes across all modules + severities.
 
+### Message catalog (853 entries)
+
+In addition to parser-derived metadata (module, severity, slot), every
+HMS code has a human-readable description in the bundled catalog at
+`lib/data/hms-codes.json`. Loaded via `lib/hms-code-catalog.ts`:
+
+```ts
+import { lookupHmsMessage } from "@/lib/hms-code-catalog";
+
+const entry = lookupHmsMessage("0300_8004");
+// → { code, message_en, wiki_url }
+```
+
+**Where it's used:**
+
+- **Write path** — `POST /api/v1/events/hms` uses the catalog as fallback
+  when the sender doesn't provide `message` or `wiki_url`. New rows are
+  self-descriptive in the DB.
+- **Read path** — the admin Diagnostics HMS-event list renders the
+  catalog message when the stored `message` column is null. Ensures
+  historical events get Klartext too.
+
+**Normalization:** `lookupHmsMessage` accepts the 2-segment short form
+(`"0300_8004"`) and the 4-segment long form (`"0300_8004_0002_0001"`) —
+it strips to the first two segments before lookup.
+
+**Source + license:** catalog is imported from
+[Bambuddy's `hms_errors.py`](https://github.com/maziggy/bambuddy/blob/main/backend/app/services/hms_errors.py),
+which itself scraped the Bambu Lab wiki via
+[`greghesp/ha-bambulab`](https://github.com/greghesp/ha-bambulab).
+Bambuddy is AGPL-3.0 — the `_meta.license` field in the JSON records
+this attribution. Re-generate the catalog with a script when Bambuddy
+publishes new entries; don't edit `hms-codes.json` by hand.
+
 ---
 
 ## 3. Internal API errors
