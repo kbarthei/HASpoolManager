@@ -14,6 +14,13 @@ vi.mock("next/cache", () => ({
   revalidateTag: () => {},
 }));
 
+// HA notifications require a supervisor token + network; stub them so H1
+// can assert on the call without actually reaching HA.
+vi.mock("@/lib/ha-notifications", () => ({
+  sendHaPersistentNotification: vi.fn().mockResolvedValue(true),
+  dismissHaPersistentNotification: vi.fn().mockResolvedValue(true),
+}));
+
 // Lazy-loaded to make sure @/lib/db binds to the harness DB first.
 type SyncResult = { status: number; body: Record<string, unknown> };
 let testPrinterId: string;
@@ -1347,6 +1354,60 @@ describe("printer-sync integration", () => {
       });
       expect(print!.energyKwh).toBe(0.5);
       expect(print!.energyCost).toBe(0.16);
+    });
+  });
+
+  // ── H. Missing-Spool-Assignment Warning (H1) ──────────────────────────────
+
+  describe("H. Missing-Spool-Assignment Warning", () => {
+    // Ensure we start idle so each test can cleanly trigger the "started"
+    // transition. Earlier test blocks may leave a running print behind.
+    async function resetToIdle() {
+      await sync({ gcode_state: "FINISH" });
+      await sync({ gcode_state: "IDLE" });
+    }
+
+    it("H1: print starts with no slot data at all → sends HA notification", async () => {
+      await resetToIdle();
+      const { sendHaPersistentNotification } = await import("@/lib/ha-notifications");
+      vi.mocked(sendHaPersistentNotification).mockClear();
+
+      const { status, body } = await sync({
+        gcode_state: "RUNNING",
+        print_name: `H1-no-slot-${Date.now()}`,
+      });
+      expect(status).toBe(200);
+      expect(body.print_transition).toBe("started");
+
+      expect(sendHaPersistentNotification).toHaveBeenCalledTimes(1);
+      const call = vi.mocked(sendHaPersistentNotification).mock.calls[0];
+      expect(call[0]).toContain("Kein Spool");
+      expect(call[1]).toContain("started without a matched spool");
+      expect(call[2]).toMatch(/^haspoolmanager_missing_spool_/);
+
+      // Finish the print so we don't pollute the next test
+      await sync({ gcode_state: "FINISH" });
+    });
+
+    it("H1: print starts with RFID-matched spool → no warning", async () => {
+      await resetToIdle();
+      const { sendHaPersistentNotification } = await import("@/lib/ha-notifications");
+      vi.mocked(sendHaPersistentNotification).mockClear();
+
+      const { status, body } = await sync({
+        gcode_state: "RUNNING",
+        print_name: `H1-matched-${Date.now()}`,
+        active_slot_type: "ABS-GF",
+        active_slot_tag: SEED_TAG_BAMBU_ABSGF,
+        active_slot_color: "C6C6C6FF",
+        active_slot_filament_id: "GFB50",
+      });
+      expect(status).toBe(200);
+      expect(body.print_transition).toBe("started");
+
+      expect(sendHaPersistentNotification).not.toHaveBeenCalled();
+
+      await sync({ gcode_state: "FINISH" });
     });
   });
 });
