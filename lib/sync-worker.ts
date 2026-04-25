@@ -334,12 +334,13 @@ async function handleBambuEvent(event: Record<string, unknown>) {
         if (!entityPicture) {
           console.error(`[capture] cover: entity ${coverEntity} has no entity_picture attribute (state=${coverState?.state}, attrs=${JSON.stringify(Object.keys(coverState?.attributes ?? {}))})`);
         } else {
-          // entity_picture URLs end in `?token=<short-lived>`. The image_proxy
-          // endpoint authenticates VIA that token, NOT via the supervisor
-          // bearer — sending Authorization triggers a 401/500. Keep the URL
-          // intact and omit the bearer.
+          // The supervisor proxy needs the addon Bearer for identity, AND
+          // HA core's image_proxy needs the entity_picture URL token for
+          // authorization. BOTH are required — only one yields 401.
           console.log(`[capture] cover: fetching http://supervisor/core${entityPicture}`);
-          const imgRes = await fetch(`http://supervisor/core${entityPicture}`);
+          const imgRes = await fetch(`http://supervisor/core${entityPicture}`, {
+            headers: { Authorization: `Bearer ${process.env.SUPERVISOR_TOKEN}` },
+          });
           if (!imgRes.ok) {
             console.error(`[capture] cover: supervisor fetch failed: ${imgRes.status} ${imgRes.statusText}`);
           } else {

@@ -1029,13 +1029,22 @@ export async function captureCoverNowAction(
 
     const entityPicture = candidate.attributes?.entity_picture as string | undefined;
     if (!entityPicture) {
-      return { ok: false, error: `Entity ${candidate.entity_id} has no entity_picture attribute` };
+      return {
+        ok: false,
+        error: `Entity ${candidate.entity_id} has no entity_picture attribute. Available attrs: ${JSON.stringify(Object.keys(candidate.attributes ?? {}))}`,
+      };
     }
 
-    // image_proxy authenticates via the URL token, NOT supervisor bearer
-    const imgRes = await fetch(`http://supervisor/core${entityPicture}`);
+    // Supervisor proxy needs the addon Bearer for identity, AND HA core's
+    // image_proxy needs the URL ?token=... for authorization. Both required.
+    const imgRes = await fetch(`http://supervisor/core${entityPicture}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
     if (!imgRes.ok) {
-      return { ok: false, error: `Supervisor fetch failed: ${imgRes.status} ${imgRes.statusText}` };
+      return {
+        ok: false,
+        error: `Supervisor fetch failed: ${imgRes.status} ${imgRes.statusText} (entity_picture=${entityPicture})`,
+      };
     }
     const buffer = Buffer.from(await imgRes.arrayBuffer());
 
