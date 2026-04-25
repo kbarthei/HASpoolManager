@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- **fix:** promote print preview to leading position on dashboard + prints (`ff6a201`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`8873337`)
 - **feat:** show running-print cover thumbnail in PrinterLiveCard (`1d3e137`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`6f381af`)
 - **fix:** show photo gallery on Currently Printing cards (`639c0e1`)
