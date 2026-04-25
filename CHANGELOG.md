@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- **fix:** show photo gallery on Currently Printing cards (`639c0e1`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`2b2c5f5`)
 - **chore:** sync v1.1.11 version bump from deploy (`ae3fbad`)
 - **fix:** supervisor bearer + entity_picture token both required (`33efe08`)
 - **feat:** manual cover-capture button for prints whose auto-capture missed (`5455774`)
