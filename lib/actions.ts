@@ -999,6 +999,56 @@ export async function uploadPrintPhotoAction(
   }
 }
 
+export async function captureCoverNowAction(
+  printId: string,
+): Promise<{ ok: boolean; error?: string; savedPath?: string }> {
+  try {
+    const print = await db.query.prints.findFirst({
+      where: eq(prints.id, printId),
+      columns: { id: true },
+    });
+    if (!print) return { ok: false, error: "Print not found" };
+
+    const token = process.env.SUPERVISOR_TOKEN;
+    if (!token) return { ok: false, error: "Not running as HA addon (no SUPERVISOR_TOKEN)" };
+
+    // Find a Bambu cover_image entity. We don't have a static printer→entity
+    // map at the action layer (that lives in sync-worker memory), so fall
+    // back to scanning HA states for image entities matching the Bambu
+    // naming conventions (DE: *_titelbild, EN: *_cover_image).
+    const { getAllStates } = await import("./ha-api");
+    const states = await getAllStates();
+    const candidate = states.find((s) =>
+      typeof s.entity_id === "string" &&
+      s.entity_id.startsWith("image.") &&
+      (s.entity_id.endsWith("_titelbild") || s.entity_id.endsWith("_cover_image")),
+    );
+    if (!candidate) {
+      return { ok: false, error: "No cover_image / titelbild entity found in HA" };
+    }
+
+    const entityPicture = candidate.attributes?.entity_picture as string | undefined;
+    if (!entityPicture) {
+      return { ok: false, error: `Entity ${candidate.entity_id} has no entity_picture attribute` };
+    }
+
+    // image_proxy authenticates via the URL token, NOT supervisor bearer
+    const imgRes = await fetch(`http://supervisor/core${entityPicture}`);
+    if (!imgRes.ok) {
+      return { ok: false, error: `Supervisor fetch failed: ${imgRes.status} ${imgRes.statusText}` };
+    }
+    const buffer = Buffer.from(await imgRes.arrayBuffer());
+
+    const { savePhoto } = await import("./photo-manager");
+    const saved = await savePhoto(printId, buffer, "cover", "jpg");
+    revalidatePath("/prints");
+    return { ok: true, savedPath: saved.path };
+  } catch (error) {
+    console.error("captureCoverNowAction error:", error);
+    return { ok: false, error: (error as Error).message ?? "Capture failed" };
+  }
+}
+
 export async function deletePrintPhotoAction(
   printId: string,
   filename: string,
