@@ -106,10 +106,20 @@ export async function deletePhoto(printId: string, filename: string): Promise<bo
 
 export function resolvePhotoPath(printId: string, filename: string): string | null {
   if (!safeFilename(filename)) return null;
-  const fullPath = path.join(getPhotoRoot(), printId, filename);
+  // New layout: PHOTO_DIR/<printId>/<filename>
+  const newPath = path.join(getPhotoRoot(), printId, filename);
   try {
-    statSync(fullPath);
-    return fullPath;
+    statSync(newPath);
+    return newPath;
+  } catch {
+  }
+  // Legacy layout: /config/snapshots/<filename> (pre-v1.1.6 cover/snapshot
+  // captures). The migrate-db.js backfill kept these paths in photo_urls;
+  // fall back here so existing prints' images still serve.
+  const legacyPath = path.join("/config/snapshots", filename);
+  try {
+    statSync(legacyPath);
+    return legacyPath;
   } catch {
     return null;
   }
