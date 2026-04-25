@@ -6,6 +6,11 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- **chore:** sync v1.1.11 version bump from deploy (`ae3fbad`)
+- **fix:** supervisor bearer + entity_picture token both required (`33efe08`)
+- **feat:** manual cover-capture button for prints whose auto-capture missed (`5455774`)
+- **fix:** use entity_picture token instead of supervisor bearer + serve legacy snapshot paths (`306ff92`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`ba84141`)
 - **fix:** ship app as tarball + ADD to bypass BuildKit checksum bug (`14fa951`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`c46300d`)
 - **fix:** two-step confirm for bulk add — click selects, button creates (`bf47dac`)
