@@ -3,6 +3,9 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { db } from "@/lib/db";
+import { prints as printsTable } from "@/lib/db/schema";
+import { eq, desc } from "drizzle-orm";
 import {
   getDashboardStats,
   getAmsSlots,
@@ -11,6 +14,33 @@ import {
   getPrinterStatus,
   getDashboardChartData,
 } from "@/lib/queries";
+
+interface PhotoEntry {
+  path: string;
+  kind: "cover" | "snapshot" | "user";
+  captured_at: string | null;
+}
+
+async function getRunningPrintHero(): Promise<{ printId: string; photo: PhotoEntry } | null> {
+  const row = await db.query.prints.findFirst({
+    where: eq(printsTable.status, "running"),
+    orderBy: [desc(printsTable.startedAt)],
+    columns: { id: true, photoUrls: true },
+  });
+  if (!row?.photoUrls) return null;
+  try {
+    const arr = JSON.parse(row.photoUrls) as PhotoEntry[];
+    if (!Array.isArray(arr) || arr.length === 0) return null;
+    // Prefer cover, then snapshot, then any user upload
+    const photo =
+      arr.find((p) => p.kind === "cover") ??
+      arr.find((p) => p.kind === "snapshot") ??
+      arr[0];
+    return { printId: row.id, photo };
+  } catch {
+    return null;
+  }
+}
 import { StatCard } from "@/components/dashboard/stat-card";
 import { BudgetCard } from "@/components/budget/budget-card";
 import { MonthlySpendChart } from "@/components/dashboard/monthly-spend-chart";
@@ -23,13 +53,14 @@ type PrinterStatus = Awaited<ReturnType<typeof getPrinterStatus>>;
 type PrintWithUsage = Awaited<ReturnType<typeof getRecentPrints>>[number];
 
 export default async function Dashboard() {
-  const [stats, slots, supplyStatus, prints, printerStatus, chartData] = await Promise.all([
+  const [stats, slots, supplyStatus, prints, printerStatus, chartData, runningHero] = await Promise.all([
     getDashboardStats(),
     getAmsSlots(),
     getSupplyStatus(),
     getRecentPrints(),
     getPrinterStatus(),
     getDashboardChartData(),
+    getRunningPrintHero(),
   ]);
 
   const needsAttention = supplyStatus.filter(s => s.urgency !== "ok");
@@ -53,7 +84,7 @@ export default async function Dashboard() {
       )}
 
       {/* Printer Live hero */}
-      <PrinterLiveCard status={printerStatus} slots={slots} />
+      <PrinterLiveCard status={printerStatus} slots={slots} runningHero={runningHero} />
 
       {/* 2×2 stat grid */}
       <div className="flex items-center justify-between gap-2 mb-0.5">
@@ -125,7 +156,15 @@ export default async function Dashboard() {
 // Printer Live card — the visual anchor of the Overview
 // ──────────────────────────────────────────────────────────────────────────
 
-function PrinterLiveCard({ status, slots }: { status: PrinterStatus; slots: SlotWithSpool[] }) {
+function PrinterLiveCard({
+  status,
+  slots,
+  runningHero,
+}: {
+  status: PrinterStatus;
+  slots: SlotWithSpool[];
+  runningHero: { printId: string; photo: PhotoEntry } | null;
+}) {
   const isPrinting = status.status === "printing";
   const isIdle = status.status === "idle";
   const isOffline = !isPrinting && !isIdle;
@@ -151,6 +190,12 @@ function PrinterLiveCard({ status, slots }: { status: PrinterStatus; slots: Slot
     ? `${loaded} of ${total} AMS slots loaded`
     : "Printer not reachable";
 
+  const heroImageSrc = runningHero
+    ? `/api/v1/prints/${runningHero.printId}/photos/${encodeURIComponent(
+        runningHero.photo.path.split("/").pop() ?? "",
+      )}`
+    : null;
+
   return (
     <Card data-testid="printer-live" className="p-5 rounded-2xl">
       <div className="flex items-center gap-3 mb-3">
@@ -168,11 +213,30 @@ function PrinterLiveCard({ status, slots }: { status: PrinterStatus; slots: Slot
         </span>
       </div>
 
-      <div className="flex items-baseline gap-2 mb-5">
-        <span className="text-4xl font-bold tracking-[-0.025em] leading-none">
-          {isPrinting ? `${Math.round(status.progress ?? 0)}%` : `${loaded}/${total}`}
-        </span>
-        <span className="text-sm text-muted-foreground truncate">{subtitle}</span>
+      <div className="flex items-start gap-4 mb-5">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-baseline gap-2">
+            <span className="text-4xl font-bold tracking-[-0.025em] leading-none">
+              {isPrinting ? `${Math.round(status.progress ?? 0)}%` : `${loaded}/${total}`}
+            </span>
+            <span className="text-sm text-muted-foreground truncate">{subtitle}</span>
+          </div>
+        </div>
+        {isPrinting && heroImageSrc && (
+          <Link
+            href="/prints"
+            className="shrink-0 block rounded-lg overflow-hidden border border-border hover:border-primary transition-colors"
+            title={runningHero?.photo.kind === "cover" ? "3D-Modell-Cover" : "Print-Snapshot"}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={heroImageSrc}
+              alt="Current print preview"
+              className="w-20 h-20 object-cover bg-muted"
+              loading="eager"
+            />
+          </Link>
+        )}
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
