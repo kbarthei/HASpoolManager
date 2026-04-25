@@ -2,8 +2,8 @@
 
 import { useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Image as ImageIcon, Trash2, Upload } from "lucide-react";
-import { uploadPrintPhotoAction, deletePrintPhotoAction } from "@/lib/actions";
+import { Image as ImageIcon, Trash2, Upload, Camera } from "lucide-react";
+import { uploadPrintPhotoAction, deletePrintPhotoAction, captureCoverNowAction } from "@/lib/actions";
 
 export interface PhotoEntry {
   path: string;
@@ -57,6 +57,26 @@ export function PrintPhotoGallery({ printId, initialPhotos }: PrintPhotoGalleryP
         toast.success("Photo uploaded");
       } catch {
         toast.error("Upload failed");
+      }
+    });
+  }
+
+  async function handleCaptureCover() {
+    startUpload(async () => {
+      try {
+        const result = await captureCoverNowAction(printId);
+        if (!result.ok) {
+          toast.error(result.error ?? "Cover capture failed");
+          return;
+        }
+        // optimistic UI update; full state will refresh on next nav
+        setPhotos((prev) => [
+          ...prev,
+          { path: result.savedPath ?? "", kind: "cover", captured_at: new Date().toISOString() },
+        ]);
+        toast.success("Cover captured");
+      } catch {
+        toast.error("Cover capture failed");
       }
     });
   }
@@ -120,6 +140,18 @@ export function PrintPhotoGallery({ printId, initialPhotos }: PrintPhotoGalleryP
             />
             <Upload className="w-4 h-4" />
           </label>
+          {!photos.some((p) => p.kind === "cover") && (
+            <button
+              type="button"
+              disabled={uploading}
+              onClick={handleCaptureCover}
+              className="h-14 w-14 rounded-md border-2 border-dashed border-border hover:border-primary transition-colors flex items-center justify-center text-muted-foreground hover:text-primary disabled:opacity-50"
+              title="Cover-Bild jetzt vom Drucker holen"
+              data-testid={`capture-cover-${printId}`}
+            >
+              <Camera className="w-4 h-4" />
+            </button>
+          )}
         </div>
       </div>
 
