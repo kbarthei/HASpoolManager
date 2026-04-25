@@ -334,11 +334,12 @@ async function handleBambuEvent(event: Record<string, unknown>) {
         if (!entityPicture) {
           console.error(`[capture] cover: entity ${coverEntity} has no entity_picture attribute (state=${coverState?.state}, attrs=${JSON.stringify(Object.keys(coverState?.attributes ?? {}))})`);
         } else {
-          const imgUrl = entityPicture.split("?")[0];
-          console.log(`[capture] cover: fetching http://supervisor/core${imgUrl}`);
-          const imgRes = await fetch(`http://supervisor/core${imgUrl}`, {
-            headers: { Authorization: `Bearer ${process.env.SUPERVISOR_TOKEN}` },
-          });
+          // entity_picture URLs end in `?token=<short-lived>`. The image_proxy
+          // endpoint authenticates VIA that token, NOT via the supervisor
+          // bearer — sending Authorization triggers a 401/500. Keep the URL
+          // intact and omit the bearer.
+          console.log(`[capture] cover: fetching http://supervisor/core${entityPicture}`);
+          const imgRes = await fetch(`http://supervisor/core${entityPicture}`);
           if (!imgRes.ok) {
             console.error(`[capture] cover: supervisor fetch failed: ${imgRes.status} ${imgRes.statusText}`);
           } else {
