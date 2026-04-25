@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- **feat:** show running-print cover thumbnail in PrinterLiveCard (`1d3e137`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`6f381af`)
 - **fix:** show photo gallery on Currently Printing cards (`639c0e1`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`2b2c5f5`)
 - **chore:** sync v1.1.11 version bump from deploy (`ae3fbad`)
