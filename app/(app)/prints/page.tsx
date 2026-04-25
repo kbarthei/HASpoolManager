@@ -235,7 +235,7 @@ export default async function PrintHistoryPage({
                 key={print.id}
                 className="p-4 rounded-xl border-l-[3px] border-l-primary"
               >
-                <div className="flex items-start justify-between gap-2">
+                <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-semibold truncate">
                       {print.name ?? print.gcodeFile ?? "Unnamed print"}
@@ -245,6 +245,10 @@ export default async function PrintHistoryPage({
                       {print.printer && ` · ${print.printer.name}`}
                     </div>
                   </div>
+                  <PrintPhotoGallery
+                    printId={print.id}
+                    initialPhotos={parsePhotos(print.photoUrls)}
+                  />
                   <span className="inline-flex items-center h-5 px-2 rounded-full text-2xs font-bold uppercase tracking-wide bg-primary/15 text-primary border border-primary/30 shrink-0">
                     Printing
                   </span>
