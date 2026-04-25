@@ -235,24 +235,28 @@ export default async function PrintHistoryPage({
                 key={print.id}
                 className="p-4 rounded-xl border-l-[3px] border-l-primary"
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="text-sm font-semibold truncate">
-                      {print.name ?? print.gcodeFile ?? "Unnamed print"}
-                    </div>
-                    <div className="text-xs text-muted-foreground mt-0.5">
-                      Started {formatDateShort(print.startedAt!)}
-                      {print.printer && ` · ${print.printer.name}`}
-                    </div>
+                <div className="flex items-start gap-4">
+                  <div className="shrink-0">
+                    <PrintPhotoGallery
+                      printId={print.id}
+                      initialPhotos={parsePhotos(print.photoUrls)}
+                    />
                   </div>
-                  <PrintPhotoGallery
-                    printId={print.id}
-                    initialPhotos={parsePhotos(print.photoUrls)}
-                  />
-                  <span className="inline-flex items-center h-5 px-2 rounded-full text-2xs font-bold uppercase tracking-wide bg-primary/15 text-primary border border-primary/30 shrink-0">
-                    Printing
-                  </span>
-                </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-semibold truncate">
+                          {print.name ?? print.gcodeFile ?? "Unnamed print"}
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-0.5">
+                          Started {formatDateShort(print.startedAt!)}
+                          {print.printer && ` · ${print.printer.name}`}
+                        </div>
+                      </div>
+                      <span className="inline-flex items-center h-5 px-2 rounded-full text-2xs font-bold uppercase tracking-wide bg-primary/15 text-primary border border-primary/30 shrink-0">
+                        Printing
+                      </span>
+                    </div>
                 <div className="flex flex-wrap gap-3 mt-3 text-xs text-muted-foreground items-center">
                   {printerStatus.activeSpools && printerStatus.activeSpools.length > 0 ? (
                     printerStatus.activeSpools.map((spool, i) => (
@@ -305,6 +309,8 @@ export default async function PrintHistoryPage({
                       </span>
                     );
                   })()}
+                    </div>
+                  </div>
                 </div>
               </Card>
             ))}

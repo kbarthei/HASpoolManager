@@ -214,29 +214,29 @@ function PrinterLiveCard({
       </div>
 
       <div className="flex items-start gap-4 mb-5">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-baseline gap-2">
-            <span className="text-4xl font-bold tracking-[-0.025em] leading-none">
-              {isPrinting ? `${Math.round(status.progress ?? 0)}%` : `${loaded}/${total}`}
-            </span>
-            <span className="text-sm text-muted-foreground truncate">{subtitle}</span>
-          </div>
-        </div>
         {isPrinting && heroImageSrc && (
           <Link
             href="/prints"
-            className="shrink-0 block rounded-lg overflow-hidden border border-border hover:border-primary transition-colors"
+            className="shrink-0 block rounded-xl overflow-hidden border border-border hover:border-primary transition-colors"
             title={runningHero?.photo.kind === "cover" ? "3D-Modell-Cover" : "Print-Snapshot"}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={heroImageSrc}
               alt="Current print preview"
-              className="w-20 h-20 object-cover bg-muted"
+              className="w-32 h-32 object-cover bg-muted"
               loading="eager"
             />
           </Link>
         )}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-baseline gap-2 flex-wrap">
+            <span className="text-4xl font-bold tracking-[-0.025em] leading-none">
+              {isPrinting ? `${Math.round(status.progress ?? 0)}%` : `${loaded}/${total}`}
+            </span>
+            <span className="text-sm text-muted-foreground truncate">{subtitle}</span>
+          </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
