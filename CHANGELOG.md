@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- **fix:** extract app.tar.gz in e2e harness so server.js is reachable (`5d296a8`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`35c134b`)
 - **feat:** orphan-photos detector + idempotent manual cover capture (`399e844`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`9f68377`)
 - **fix:** watchdog uses lastSyncAt so progress polls during active prints (`505b64b`)
