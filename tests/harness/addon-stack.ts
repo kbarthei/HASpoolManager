@@ -92,12 +92,26 @@ function ensureDockerAvailable(): void {
 }
 
 function ensureAddonBuilt(): void {
+  const tarballPath = path.join(path.dirname(STAGING_APP), "app.tar.gz");
+
   if (!fs.existsSync(path.join(STAGING_APP, "server.js"))) {
-    console.log("[e2e] building HA addon artifact (first run)…");
-    execFileSync("bash", [path.join("ha-addon", "build-addon.sh")], {
-      cwd: REPO_ROOT,
-      stdio: "inherit",
-    });
+    if (!fs.existsSync(tarballPath)) {
+      console.log("[e2e] building HA addon artifact (first run)…");
+      execFileSync("bash", [path.join("ha-addon", "build-addon.sh")], {
+        cwd: REPO_ROOT,
+        stdio: "inherit",
+      });
+    }
+    // build-addon.sh packs app/ into app.tar.gz and removes app/ to keep the
+    // outer tarball small (a HA-side BuildKit workaround). For e2e we need
+    // the unpacked app/ so node can run server.js — so we extract it here.
+    if (fs.existsSync(tarballPath)) {
+      console.log("[e2e] extracting app.tar.gz into staging…");
+      fs.mkdirSync(STAGING_APP, { recursive: true });
+      execFileSync("tar", ["-xzf", tarballPath, "-C", STAGING_APP], {
+        stdio: "inherit",
+      });
+    }
   } else {
     console.log("[e2e] reusing cached addon staging at", STAGING_APP);
   }
