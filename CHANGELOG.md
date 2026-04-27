@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- **fix:** UserPromptSubmit CI-watcher uses plain stdout instead of unrecognized JSON field (`634c7ff`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`1b3cdda`)
 - **fix:** extract app.tar.gz in e2e harness so server.js is reachable (`5d296a8`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`35c134b`)
 - **feat:** orphan-photos detector + idempotent manual cover capture (`399e844`)
