@@ -6,6 +6,9 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- **fix:** watchdog uses lastSyncAt so progress polls during active prints (`505b64b`)
+- **fix:** event-driven cover capture survives Bambu's print_started race (`b5e3fe3`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`61bb867`)
 - **fix:** promote print preview to leading position on dashboard + prints (`ff6a201`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`8873337`)
 - **feat:** show running-print cover thumbnail in PrinterLiveCard (`1d3e137`)
