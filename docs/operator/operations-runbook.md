@@ -246,6 +246,48 @@ filament), `/admin/diagnostics` → Supply Rules card flags the orphan.
 
 ---
 
+## 7b. "No cover image on Currently Printing card"
+
+**Symptom:** A print is `running` but the Currently Printing card on
+`/prints` and the dashboard `PrinterLiveCard` shows no preview image. DB
+shows `photo_urls = NULL` for the running print.
+
+**Cause:** Bambu's HA integration emits `event_print_started` BEFORE it has
+uploaded the new model preview to its `image.<printer>_titelbild` entity.
+HA's `image_proxy` returns 500 to anyone who tries to fetch the image during
+that gap. The cover usually shows up 30s–15min after the event.
+
+**Auto-recovery:** the sync-worker subscribes to `state_changed` for the
+`cover_image` entity. As soon as Bambu pushes the cover, the worker fetches
+and saves it automatically (see `lib/cover-capture.ts` +
+`lib/sync-worker.ts`'s `tryCaptureCoverForPrinter`). Reload `/prints` after
+a few minutes — the card should show the preview.
+
+**Manual recovery (if auto failed):** click the camera icon in the photo
+gallery on the running print's card. That triggers
+`POST /api/v1/admin/capture-cover` which scans HA for any `image.*_titelbild`
+or `image.*_cover_image` entity, fetches it, and saves as the cover. Logs
+appear in the addon log under `[capture] cover (manual): ...`.
+
+**Diagnose the auto path** if manual works but auto doesn't:
+
+```bash
+ssh root@homeassistant "ha apps logs local_haspoolmanager --lines 1000 \
+  | grep '\[capture\] cover'"
+```
+
+Expected log lines for a healthy capture:
+```
+[capture] cover (event_print_started): ... (race condition, expected)
+[capture] cover (state_changed:cover_image): saved <printId>/cover-...jpg
+```
+
+If the second line never appears, the `cover_image` entity isn't mapped.
+Check `/admin/printer-mappings` and confirm `cover_image` points at
+`image.<printer>_titelbild` (or `_cover_image` on English HA).
+
+---
+
 ## 8. "DB is corrupted / won't open"
 
 **Symptom:** addon won't start, logs show `SQLite: database is malformed`

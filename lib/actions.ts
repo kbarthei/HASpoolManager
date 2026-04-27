@@ -1012,10 +1012,10 @@ export async function captureCoverNowAction(
     const token = process.env.SUPERVISOR_TOKEN;
     if (!token) return { ok: false, error: "Not running as HA addon (no SUPERVISOR_TOKEN)" };
 
-    // Find a Bambu cover_image entity. We don't have a static printer→entity
-    // map at the action layer (that lives in sync-worker memory), so fall
-    // back to scanning HA states for image entities matching the Bambu
-    // naming conventions (DE: *_titelbild, EN: *_cover_image).
+    // Find a Bambu cover_image entity. The action layer has no static
+    // printer→entity map (that lives in sync-worker memory), so scan HA
+    // states for image entities matching the Bambu naming conventions
+    // (DE: *_titelbild, EN: *_cover_image).
     const { getAllStates } = await import("./ha-api");
     const states = await getAllStates();
     const candidate = states.find((s) =>
@@ -1027,31 +1027,21 @@ export async function captureCoverNowAction(
       return { ok: false, error: "No cover_image / titelbild entity found in HA" };
     }
 
-    const entityPicture = candidate.attributes?.entity_picture as string | undefined;
-    if (!entityPicture) {
-      return {
-        ok: false,
-        error: `Entity ${candidate.entity_id} has no entity_picture attribute. Available attrs: ${JSON.stringify(Object.keys(candidate.attributes ?? {}))}`,
-      };
-    }
-
-    // Supervisor proxy needs the addon Bearer for identity, AND HA core's
-    // image_proxy needs the URL ?token=... for authorization. Both required.
-    const imgRes = await fetch(`http://supervisor/core${entityPicture}`, {
-      headers: { Authorization: `Bearer ${token}` },
+    const { captureCover, makeFetchImageViaSupervisor } = await import("./cover-capture");
+    const result = await captureCover(printId, {
+      getCoverState: async () => {
+        const ep = candidate.attributes?.entity_picture;
+        return { entityPicture: typeof ep === "string" ? ep : null };
+      },
+      fetchImage: makeFetchImageViaSupervisor(token),
     });
-    if (!imgRes.ok) {
-      return {
-        ok: false,
-        error: `Supervisor fetch failed: ${imgRes.status} ${imgRes.statusText} (entity_picture=${entityPicture})`,
-      };
-    }
-    const buffer = Buffer.from(await imgRes.arrayBuffer());
 
-    const { savePhoto } = await import("./photo-manager");
-    const saved = await savePhoto(printId, buffer, "cover", "jpg");
-    revalidatePath("/prints");
-    return { ok: true, savedPath: saved.path };
+    if (result.ok) {
+      revalidatePath("/prints");
+      revalidatePath("/");
+      return { ok: true, savedPath: result.savedPath };
+    }
+    return { ok: false, error: result.error };
   } catch (error) {
     console.error("captureCoverNowAction error:", error);
     return { ok: false, error: (error as Error).message ?? "Capture failed" };

@@ -53,6 +53,10 @@ export async function getPhotos(printId: string): Promise<PhotoEntry[]> {
   return parseList(row?.photoUrls ?? null);
 }
 
+export function hasCoverPhoto(photoUrlsJson: string | null): boolean {
+  return parseList(photoUrlsJson).some((p) => p.kind === "cover");
+}
+
 export async function savePhoto(
   printId: string,
   buffer: Buffer,

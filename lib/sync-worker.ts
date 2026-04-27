@@ -12,6 +12,7 @@ import { HAWebSocketClient } from "./ha-websocket";
 import { getEntityState, getEntityStates } from "./ha-api";
 import { discoverPrinters, buildFieldToEntityMap, buildEntityToFieldMap, type DiscoveredPrinter, type EntityMapping } from "./ha-discovery";
 import { isHAEntityAvailable } from "./printer-sync-helpers";
+import { captureCover, makeFetchImageViaSupervisor, makeGetCoverStateFromHA } from "./cover-capture";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -319,54 +320,13 @@ async function handleBambuEvent(event: Record<string, unknown>) {
 
   await callSyncEngine(payload);
 
-  // Capture cover image at print start
+  // Try cover-image capture at print start. This is best-effort — Bambu
+  // typically pushes the cover to its image entity 30s–15min AFTER the
+  // event_print_started fires, so this first attempt usually returns 500.
+  // The real save path is `tryCaptureCoverForPrinter` triggered from
+  // `handleStateChanged` when the cover_image entity finally updates.
   if (eventType === "event_print_started" && printer) {
-    console.log("[capture] cover: starting for event_print_started");
-    const coverEntity = printer.fieldToEntity.get("cover_image");
-    if (!coverEntity) {
-      console.error("[capture] cover: no cover_image entity mapped for this printer");
-    } else {
-      try {
-        console.log(`[capture] cover: reading state of ${coverEntity}`);
-        const states = await getEntityStates([coverEntity]);
-        const coverState = states.get(coverEntity);
-        const entityPicture = coverState?.attributes?.entity_picture as string | undefined;
-        if (!entityPicture) {
-          console.error(`[capture] cover: entity ${coverEntity} has no entity_picture attribute (state=${coverState?.state}, attrs=${JSON.stringify(Object.keys(coverState?.attributes ?? {}))})`);
-        } else {
-          // The supervisor proxy needs the addon Bearer for identity, AND
-          // HA core's image_proxy needs the entity_picture URL token for
-          // authorization. BOTH are required — only one yields 401.
-          console.log(`[capture] cover: fetching http://supervisor/core${entityPicture}`);
-          const imgRes = await fetch(`http://supervisor/core${entityPicture}`, {
-            headers: { Authorization: `Bearer ${process.env.SUPERVISOR_TOKEN}` },
-          });
-          if (!imgRes.ok) {
-            console.error(`[capture] cover: supervisor fetch failed: ${imgRes.status} ${imgRes.statusText}`);
-          } else {
-            const buffer = Buffer.from(await imgRes.arrayBuffer());
-            // Resolve the running print for this printer so we save into the right
-            // folder. Use dbPrinterId from the sync-worker state.
-            const { db } = await import("./db");
-            const { prints } = await import("./db/schema");
-            const { and, eq } = await import("drizzle-orm");
-            const runningPrint = await db.query.prints.findFirst({
-              where: and(eq(prints.printerId, printer.printerId), eq(prints.status, "running")),
-              columns: { id: true },
-            });
-            if (!runningPrint) {
-              console.error("[capture] cover: no running print found for printer; skipping save");
-            } else {
-              const { savePhoto } = await import("./photo-manager");
-              const saved = await savePhoto(runningPrint.id, buffer, "cover", "jpg");
-              console.log(`[capture] cover: saved ${saved.path} (${Math.round(buffer.byteLength / 1024)}KB) for print ${runningPrint.id}`);
-            }
-          }
-        }
-      } catch (err) {
-        console.error("[capture] cover: failure:", (err as Error).message, (err as Error).stack);
-      }
-    }
+    void tryCaptureCoverForPrinter(printer, "event_print_started");
   }
 
   // Capture camera snapshot at print end.
@@ -442,6 +402,72 @@ async function handleBambuEvent(event: Record<string, unknown>) {
   printer.isActive = ["RUNNING", "PREPARE", "PAUSE", "SLICING", "INIT"].includes(
     (gcode || "").toUpperCase(),
   );
+}
+
+// ── Cover-image capture (race-condition-tolerant) ─────────────────────────
+//
+// Bambu emits event_print_started BEFORE its image entity has the new cover.
+// This helper is called from BOTH the at-start handler AND the state_changed
+// handler for the cover_image entity. The state_changed path is the one that
+// actually wins — but we keep the at-start try because it occasionally works
+// (e.g. when the slicer file was already uploaded earlier).
+//
+// Idempotency: we skip if the running print already has a cover photo, so
+// repeat state_changed events (Bambu sometimes pushes the same image twice)
+// don't create duplicate files.
+
+async function tryCaptureCoverForPrinter(
+  printer: PrinterSyncState,
+  trigger: string,
+): Promise<void> {
+  const coverEntity = printer.fieldToEntity.get("cover_image");
+  if (!coverEntity) {
+    console.log(`[capture] cover (${trigger}): no cover_image entity mapped — skip`);
+    return;
+  }
+
+  const token = process.env.SUPERVISOR_TOKEN;
+  if (!token) {
+    console.error(`[capture] cover (${trigger}): no SUPERVISOR_TOKEN — skip`);
+    return;
+  }
+
+  try {
+    const { db } = await import("./db");
+    const { prints } = await import("./db/schema");
+    const { and, eq } = await import("drizzle-orm");
+    const { hasCoverPhoto } = await import("./photo-manager");
+
+    const runningPrint = await db.query.prints.findFirst({
+      where: and(eq(prints.printerId, printer.printerId), eq(prints.status, "running")),
+      columns: { id: true, photoUrls: true },
+    });
+    if (!runningPrint) {
+      console.log(`[capture] cover (${trigger}): no running print for printer — skip`);
+      return;
+    }
+    if (hasCoverPhoto(runningPrint.photoUrls)) {
+      // Already captured — nothing to do.
+      return;
+    }
+
+    const result = await captureCover(runningPrint.id, {
+      getCoverState: makeGetCoverStateFromHA(coverEntity, getEntityStates),
+      fetchImage: makeFetchImageViaSupervisor(token),
+    });
+
+    if (result.ok) {
+      console.log(
+        `[capture] cover (${trigger}): saved ${result.savedPath} (${Math.round((result.bytes ?? 0) / 1024)}KB) for print ${runningPrint.id}`,
+      );
+    } else {
+      // Expected on the first event_print_started attempt — the cover_image
+      // state_changed will retry within minutes. Log at info level, not error.
+      console.log(`[capture] cover (${trigger}): ${result.error}`);
+    }
+  } catch (err) {
+    console.error(`[capture] cover (${trigger}): unexpected failure:`, (err as Error).message);
+  }
 }
 
 let stateChangedCount = 0;
@@ -522,6 +548,15 @@ async function handleStateChanged(event: Record<string, unknown>) {
       if (field === "hms_errors" && newState === "on") {
         await processHmsErrors(printer, attrs);
         // Don't trigger a full sync for HMS — it's tracked separately
+        return;
+      }
+
+      // ── Cover image arrived (Bambu pushed it after print_started) ───
+      // image entity state is the timestamp of the last update; whenever it
+      // changes, Bambu has uploaded a fresh preview. We use this signal to
+      // close the race that breaks the at-print_started fetch.
+      if (field === "cover_image") {
+        void tryCaptureCoverForPrinter(printer, "state_changed:cover_image");
         return;
       }
 

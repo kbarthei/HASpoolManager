@@ -205,6 +205,37 @@ Watchdog catches:
 
 The 30s check interval is the floor; actual polls happen less often (2 or 5 min timeouts).
 
+### Cover-image capture (race-condition-tolerant)
+
+Bambu's HA integration emits `event_print_started` BEFORE it has uploaded the
+new model preview to its `image.<printer>_titelbild` (DE) or
+`image.<printer>_cover_image` (EN) entity. A direct fetch at print-start time
+hits HA's `/api/image_proxy/` and gets a 500 — the image backend has no
+payload yet. The cover usually shows up 30s–15min later.
+
+Solution: **event-driven capture from `state_changed`**.
+
+1. `event_print_started` triggers `tryCaptureCoverForPrinter()` once as a
+   best-effort first attempt. Usually fails with the 500 above; that's logged
+   at info level (not error) and is expected.
+2. The `state_changed` handler treats `cover_image` specially: whenever the
+   image entity updates (Bambu finally pushed the preview), it re-runs
+   `tryCaptureCoverForPrinter()`.
+3. The helper is **idempotent**: it skips if the running print already has a
+   `kind: "cover"` entry in `photo_urls`. Repeat state_changed events from
+   Bambu (same image pushed twice) don't create duplicate files.
+4. The fetch+save logic is centralized in `lib/cover-capture.ts` so the same
+   pure function powers (a) the sync-worker's automatic capture, (b) the
+   manual "Camera" button via `captureCoverNowAction`, and (c) the
+   `POST /api/v1/admin/capture-cover` HTTP wrapper.
+5. A `MIN_COVER_BYTES = 2048` guard rejects the placeholder JPEG that Bambu
+   serves before the real cover is ready, so the gallery never shows a
+   1KB blank.
+
+**Auth:** the addon Bearer (Supervisor identity) AND the URL `?token=...`
+(HA core auth) are BOTH required for `image_proxy` requests — only one
+yields 401.
+
 ### Initial sync on reconnect
 
 Part of `registerPrinter`. After discovery, we call `buildSyncPayload`
