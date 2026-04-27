@@ -191,19 +191,30 @@ spool-swap timing. `event_print_error_cleared` resets the runout flag.
 
 ### Watchdog (`startWatchdog`)
 
-A `setInterval(…, 30_000)` loop. For each registered printer:
+A `setInterval(…, 15_000)` loop. For each registered printer:
 
 ```
-if (isActive && now - lastEventAt > 2 min) → full REST poll + sync POST
-if (!isActive && now - lastEventAt > 5 min) → heartbeat poll
+if (isActive && now - lastSyncAt > 30 s) → full REST poll + sync POST
+if (!isActive && now - lastSyncAt > 5 min) → heartbeat poll
 ```
 
-Watchdog catches:
+The watchdog is the **only path** that pushes progress %, current layer
+and remaining-time into the DB — those entities fire `state_changed`
+events every few seconds during a print but are deliberately excluded
+from the sync triggers (too noisy). Without the watchdog they would
+stay frozen at the last sync trigger's snapshot.
+
+Watchdog also catches:
 - WS connected but HA integration hung (no events flowing)
 - State change between reconnect frames lost
 - Drucker-State sprang schnell IDLE→RUNNING→FAILED bevor WS aufholte
 
-The 30s check interval is the floor; actual polls happen less often (2 or 5 min timeouts).
+**`lastSyncAt` vs. `lastEventAt`:** the watchdog uses `lastSyncAt`
+(timestamp of the last successful sync POST), NOT `lastEventAt` (any HA
+event). If the watchdog used `lastEventAt`, an active print's constant
+progress events would refresh it to "just now" every second and the
+watchdog would never poll — leaving the dashboard stuck at the first
+recorded progress value.
 
 ### Cover-image capture (race-condition-tolerant)
 

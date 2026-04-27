@@ -31,7 +31,8 @@ interface PrinterSyncState {
   mappings: EntityMapping[];
   fieldToEntity: Map<string, string>;
   entityToField: Map<string, string>;
-  lastEventAt: number;
+  lastEventAt: number; // last HA event of any kind (for connection health)
+  lastSyncAt: number; // last full sync POST (drives the watchdog poll cadence)
   isActive: boolean; // currently printing?
   pendingSwaps: SpoolSwapEvent[]; // swaps detected during current print
   runoutSlot: { amsUnit: number; trayIndex: number } | null; // currently waiting for swap
@@ -163,7 +164,10 @@ async function buildSyncPayload(printer: PrinterSyncState): Promise<Record<strin
  * This avoids extracting the route handler into a shared module (large refactor).
  * The Next.js server runs on 127.0.0.1:3002 inside the addon container.
  */
-async function callSyncEngine(payload: Record<string, unknown>): Promise<void> {
+async function callSyncEngine(
+  payload: Record<string, unknown>,
+  printer?: PrinterSyncState,
+): Promise<void> {
   try {
     const apiKey = process.env.API_SECRET_KEY || "";
     const port = process.env.PORT || "3002";
@@ -180,7 +184,11 @@ async function callSyncEngine(payload: Record<string, unknown>): Promise<void> {
 
     if (!res.ok) {
       console.error(`[sync-worker] sync returned ${res.status}: ${await res.text()}`);
+      return;
     }
+    // Stamp last successful sync so the watchdog knows when to poll next.
+    // Only stamp on success — a failed sync should NOT delay the next retry.
+    if (printer) printer.lastSyncAt = Date.now();
   } catch (error) {
     console.error("[sync-worker] sync error:", error);
   }
@@ -318,7 +326,7 @@ async function handleBambuEvent(event: Record<string, unknown>) {
     }
   }
 
-  await callSyncEngine(payload);
+  await callSyncEngine(payload, printer);
 
   // Try cover-image capture at print start. This is best-effort — Bambu
   // typically pushes the cover to its image entity 30s–15min AFTER the
@@ -571,7 +579,7 @@ async function handleStateChanged(event: Record<string, unknown>) {
       if (printer.pendingSwaps.length > 0) {
         payload.spool_swaps = printer.pendingSwaps;
       }
-      await callSyncEngine(payload);
+      await callSyncEngine(payload, printer);
       return;
     }
   }
@@ -704,6 +712,7 @@ async function registerPrinter(discovered: DiscoveredPrinter): Promise<PrinterSy
     fieldToEntity: buildFieldToEntityMap(discovered.mappings),
     entityToField: buildEntityToFieldMap(discovered.mappings),
     lastEventAt: Date.now(),
+    lastSyncAt: 0, // initial sync below sets this
     isActive: false,
     pendingSwaps: [],
     runoutSlot: null,
@@ -738,7 +747,7 @@ async function registerPrinter(discovered: DiscoveredPrinter): Promise<PrinterSy
     const label = state.isActive ? "ACTIVE" : "IDLE";
     console.log(`[sync-worker] ${label} — doing initial sync for "${discovered.name}"`);
     const payload = await buildSyncPayload(state);
-    await callSyncEngine(payload);
+    await callSyncEngine(payload, state);
   } catch (err) {
     console.error(`[sync-worker] initial sync failed:`, (err as Error).message);
   }
@@ -751,25 +760,30 @@ async function registerPrinter(discovered: DiscoveredPrinter): Promise<PrinterSy
 function startWatchdog() {
   if (watchdogTimer) return;
 
-  const ACTIVE_TIMEOUT = 2 * 60 * 1000; // 2 min
+  // Active polling interval: progress %, layer count and remaining-time
+  // events fire every few seconds during a print but are intentionally
+  // EXCLUDED from the state_changed sync triggers (too noisy). The watchdog
+  // is the sole path that pushes those values into the DB. Keep it short
+  // enough that the dashboard "X% / Ymin left" stays roughly current.
+  //
+  // Idle interval just keeps the printer row warm so the UI doesn't claim
+  // the printer is offline forever between actual events.
+  const ACTIVE_INTERVAL = 30 * 1000; // 30 s
   const IDLE_INTERVAL = 5 * 60 * 1000; // 5 min
 
   watchdogTimer = setInterval(async () => {
     for (const printer of printers.values()) {
-      const elapsed = Date.now() - printer.lastEventAt;
+      const sinceLastSync = Date.now() - printer.lastSyncAt;
+      const interval = printer.isActive ? ACTIVE_INTERVAL : IDLE_INTERVAL;
+      if (sinceLastSync < interval) continue;
 
-      if (printer.isActive && elapsed > ACTIVE_TIMEOUT) {
-        console.log(`[sync-worker] watchdog: active print, no event for ${Math.round(elapsed / 1000)}s — polling`);
-        const payload = await buildSyncPayload(printer);
-        await callSyncEngine(payload);
-      } else if (!printer.isActive && elapsed > IDLE_INTERVAL) {
-        // Heartbeat poll when idle
-        const payload = await buildSyncPayload(printer);
-        await callSyncEngine(payload);
-        printer.lastEventAt = Date.now(); // reset to avoid spamming
-      }
+      console.log(
+        `[sync-worker] watchdog: ${printer.isActive ? "active" : "idle"} printer, ${Math.round(sinceLastSync / 1000)}s since last sync — polling`,
+      );
+      const payload = await buildSyncPayload(printer);
+      await callSyncEngine(payload, printer);
     }
-  }, 30_000); // check every 30s
+  }, 15_000); // check every 15s — actual poll cadence is ACTIVE/IDLE_INTERVAL
 }
 
 // ── Backup scheduler ─────────────────────────────────────────────────────────
