@@ -8,9 +8,9 @@
 ├──────────────────────────────────────────────┤
 │ Integration (Vitest + SQLite file DB)        │ 166 tests (20 files)
 ├──────────────────────────────────────────────┤
-│ Unit (Vitest, no DB)                         │ 515 tests (20 files)
+│ Unit (Vitest, no DB)                         │ 528 tests (21 files)
 └──────────────────────────────────────────────┘
-Total: ~731 tests — CI runs unit + integration on every push,
+Total: ~744 tests — CI runs unit + integration on every push,
 e2e only on `main` push (~2 min total).
 ```
 

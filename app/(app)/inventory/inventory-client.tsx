@@ -655,6 +655,7 @@ export function InventoryClient({
       />
       <SpoolPicker
         open={amsPickerOpen}
+        mode="ams"
         onSelect={handleAmsPickerSelect}
         onClose={() => {
           setAmsPickerOpen(false);
@@ -672,6 +673,7 @@ export function InventoryClient({
       />
       <SpoolPicker
         open={storagePickerOpen}
+        mode="storage"
         onSelect={handleStoragePickerSelect}
         onClose={() => setStoragePickerOpen(false)}
       />

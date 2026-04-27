@@ -5,11 +5,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Command, CommandInput, CommandList, CommandItem, CommandEmpty } from "@/components/ui/command";
 import { SpoolColorDot } from "@/components/spool/spool-color-dot";
 import { SpoolMaterialBadge } from "@/components/spool/spool-material-badge";
+import { isEligibleForPicker, locationLabel, type PickerMode } from "@/lib/spool-picker-filter";
 
 interface SpoolOption {
   id: string;
   remainingWeight: number;
   initialWeight: number;
+  location: string | null;
   filament: {
     name: string;
     material: string;
@@ -20,6 +22,16 @@ interface SpoolOption {
 
 interface SpoolPickerProps {
   open: boolean;
+  /**
+   * "ams" → user wants to load a spool into an AMS slot. Hide spools that
+   *   are already in an AMS slot (`ams`/`ams-ht`) or `external`.
+   * "storage" → user wants to put a spool into a rack cell. Hide spools
+   *   that already live in a rack cell (rack:...) or in the printer.
+   * In both modes: hide archived/empty spools (no payload to load).
+   * Default: "storage" (preserves caller behavior at call sites that don't
+   * specify a mode yet).
+   */
+  mode?: PickerMode;
   onSelect: (spoolId: string) => void;
   onClose: () => void;
 }
@@ -46,7 +58,7 @@ function reducer(state: State, action: Action): State {
   }
 }
 
-export function SpoolPicker({ open, onSelect, onClose }: SpoolPickerProps) {
+export function SpoolPicker({ open, mode = "storage", onSelect, onClose }: SpoolPickerProps) {
   const [{ spools, loading, error }, dispatch] = useReducer(reducer, {
     spools: [],
     loading: false,
@@ -67,10 +79,7 @@ export function SpoolPicker({ open, onSelect, onClose }: SpoolPickerProps) {
       .then((data) => {
         if (cancelled) return;
         const available = Array.isArray(data)
-          ? data.filter(
-              (s: SpoolOption & { location?: string }) =>
-                s.location === "storage" || s.location == null
-            )
+          ? (data as SpoolOption[]).filter((s) => isEligibleForPicker(s, mode))
           : [];
         dispatch({ type: "FETCH_SUCCESS", spools: available });
       })
@@ -85,7 +94,7 @@ export function SpoolPicker({ open, onSelect, onClose }: SpoolPickerProps) {
     return () => {
       cancelled = true;
     };
-  }, [open]);
+  }, [open, mode]);
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
@@ -119,6 +128,7 @@ export function SpoolPicker({ open, onSelect, onClose }: SpoolPickerProps) {
                   spool.filament.name,
                   spool.filament.material,
                   spool.filament.vendor.name,
+                  locationLabel(spool.location),
                 ]
                   .join(" ")
                   .toLowerCase();
@@ -141,7 +151,7 @@ export function SpoolPicker({ open, onSelect, onClose }: SpoolPickerProps) {
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium truncate">{spool.filament.name}</div>
                       <div className="text-xs text-muted-foreground truncate">
-                        {spool.filament.vendor.name}
+                        {spool.filament.vendor.name} · {locationLabel(spool.location)}
                       </div>
                     </div>
                     <SpoolMaterialBadge material={spool.filament.material} className="shrink-0" />
