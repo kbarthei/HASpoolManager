@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- **feat:** orphan-photos detector + idempotent manual cover capture (`399e844`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`9f68377`)
 - **fix:** watchdog uses lastSyncAt so progress polls during active prints (`505b64b`)
 - **fix:** event-driven cover capture survives Bambu's print_started race (`b5e3fe3`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`61bb867`)
