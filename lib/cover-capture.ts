@@ -20,7 +20,7 @@
  * Supervisor or HA core running.
  */
 
-import { savePhoto } from "./photo-manager";
+import { replaceCoverPhoto, savePhoto } from "./photo-manager";
 
 export interface CoverCaptureResult {
   ok: boolean;
@@ -36,6 +36,15 @@ export interface CoverCaptureDeps {
   fetchImage: (entityPicture: string) => Promise<{ ok: true; buffer: Buffer } | { ok: false; status: number; statusText: string }>;
   /** Persist the cover photo to disk + DB. Returns saved relative path. */
   savePhoto?: (printId: string, buffer: Buffer, ext: string) => Promise<{ path: string }>;
+  /**
+   * What to do if a cover already exists.
+   *  - "append" (default): just write a new file (the auto path's
+   *    hasCoverPhoto guard means we never get here in practice).
+   *  - "replace": delete any previous cover for this print before saving.
+   *    Use from the manual button — the user clicked it on purpose, so they
+   *    want a fresh image, not a duplicate.
+   */
+  onExisting?: "append" | "replace";
 }
 
 /** Image_proxy returns ~1KB JPEG placeholder when Bambu hasn't uploaded yet.
@@ -71,13 +80,17 @@ export async function captureCover(
     };
   }
 
-  const saver = deps.savePhoto ?? defaultSavePhoto;
+  const saver = deps.savePhoto ?? (deps.onExisting === "replace" ? defaultReplaceCover : defaultSavePhoto);
   const saved = await saver(printId, result.buffer, "jpg");
   return { ok: true, savedPath: saved.path, bytes };
 }
 
 async function defaultSavePhoto(printId: string, buffer: Buffer, ext: string) {
   return savePhoto(printId, buffer, "cover", ext);
+}
+
+async function defaultReplaceCover(printId: string, buffer: Buffer, ext: string) {
+  return replaceCoverPhoto(printId, buffer, ext);
 }
 
 /** Build a real `getCoverState` that reads HA via `getEntityStates`. */

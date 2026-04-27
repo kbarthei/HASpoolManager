@@ -74,6 +74,23 @@ describe("captureCover", () => {
   });
 });
 
+describe("captureCover with onExisting=replace", () => {
+  it("calls replace-style saver instead of append-style when onExisting=replace", async () => {
+    const replaceSaver = vi.fn(async (printId: string, _buf: Buffer, ext: string) => ({
+      path: `${printId}/cover-replaced.${ext}`,
+    }));
+    const result = await captureCover("p7", {
+      getCoverState: async () => ({ entityPicture: "/api/image_proxy/image.x?token=abc" }),
+      fetchImage: async () => ({ ok: true as const, buffer: realJpeg }),
+      savePhoto: replaceSaver, // explicit override; tests behavior, not which default is picked
+      onExisting: "replace",
+    });
+    expect(result.ok).toBe(true);
+    expect(replaceSaver).toHaveBeenCalledOnce();
+    expect(result.savedPath).toBe("p7/cover-replaced.jpg");
+  });
+});
+
 describe("hasCoverPhoto (idempotency guard)", () => {
   it("returns false for null/empty/invalid JSON", () => {
     expect(hasCoverPhoto(null)).toBe(false);

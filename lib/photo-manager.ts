@@ -133,6 +133,48 @@ export function listUserPhotoCount(entries: PhotoEntry[]): number {
   return entries.filter((e) => e.kind === "user").length;
 }
 
+/**
+ * Save a cover photo, replacing any previous cover for the same print.
+ *
+ * Used by the manual capture-cover button: the user clicked it again because
+ * they want a fresh capture, so we shouldn't accumulate old covers next to
+ * the new one. The auto path (sync-worker state_changed) uses `hasCoverPhoto`
+ * to skip when a cover already exists, so it never reaches this function.
+ *
+ * "Replace" deletes the old cover file from disk AFTER the new one is
+ * written, so a crash mid-call never leaves the print with no cover at all.
+ */
+export async function replaceCoverPhoto(
+  printId: string,
+  buffer: Buffer,
+  ext: string,
+): Promise<PhotoEntry> {
+  const previous = (await getPhotos(printId)).filter((e) => e.kind === "cover");
+  const newEntry = await savePhoto(printId, buffer, "cover", ext);
+
+  for (const old of previous) {
+    const oldFullPath = path.join(getPhotoRoot(), old.path);
+    try {
+      unlinkSync(oldFullPath);
+    } catch {
+      // File already gone — that's fine, we just want it not to exist.
+    }
+  }
+
+  if (previous.length > 0) {
+    // Drop the old cover entries from photo_urls. Re-read to avoid clobbering
+    // any other entry the savePhoto call appended.
+    const after = (await getPhotos(printId)).filter(
+      (e) => e.kind !== "cover" || e.path === newEntry.path,
+    );
+    await db.update(prints)
+      .set({ photoUrls: serializeList(after), updatedAt: new Date() })
+      .where(eq(prints.id, printId));
+  }
+
+  return newEntry;
+}
+
 export function deletePrintPhotoDir(printId: string): void {
   const dir = path.join(getPhotoRoot(), printId);
   try {
@@ -149,4 +191,210 @@ export function deletePrintPhotoDir(printId: string): void {
     }
   } catch {
   }
+}
+
+// ── Orphan photo scanning ────────────────────────────────────────────────
+
+export interface OrphanPhotoScan {
+  /** Files on disk that no print references in its photo_urls (or whose print row is gone). */
+  orphanFiles: Array<{ printId: string | null; filePath: string; bytes: number }>;
+  /** photo_urls JSON entries pointing at a file that no longer exists on disk. */
+  deadEntries: Array<{ printId: string; entryPath: string }>;
+  /** Legacy /config/snapshots/<file> files no print references. */
+  legacyOrphans: Array<{ filePath: string; bytes: number }>;
+}
+
+/** Build the set of relative paths referenced by every print's photo_urls. */
+async function loadReferencedPaths(): Promise<{
+  byPrint: Map<string, Set<string>>;
+  legacyReferenced: Set<string>;
+  knownPrintIds: Set<string>;
+}> {
+  const rows = await db.query.prints.findMany({
+    columns: { id: true, photoUrls: true },
+  });
+  const byPrint = new Map<string, Set<string>>();
+  const legacyReferenced = new Set<string>();
+  const knownPrintIds = new Set<string>();
+  for (const row of rows) {
+    knownPrintIds.add(row.id);
+    const entries = parseList(row.photoUrls);
+    const set = new Set<string>();
+    for (const e of entries) {
+      // Normal layout: "<printId>/<filename>"
+      // Legacy layout: "snapshots/<filename>" (pre-v1.1.6)
+      if (e.path.startsWith("snapshots/")) {
+        legacyReferenced.add(e.path.slice("snapshots/".length));
+      } else {
+        set.add(e.path);
+      }
+    }
+    byPrint.set(row.id, set);
+  }
+  return { byPrint, legacyReferenced, knownPrintIds };
+}
+
+export async function scanForOrphans(): Promise<OrphanPhotoScan> {
+  const root = getPhotoRoot();
+  const { byPrint, legacyReferenced, knownPrintIds } = await loadReferencedPaths();
+
+  const orphanFiles: OrphanPhotoScan["orphanFiles"] = [];
+  const deadEntries: OrphanPhotoScan["deadEntries"] = [];
+  const legacyOrphans: OrphanPhotoScan["legacyOrphans"] = [];
+
+  // ── Pass 1: walk PHOTO_DIR/<printId>/<file> ───────────────────────────
+  let printDirs: string[] = [];
+  try {
+    printDirs = readdirSync(root);
+  } catch {
+    // Photo root doesn't exist (fresh install / dev) — nothing to scan.
+  }
+
+  for (const dirName of printDirs) {
+    const dirPath = path.join(root, dirName);
+    let stat: ReturnType<typeof statSync>;
+    try {
+      stat = statSync(dirPath);
+    } catch {
+      continue;
+    }
+    if (!stat.isDirectory()) continue;
+
+    const referenced = byPrint.get(dirName);
+    const printExists = knownPrintIds.has(dirName);
+
+    let files: string[] = [];
+    try {
+      files = readdirSync(dirPath);
+    } catch {
+      continue;
+    }
+
+    for (const file of files) {
+      const relPath = `${dirName}/${file}`;
+      const fullPath = path.join(dirPath, file);
+      let size = 0;
+      try {
+        size = statSync(fullPath).size;
+      } catch {
+        continue;
+      }
+      if (!printExists) {
+        // Print row is gone but the directory remains — orphan.
+        orphanFiles.push({ printId: null, filePath: relPath, bytes: size });
+      } else if (!referenced || !referenced.has(relPath)) {
+        // File not in this print's photo_urls — orphan.
+        orphanFiles.push({ printId: dirName, filePath: relPath, bytes: size });
+      }
+    }
+  }
+
+  // ── Pass 2: dead photo_urls entries ───────────────────────────────────
+  for (const [printId, refs] of byPrint) {
+    for (const ref of refs) {
+      const fullPath = path.join(root, ref);
+      try {
+        statSync(fullPath);
+      } catch {
+        deadEntries.push({ printId, entryPath: ref });
+      }
+    }
+  }
+
+  // ── Pass 3: legacy /config/snapshots/ (pre-v1.1.6) ────────────────────
+  const legacyDir = "/config/snapshots";
+  let legacyFiles: string[] = [];
+  try {
+    legacyFiles = readdirSync(legacyDir);
+  } catch {
+    // Legacy dir doesn't exist — fine.
+  }
+  for (const file of legacyFiles) {
+    if (legacyReferenced.has(file)) continue;
+    const fullPath = path.join(legacyDir, file);
+    try {
+      const size = statSync(fullPath).size;
+      legacyOrphans.push({ filePath: fullPath, bytes: size });
+    } catch {
+      // skip
+    }
+  }
+
+  return { orphanFiles, deadEntries, legacyOrphans };
+}
+
+export interface OrphanCleanupResult {
+  filesDeleted: number;
+  bytesReclaimed: number;
+  deadEntriesRemoved: number;
+  emptyDirsRemoved: number;
+}
+
+export async function cleanupOrphans(): Promise<OrphanCleanupResult> {
+  const scan = await scanForOrphans();
+  const root = getPhotoRoot();
+  let filesDeleted = 0;
+  let bytesReclaimed = 0;
+  const dirsToCheck = new Set<string>();
+
+  // Delete orphan files (both new layout and legacy).
+  for (const o of scan.orphanFiles) {
+    const fullPath = path.join(root, o.filePath);
+    try {
+      unlinkSync(fullPath);
+      filesDeleted++;
+      bytesReclaimed += o.bytes;
+      dirsToCheck.add(path.dirname(fullPath));
+    } catch {
+      // skip
+    }
+  }
+  for (const o of scan.legacyOrphans) {
+    try {
+      unlinkSync(o.filePath);
+      filesDeleted++;
+      bytesReclaimed += o.bytes;
+    } catch {
+      // skip
+    }
+  }
+
+  // Strip dead entries from photo_urls.
+  const byPrint = new Map<string, Set<string>>();
+  for (const e of scan.deadEntries) {
+    const set = byPrint.get(e.printId) ?? new Set();
+    set.add(e.entryPath);
+    byPrint.set(e.printId, set);
+  }
+  let deadEntriesRemoved = 0;
+  for (const [printId, deadPaths] of byPrint) {
+    const current = await getPhotos(printId);
+    const next = current.filter((entry) => {
+      const isDead = deadPaths.has(entry.path);
+      if (isDead) deadEntriesRemoved++;
+      return !isDead;
+    });
+    if (next.length !== current.length) {
+      await db.update(prints)
+        .set({ photoUrls: serializeList(next), updatedAt: new Date() })
+        .where(eq(prints.id, printId));
+    }
+  }
+
+  // Try to remove now-empty print directories under PHOTO_DIR.
+  let emptyDirsRemoved = 0;
+  for (const dir of dirsToCheck) {
+    if (!dir.startsWith(root)) continue; // safety: never touch /config/snapshots/
+    try {
+      const remaining = readdirSync(dir);
+      if (remaining.length === 0) {
+        rmdirSync(dir);
+        emptyDirsRemoved++;
+      }
+    } catch {
+      // skip
+    }
+  }
+
+  return { filesDeleted, bytesReclaimed, deadEntriesRemoved, emptyDirsRemoved };
 }

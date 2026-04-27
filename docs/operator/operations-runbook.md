@@ -269,6 +269,13 @@ gallery on the running print's card. That triggers
 or `image.*_cover_image` entity, fetches it, and saves as the cover. Logs
 appear in the addon log under `[capture] cover (manual): ...`.
 
+**Cleanup of leftover/duplicate cover files:** the manual capture replaces
+the existing cover instead of stacking duplicates. Old photos from before
+this change, or files left behind by manually-deleted prints, are caught
+by the **Orphan photos** detector at `/admin/diagnostics` (Storage section).
+Click "Cleanup now" to delete files no print references and strip dead
+photo_urls entries.
+
 **Diagnose the auto path** if manual works but auto doesn't:
 
 ```bash

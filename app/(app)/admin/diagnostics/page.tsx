@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { getAllDiagnostics } from "@/lib/diagnostics";
 import { IssueCard } from "./issue-card";
+import { OrphanPhotosCard } from "./orphan-photos-card";
 import { formatDateTime } from "@/lib/date";
 
 const RULE_TITLES: Record<string, string> = {
@@ -41,7 +42,8 @@ export default async function DiagnosticsPage() {
     d.printNoWeight.count +
     d.printNoUsage.count +
     d.orderStuck.count +
-    d.syncErrors.count;
+    d.syncErrors.count +
+    d.orphanPhotos.count;
 
   return (
     <div
@@ -195,6 +197,16 @@ export default async function DiagnosticsPage() {
             }))}
             testId="issue-sync-errors"
           />
+        </div>
+      </section>
+
+      {/* ── Storage ──────────────────────────────────────────────────────── */}
+      <section className="space-y-2">
+        <h2 className="text-2xs font-bold uppercase tracking-wider text-muted-foreground">
+          Storage
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          <OrphanPhotosCard initial={d.orphanPhotos} />
         </div>
       </section>
 

@@ -1034,6 +1034,9 @@ export async function captureCoverNowAction(
         return { entityPicture: typeof ep === "string" ? ep : null };
       },
       fetchImage: makeFetchImageViaSupervisor(token),
+      // Manual button: the user clicked it on purpose, so replace any
+      // existing cover instead of stacking duplicates.
+      onExisting: "replace",
     });
 
     if (result.ok) {
@@ -1045,6 +1048,27 @@ export async function captureCoverNowAction(
   } catch (error) {
     console.error("captureCoverNowAction error:", error);
     return { ok: false, error: (error as Error).message ?? "Capture failed" };
+  }
+}
+
+export async function cleanupOrphanPhotosAction(): Promise<{
+  ok: boolean;
+  error?: string;
+  filesDeleted?: number;
+  bytesReclaimed?: number;
+  deadEntriesRemoved?: number;
+  emptyDirsRemoved?: number;
+}> {
+  try {
+    const { cleanupOrphans } = await import("./photo-manager");
+    const result = await cleanupOrphans();
+    revalidatePath("/admin/diagnostics");
+    revalidatePath("/prints");
+    revalidatePath("/");
+    return { ok: true, ...result };
+  } catch (error) {
+    console.error("cleanupOrphanPhotosAction error:", error);
+    return { ok: false, error: (error as Error).message ?? "Cleanup failed" };
   }
 }
 

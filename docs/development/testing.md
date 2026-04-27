@@ -6,11 +6,11 @@
 ┌──────────────────────────────────────────────┐
 │ E2e (Playwright + Docker nginx + ingress)    │  ~50 tests (18 specs)
 ├──────────────────────────────────────────────┤
-│ Integration (Vitest + SQLite file DB)        │ 165 tests (19 files)
+│ Integration (Vitest + SQLite file DB)        │ 166 tests (20 files)
 ├──────────────────────────────────────────────┤
-│ Unit (Vitest, no DB)                         │ 514 tests (20 files)
+│ Unit (Vitest, no DB)                         │ 515 tests (20 files)
 └──────────────────────────────────────────────┘
-Total: ~729 tests — CI runs unit + integration on every push,
+Total: ~731 tests — CI runs unit + integration on every push,
 e2e only on `main` push (~2 min total).
 ```
 

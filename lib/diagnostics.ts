@@ -13,7 +13,8 @@ export type DiagnosticIssueId =
   | "print-no-weight"
   | "print-no-usage"
   | "order-stuck"
-  | "sync-errors";
+  | "sync-errors"
+  | "orphan-photos";
 
 export interface DiagnosticResult<Row> {
   count: number;
@@ -367,6 +368,58 @@ export async function getHealthCheckFindings(): Promise<HealthCheckSummary> {
   return { latestRunAt, rules, counts };
 }
 
+// ── Orphan photos ─────────────────────────────────────────────────────────
+
+// Files on disk no print references, plus DB photo_urls entries pointing at
+// files that no longer exist. This catches: failed/duplicate captures,
+// manually-deleted print rows, mid-write crashes, and the legacy
+// /config/snapshots/ dump from pre-v1.1.6.
+export interface OrphanPhotosSummary {
+  count: number; // total orphan files + dead entries
+  fileCount: number;
+  deadEntryCount: number;
+  legacyCount: number;
+  bytes: number;
+  preview: Array<{ label: string; meta?: string }>;
+}
+
+export async function getOrphanPhotos(): Promise<OrphanPhotosSummary> {
+  // Lazy import — photo-manager touches the filesystem; tests + non-addon
+  // builds shouldn't hit it from a top-level diagnostics import.
+  const { scanForOrphans } = await import("./photo-manager");
+  const scan = await scanForOrphans();
+
+  const fileCount = scan.orphanFiles.length;
+  const deadEntryCount = scan.deadEntries.length;
+  const legacyCount = scan.legacyOrphans.length;
+  const bytes =
+    scan.orphanFiles.reduce((sum, o) => sum + o.bytes, 0) +
+    scan.legacyOrphans.reduce((sum, o) => sum + o.bytes, 0);
+
+  const preview: OrphanPhotosSummary["preview"] = [];
+  for (const o of scan.orphanFiles.slice(0, 3)) {
+    preview.push({
+      label: o.printId ? `${o.printId.slice(0, 8)} · orphan file` : `${o.filePath} · print gone`,
+      meta: `${(o.bytes / 1024).toFixed(0)}KB`,
+    });
+  }
+  for (const o of scan.deadEntries.slice(0, Math.max(0, 3 - preview.length))) {
+    preview.push({ label: `${o.printId.slice(0, 8)} · dead entry`, meta: o.entryPath.split("/").pop() ?? "" });
+  }
+  for (const o of scan.legacyOrphans.slice(0, Math.max(0, 3 - preview.length))) {
+    preview.push({ label: `legacy · ${o.filePath.split("/").pop()}`, meta: `${(o.bytes / 1024).toFixed(0)}KB` });
+  }
+
+  return {
+    count: fileCount + deadEntryCount + legacyCount,
+    fileCount,
+    deadEntryCount,
+    legacyCount,
+    bytes,
+    preview,
+  };
+}
+
 // ── Aggregate runner ──────────────────────────────────────────────────────
 
 export interface DiagnosticSummary {
@@ -378,6 +431,7 @@ export interface DiagnosticSummary {
   printNoUsage: DiagnosticResult<PrintNoUsageRow>;
   orderStuck: DiagnosticResult<OrderStuckRow>;
   syncErrors: DiagnosticResult<SyncErrorRow>;
+  orphanPhotos: OrphanPhotosSummary;
   healthCheck: HealthCheckSummary;
 }
 
@@ -391,6 +445,7 @@ export async function getAllDiagnostics(): Promise<DiagnosticSummary> {
     printNoUsage,
     orderStuck,
     syncErrors,
+    orphanPhotos,
     healthCheck,
   ] = await Promise.all([
     getSpoolDrift(),
@@ -401,6 +456,7 @@ export async function getAllDiagnostics(): Promise<DiagnosticSummary> {
     getPrintNoUsage(),
     getOrderStuck(),
     getSyncErrors(),
+    getOrphanPhotos(),
     getHealthCheckFindings(),
   ]);
   return {
@@ -412,6 +468,7 @@ export async function getAllDiagnostics(): Promise<DiagnosticSummary> {
     printNoUsage,
     orderStuck,
     syncErrors,
+    orphanPhotos,
     healthCheck,
   };
 }
