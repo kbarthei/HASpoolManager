@@ -22,7 +22,7 @@ Mapped by exact `original_name` match.
 | `Print Weight` | `Gewicht des Drucks` | `print_weight` | Grams; state value is total, attributes carry per-tray breakdown |
 | `Total Layer Count` | `Gesamtzahl der Schichten` | `print_layers_total` | |
 | `Current Layer` | `Aktuelle Schicht` | `print_layers_current` | |
-| `Remaining Time` | `Verbleibende Zeit` | `print_remaining_time` | Minutes |
+| `Remaining Time` | `Verbleibende Zeit` | `print_remaining_time` | **Hours** with minute-precision (e.g. `21.1333` = 21h 08min). Convert to minutes at the UI boundary in `lib/queries.ts`. |
 | `Active Tray` | `Aktiver Slot` | `active_slot` | State = slot name; attributes carry type/color/tag_uid/filament_id |
 | `Online` | *(no DE variant)* | `online` | Printer reachability |
 | `External Spool` | `Externe Spule` | `slot_ext` | External spool holder (non-AMS) |

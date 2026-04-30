@@ -14,6 +14,7 @@ import {
   getPrinterStatus,
   getDashboardChartData,
 } from "@/lib/queries";
+import { formatRemainingMinutes } from "@/lib/format-duration";
 
 interface PhotoEntry {
   path: string;
@@ -181,7 +182,7 @@ function PrinterLiveCard({
         status.printName || "Printing",
         status.activeSpool?.material ?? undefined,
         status.remainingTime && status.remainingTime > 0
-          ? `${Math.round(status.remainingTime)} min left`
+          ? `${formatRemainingMinutes(status.remainingTime)} left`
           : undefined,
       ]
         .filter(Boolean)

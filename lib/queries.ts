@@ -190,7 +190,11 @@ export async function getPrinterStatus() {
         const data = JSON.parse(lastSync.responseJson);
         const req = data.request || data;
         progress = parseFloat(req.print_progress) || 0;
-        remainingTime = parseFloat(req.print_remaining_time) || 0;
+        // Bambu Lab HA integration reports `Remaining Time` in HOURS with
+        // minute-precision (e.g. 21.1333 = 21h 08min). The dashboard renders
+        // this as minutes, so convert at the boundary.
+        const hoursRemaining = parseFloat(req.print_remaining_time) || 0;
+        remainingTime = hoursRemaining * 60;
       } catch { /* ignore */ }
     }
 

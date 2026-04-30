@@ -14,6 +14,7 @@ import { ClearStaleButton } from "@/components/prints/clear-stale-button";
 import { ExportCsvButton } from "@/components/export-csv-button";
 import { PrintPhotoGallery, type PhotoEntry } from "@/components/prints/print-photo-gallery";
 import { computeCostEstimate } from "@/lib/print-cost-estimate";
+import { formatRemainingMinutes } from "@/lib/format-duration";
 
 function parsePhotos(photoUrls: string | null): PhotoEntry[] {
   if (!photoUrls) return [];
@@ -293,7 +294,7 @@ export default async function PrintHistoryPage({
                   )}
                   {(printerStatus.remainingTime ?? 0) > 0 && (
                     <span className="font-[family-name:var(--font-geist-mono)] tabular-nums">
-                      {Math.round(printerStatus.remainingTime ?? 0)}min left
+                      {formatRemainingMinutes(printerStatus.remainingTime)} left
                     </span>
                   )}
                   {(() => {
