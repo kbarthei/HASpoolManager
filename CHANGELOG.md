@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- **fix:** convert hours→minutes (Bambu HA reports hours, not minutes) (`ba52698`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`74b8046`)
 - **fix:** drop legacy 'storage'-only filter — show all loadable spools (`6aa5002`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`2b953ee`)
 - **fix:** UserPromptSubmit CI-watcher uses plain stdout instead of unrecognized JSON field (`634c7ff`)
