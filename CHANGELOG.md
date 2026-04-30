@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## April 2026
 
+- **chore:** bump addon to 1.1.19 (`81f95fb`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`04ce8d8`)
 - **fix:** convert hours→minutes (Bambu HA reports hours, not minutes) (`ba52698`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`74b8046`)
 - **fix:** drop legacy 'storage'-only filter — show all loadable spools (`6aa5002`)
