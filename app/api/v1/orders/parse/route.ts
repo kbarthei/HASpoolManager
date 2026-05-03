@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateText } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
-import { requireAuth } from "@/lib/auth";
+import { optionalAuth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { validateBody, orderParseSchema } from "@/lib/validations";
 
@@ -54,7 +54,7 @@ Rules:
 - Return ONLY the JSON, no markdown, no explanation`;
 
 export async function POST(request: NextRequest) {
-  const auth = await requireAuth(request);
+  const auth = await optionalAuth(request);
   if (!auth.authenticated) return auth.response;
 
   try {
