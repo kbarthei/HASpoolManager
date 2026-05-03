@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## May 2026
 
+- **fix:** switch all browser-callable routes to optionalAuth (`851175d`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`3b088a9`)
 - **test:** integration test locks auth contract + match logic (`aba881f`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`a6fc6c0`)
 - **chore:** bump addon to 1.1.21 (`86d3ae4`)
