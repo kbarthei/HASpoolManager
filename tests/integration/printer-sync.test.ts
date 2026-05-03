@@ -999,6 +999,84 @@ describe("printer-sync integration", () => {
       expect(oldSpool?.location).toBe("workbench");
     });
 
+    it("J6d: repeated syncs of an unmatchable non-RFID slot do NOT spawn duplicate drafts (oscillation guard)", async () => {
+      const { db } = await import("@/lib/db");
+      const { spools: spoolsTable, amsSlots, filaments, vendors } = await import("@/lib/db/schema");
+      const { eq, and } = await import("drizzle-orm");
+
+      // Set up the J6d slot fresh — slot_ht (HT slot) so we don't conflict with
+      // other suite tests touching slot_ams_0_3.
+      const htSlot = await db.query.amsSlots.findFirst({
+        where: and(
+          eq(amsSlots.printerId, testPrinterId),
+          eq(amsSlots.slotType, "ams_ht"),
+          eq(amsSlots.amsIndex, 1),
+          eq(amsSlots.trayIndex, 0),
+        ),
+      });
+      // Reset the slot to a clean state
+      if (htSlot) {
+        await db.update(amsSlots).set({
+          spoolId: null,
+          bambuColor: null,
+          bambuType: null,
+          bambuTagUid: null,
+          isEmpty: true,
+        }).where(eq(amsSlots.id, htSlot.id));
+      }
+
+      // Seed an active "white ASA" spool — this mirrors the prod scenario
+      // where the user-entered colour (FFFFFF) diverges from Bambu's reading
+      // (C1C1C1).
+      const [vendor] = await db.insert(vendors).values({ name: `J6dV_${Date.now()}` }).returning();
+      const [filament] = await db.insert(filaments).values({
+        vendorId: vendor.id,
+        name: `J6dFil_${Date.now()}`,
+        material: "ASA",
+        colorHex: "FFFFFF",
+        spoolWeight: 1000,
+      }).returning();
+      const [activeSpool] = await db.insert(spoolsTable).values({
+        filamentId: filament.id,
+        initialWeight: 1000,
+        remainingWeight: 800,
+        status: "active",
+        location: "ams-ht",
+      }).returning();
+      void activeSpool; // location is what makes matchSpool prefer it
+
+      const slotPayload = {
+        slot_ht_1_type: "ASA",
+        slot_ht_1_color: "C1C1C1FF",
+        slot_ht_1_tag: "0000000000000000",
+        slot_ht_1_remain: 0,
+        slot_ht_1_empty: false,
+      };
+
+      // Capture pre-test draft count
+      const draftsBefore = await db.query.spools.findMany({
+        where: eq(spoolsTable.status, "draft"),
+      });
+
+      // Run 5 successive syncs with the SAME bambu reading. The original
+      // bug spawned one fresh draft per sync (oscillation between the
+      // active spool and a new draft). With identity-dedup + bambu_color
+      // baseline for swap detection, only ONE draft (or zero) should
+      // result, not five.
+      for (let i = 0; i < 5; i++) {
+        await sync({ print_state: "idle", ...slotPayload });
+      }
+
+      const draftsAfter = await db.query.spools.findMany({
+        where: eq(spoolsTable.status, "draft"),
+      });
+
+      // Allow at most ONE new draft to materialise — that's the
+      // expected outcome when matchSpool can't bind the active spool.
+      // The bug was N drafts for N syncs.
+      expect(draftsAfter.length - draftsBefore.length).toBeLessThanOrEqual(1);
+    });
+
     it("J6c: close color variation (ΔE<10) does NOT trigger swap detection", async () => {
       const { db } = await import("@/lib/db");
       const { spools: spoolsTable, amsSlots, filaments, vendors } = await import("@/lib/db/schema");

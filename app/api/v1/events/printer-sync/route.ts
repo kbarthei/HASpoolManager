@@ -190,18 +190,41 @@ async function autoCreateDraftSpool(
       }).returning();
     }
 
-    // 3. Create draft spool
+    // 3. Identity-dedup: if any non-archived draft already exists for this
+    //    same generic filament (same vendor+material+color), reuse it. This
+    //    prevents the swap-detection oscillation (filament_color FFFFFF vs
+    //    bambu-reported C1C1C1) from spawning a fresh draft on every sync.
+    //    Re-bind it to the current slot's location.
+    const existingDraft = await db.query.spools.findFirst({
+      where: and(
+        eq(spools.filamentId, filament.id),
+        eq(spools.status, "draft"),
+      ),
+    });
     const locationMap: Record<string, string> = {
       ams: "ams",
       ams_ht: "ams-ht",
       external: "external",
     };
+    const targetLocation = locationMap[slotDef.slotType] ?? "ams";
+
+    if (existingDraft) {
+      if (existingDraft.location !== targetLocation) {
+        await db.update(spools).set({
+          location: targetLocation,
+          updatedAt: new Date(),
+        }).where(eq(spools.id, existingDraft.id));
+      }
+      return existingDraft.id;
+    }
+
+    // 4. Create draft spool
     const [spool] = await db.insert(spools).values({
       filamentId: filament.id,
       initialWeight: 1000,
       remainingWeight: 1000,
       status: "draft",
-      location: locationMap[slotDef.slotType] ?? "ams",
+      location: targetLocation,
     }).returning();
 
     console.log(
@@ -780,25 +803,30 @@ export async function POST(request: NextRequest) {
 
       // Detect a physical filament swap BEFORE matching, so matchSpool's
       // location bonus cannot re-bind a stale spool to the slot. We compare
-      // the incoming tray_color against the LINKED SPOOL's filament color
-      // (not the slot's stored bambu_color — that field is updated every
-      // sync regardless of spool_id, so comparing it is a no-op once the
-      // two have desynced). We use perceptual color distance (ΔE) rather
-      // than strict hex equality: small differences (colour-profile drift,
-      // alpha rounding) shouldn't trigger a swap; only a visibly different
-      // colour (ΔE > 10, "clearly perceptible") should. Bambu type strings
-      // don't map 1:1 to filament.material, so we don't compare material.
+      // the incoming tray_color against the slot's PREVIOUSLY-OBSERVED
+      // bambu_color (read from existingSlot BEFORE any writes in this sync).
+      // That gives us "did the bambu reading change since last sync?" — the
+      // only signal that actually identifies a physical swap. Comparing to
+      // the linked spool's filament.colorHex breaks for non-RFID spools
+      // where the user-entered colour (e.g. white FFFFFF) routinely diverges
+      // from Bambu's camera reading (e.g. light-grey C1C1C1), causing every
+      // sync to flip-flop and spawn duplicate drafts.
+      // Fallback to filament.colorHex when the slot has no prior bambu_color
+      // (first bind after a fresh install).
       const SWAP_DELTA_E_THRESHOLD = 10;
       let filamentSwapped = false;
       if (!isEmpty && existingSlot?.spoolId) {
-        const linked = await db.query.spools.findFirst({
-          where: eq(spools.id, existingSlot.spoolId),
-          with: { filament: true },
-        });
-        const linkedColor6 = (linked?.filament?.colorHex ?? "").slice(0, 6).toUpperCase();
         const newColor6 = trayColor.slice(0, 6).toUpperCase();
-        if (linkedColor6 && newColor6) {
-          const de = deltaEHex(linkedColor6, newColor6);
+        let baselineColor6 = (existingSlot.bambuColor ?? "").replace("#", "").slice(0, 6).toUpperCase();
+        if (!baselineColor6) {
+          const linked = await db.query.spools.findFirst({
+            where: eq(spools.id, existingSlot.spoolId),
+            with: { filament: true },
+          });
+          baselineColor6 = (linked?.filament?.colorHex ?? "").slice(0, 6).toUpperCase();
+        }
+        if (baselineColor6 && newColor6) {
+          const de = deltaEHex(baselineColor6, newColor6);
           if (de > SWAP_DELTA_E_THRESHOLD) {
             filamentSwapped = true;
           }
