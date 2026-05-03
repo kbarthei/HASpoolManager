@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { printerAmsUnits, amsSlots, spools } from "@/lib/db/schema";
-import { requireAuth } from "@/lib/auth";
+import { optionalAuth } from "@/lib/auth";
 import { validateBody, updateAmsUnitSchema } from "@/lib/validations";
 import { eq, and, inArray } from "drizzle-orm";
 
@@ -12,7 +12,7 @@ export async function PATCH(
   request: NextRequest,
   ctx: { params: Promise<{ id: string; unitId: string }> },
 ) {
-  const auth = await requireAuth(request);
+  const auth = await optionalAuth(request);
   if (!auth.authenticated) return auth.response;
 
   const { id: printerId, unitId } = await ctx.params;

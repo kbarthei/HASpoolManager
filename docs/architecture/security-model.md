@@ -72,12 +72,24 @@ LAN-only and sensitive endpoints require Bearer tokens.
 
 ### Implications for developers
 
-Every route that mutates state MUST call `requireAuth`. A route that
-only calls `optionalAuth` assumes the web-UI is trustworthy — which
-holds for HA ingress (authenticated user) but **not** for port 3001
-(anyone on the LAN can hit it).
+There are two valid auth tiers for browser-callable routes:
 
-When in doubt: `requireAuth`.
+- **`optionalAuth`** — accepts no-Bearer requests. Required for any
+  endpoint the web UI calls, because `fetch("/api/v1/...")` from
+  React components never sends an Authorization header (HA ingress
+  authenticates the user but does not inject a Bearer token; LAN port
+  3001 is implicitly trusted as LAN-only).
+- **`requireAuth`** — Bearer token required. Used for endpoints called
+  exclusively by external integrations (HA scripts, sync-worker via
+  `printer-sync`, etc.) and never from the browser.
+
+If you add a new browser fetch, use `optionalAuth` AND add the route
+to `tests/integration/browser-auth-contract.test.ts`. That single
+meta-test asserts every browser-callable route accepts no-auth
+requests — drift back to `requireAuth` is caught immediately.
+
+When in doubt about a route only HA scripts call: `requireAuth`.
+When in doubt about a route the UI calls: `optionalAuth`.
 
 ---
 

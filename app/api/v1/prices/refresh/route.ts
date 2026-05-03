@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { shopListings } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
-import { requireAuth } from "@/lib/auth";
+import { optionalAuth } from "@/lib/auth";
 import { fetchProductPrice } from "@/lib/price-crawler";
 
 /**
@@ -10,7 +10,7 @@ import { fetchProductPrice } from "@/lib/price-crawler";
  * Body: { filamentId?: string } — refresh one filament's prices, or all if omitted
  */
 export async function POST(request: NextRequest) {
-  const auth = await requireAuth(request);
+  const auth = await optionalAuth(request);
   if (!auth.authenticated) return auth.response;
 
   try {

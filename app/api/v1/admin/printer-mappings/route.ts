@@ -139,7 +139,7 @@ export async function GET(request: NextRequest) {
  * Body: { deviceId, field, entityId }
  */
 export async function POST(request: NextRequest) {
-  const auth = await requireAuth(request);
+  const auth = await optionalAuth(request);
   if (!auth.authenticated) return auth.response;
 
   try {
@@ -186,7 +186,7 @@ export async function POST(request: NextRequest) {
  * Body: { deviceId, field }
  */
 export async function DELETE(request: NextRequest) {
-  const auth = await requireAuth(request);
+  const auth = await optionalAuth(request);
   if (!auth.authenticated) return auth.response;
 
   try {

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateText } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
-import { requireAuth } from "@/lib/auth";
+import { optionalAuth } from "@/lib/auth";
 
 const SYSTEM_PROMPT = `You are analyzing a 3D printing filament spool label. Extract the following fields from the image:
 - vendor: manufacturer name (e.g., "Bambu Lab", "Polymaker", "eSUN")
@@ -17,7 +17,7 @@ const SYSTEM_PROMPT = `You are analyzing a 3D printing filament spool label. Ext
 Return JSON only. If a field is not visible, use null.`;
 
 export async function POST(request: NextRequest) {
-  const auth = await requireAuth(request);
+  const auth = await optionalAuth(request);
   if (!auth.authenticated) return auth.response;
 
   try {

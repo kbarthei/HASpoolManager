@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { optionalAuth, requireAuth } from "@/lib/auth";
+import { optionalAuth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { supplyRules } from "@/lib/db/schema";
 import { desc } from "drizzle-orm";
@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await requireAuth(request);
+  const auth = await optionalAuth(request);
   if (!auth.authenticated) return auth.response;
 
   const body = await request.json();

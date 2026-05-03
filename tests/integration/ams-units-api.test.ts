@@ -84,7 +84,7 @@ describe("printer AMS units API", () => {
     expect(res.status).toBe(404);
   });
 
-  it("PATCH requires auth", async () => {
+  it("PATCH accepts requests without a Bearer header (browser AmsUnitsCard path)", async () => {
     const [p] = await db.insert(printers).values({ name: "H2S", model: "H2S" }).returning();
     const [unit] = await db
       .insert(printerAmsUnits)
@@ -92,7 +92,7 @@ describe("printer AMS units API", () => {
       .returning();
     const req = makePatchRequest(`/api/v1/printers/${p.id}/ams-units/${unit.id}`, { displayName: "x" }, false);
     const res = await patchUnit(req, routeContext({ id: p.id, unitId: unit.id }));
-    expect(res.status).toBe(401);
+    expect(res.status).toBe(200);
   });
 
   describe("POST /discover (sync-worker upsert)", () => {

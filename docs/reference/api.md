@@ -1204,7 +1204,7 @@ List AMS units for a printer (all units, including disabled).
 
 Update an AMS unit. Renames or toggles enable state.
 
-- **Auth:** required
+- **Auth:** `optionalAuth` (called from the admin UI in browser)
 - **Body:** `{ "displayName"?: string, "enabled"?: boolean }`
 - **Side effect (disable):** when transitioning enabled `true → false`, all spools currently loaded in any of the unit's amsSlots rows are moved to `location='storage'` and the slot rows are unlinked (`spoolId=null`, `isEmpty=true`). Re-enabling does not auto-restore spools — they must be reassigned via the regular load flow.
 - **Errors:** 404 if unit not found, 400 on invalid input.
