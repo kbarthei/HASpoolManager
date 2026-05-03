@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## May 2026
 
+- **fix:** widen RouteHandler type in browser-auth-contract meta-test (`723dbd3`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`22755f5`)
 - **chore:** bump addon to 1.1.22 (`2ca22f9`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`30bdd07`)
 - **fix:** switch all browser-callable routes to optionalAuth (`851175d`)
