@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## May 2026
 
+- **test:** integration test locks auth contract + match logic (`aba881f`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`a6fc6c0`)
 - **chore:** bump addon to 1.1.21 (`86d3ae4`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`f285582`)
 - **fix:** switch to optionalAuth (browser UI has no Bearer) (`3ef3f39`)
