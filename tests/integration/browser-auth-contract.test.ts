@@ -45,11 +45,18 @@ vi.mock("@/lib/price-crawler", () => ({
   })),
 }));
 
+// Handler types vary across routes (some take dynamic [id] params via a
+// second context arg, some don't). We accept any callable shape and call
+// it with a constructed ctx — the test only cares about the response
+// status, not the ctx wiring.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type RouteHandler = (req: NextRequest, ctx?: any) => Promise<Response>;
+
 type RouteCase = {
   label: string;
   method: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
   route: () => Promise<{
-    handler: (req: NextRequest, ctx?: unknown) => Promise<Response>;
+    handler: RouteHandler;
     path: string;
     body?: unknown;
     params?: Record<string, string>;
