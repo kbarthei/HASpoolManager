@@ -4,8 +4,13 @@ All notable changes to HASpoolManager are documented here.
 Generated automatically from [conventional commits](https://www.conventionalcommits.org/).
 
 
+## May 2026
+
+- **fix:** stop draft-spool oscillation on non-RFID slots (`476802e`)
+
 ## April 2026
 
+- **docs:** regenerate CHANGELOG.md [skip ci] (`41fc0b5`)
 - **chore:** bump addon to 1.1.19 (`81f95fb`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`04ce8d8`)
 - **fix:** convert hours→minutes (Bambu HA reports hours, not minutes) (`ba52698`)
