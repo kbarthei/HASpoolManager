@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## May 2026
 
+- **chore:** bump addon to 1.1.20 (`2f50c9e`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`ba95b86`)
 - **fix:** stop draft-spool oscillation on non-RFID slots (`476802e`)
 
 ## April 2026
