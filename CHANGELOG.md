@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## May 2026
 
+- **fix:** switch to optionalAuth (browser UI has no Bearer) (`3ef3f39`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`3cea3f3`)
 - **chore:** bump addon to 1.1.20 (`2f50c9e`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`ba95b86`)
 - **fix:** stop draft-spool oscillation on non-RFID slots (`476802e`)
