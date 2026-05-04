@@ -71,9 +71,19 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add docs/screenshots/
           git commit -m "docs: refresh UI screenshots [skip ci]"
-          git push origin main
+          # Rebase onto any commits that landed on main while we were capturing
+          # (e.g. the changelog bot). Retry the push a few times in case of races.
+          for attempt in 1 2 3; do
+            git pull --rebase origin main && git push origin main && exit 0
+            sleep $((attempt * 5))
+          done
+          echo "::error::failed to push after 3 rebase attempts"
+          exit 1
 
       - name: Upload as artifact
+        # Always upload so the screenshots are downloadable even if the
+        # auto-commit step failed (e.g. due to a race with main).
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: docs-screenshots
