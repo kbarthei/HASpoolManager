@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## May 2026
 
+- **docs:** switch embedded screenshots from dark to light theme (`d76470b`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`f3c9b3a`)
 - **feat:** section clips for cards + UI sub-areas (`7872ef6`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`ead1819`)
 - **docs:** refresh for v1.1.22 — embed screenshots, sync new features (`a479b69`)
