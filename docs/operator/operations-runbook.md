@@ -276,6 +276,8 @@ by the **Orphan photos** detector at `/admin/diagnostics` (Storage section).
 Click "Cleanup now" to delete files no print references and strip dead
 photo_urls entries.
 
+![Orphan photos detector](../screenshots/light/desktop/sections/11-admin-diagnostics--orphan-photos.png)
+
 **Diagnose the auto path** if manual works but auto doesn't:
 
 ```bash

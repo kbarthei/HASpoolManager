@@ -11,6 +11,11 @@ all on one screen:
 
 ![Dashboard](../screenshots/light/desktop/01-dashboard.png)
 
+The printer hero (top of the dashboard) shows live AMS slot state at
+a glance — material per slot, remaining %, idle vs. printing badge:
+
+![Printer hero](../screenshots/light/desktop/sections/01-dashboard--printer-live.png)
+
 ---
 
 ## 1. The location system
@@ -39,6 +44,11 @@ The **Inventory** page is the cockpit: AMS section on top, rack grid(s)
 below, then Workbench + Surplus as flat lists.
 
 ![Inventory](../screenshots/light/desktop/02-inventory.png)
+
+The AMS section close-up — Bambu H2S with its 4-slot AMS plus the AMS HT
+external spool, each tile showing material, vendor, and remaining %:
+
+![AMS section](../screenshots/light/desktop/sections/02-inventory--ams-section.png)
 
 ---
 
