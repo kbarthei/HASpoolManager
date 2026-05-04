@@ -15,7 +15,9 @@
     "test:watch": "vitest",
     "test:unit": "vitest run tests/unit",
     "test:integration": "vitest run tests/integration",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "screenshots:docs": "tsx scripts/capture-docs-screenshots.ts",
+    "screenshots:marketing": "tsx scripts/capture-marketing-screenshots.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.68",
@@ -58,7 +60,9 @@
     "eslint": "^9.39.4",
     "eslint-config-next": "^16.2.3",
     "jsdom": "^29.0.2",
+    "playwright": "^1.59.1",
     "tailwindcss": "^4",
+    "tsx": "^4.21.0",
     "typescript": "^6.0.2",
     "vitest": "^4.1.3"
   }

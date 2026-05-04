@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  HASpoolManager nightly marketing-screenshot capture.
+
+  Install with:
+    bash scripts/launchagent/install.sh
+
+  Uninstall with:
+    bash scripts/launchagent/uninstall.sh
+
+  This LaunchAgent fires every day at 03:00 local time. If the Mac is asleep
+  it'll catch up on next wake (StartCalendarInterval semantics).
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.haspoolmanager.screenshots</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>-lc</string>
+        <string>cd "__REPO_ROOT__" &amp;&amp; /usr/local/bin/npm run screenshots:marketing &gt;&gt; "__REPO_ROOT__/marketing/launchagent.log" 2&gt;&amp;1</string>
+    </array>
+
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>3</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <false/>
+
+    <key>StandardOutPath</key>
+    <string>__REPO_ROOT__/marketing/launchagent.stdout.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>__REPO_ROOT__/marketing/launchagent.stderr.log</string>
+</dict>
+</plist>

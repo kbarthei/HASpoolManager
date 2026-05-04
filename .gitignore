@@ -53,6 +53,16 @@ next-env.d.ts
 /handoff/
 app/globals.css.bak
 
+# marketing screenshots — captured against the LIVE addon, never committed.
+# scripts/capture-marketing-screenshots.ts writes here. Cf. /docs/screenshots/
+# which IS git-managed and holds synthetic captures from the e2e harness.
+/marketing/screenshots/
+/marketing/archive/
+/marketing/walkthrough.mp4
+/marketing/walkthrough.webm
+/marketing/.video-tmp/
+/marketing/launchagent.*.log
+
 # test
 /test-results/
 /playwright-report/
