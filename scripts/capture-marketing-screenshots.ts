@@ -47,29 +47,32 @@ type PageDef = {
   postLoadDelayMs?: number;
 };
 
+// Port 3001 (direct LAN) routes "/" to "/ingress/" via 302; sub-pages need
+// the "ingress/" prefix explicitly because the addon's Next.js basePath is
+// /ingress in production.
 const PAGES: PageDef[] = [
   { slug: "01-dashboard", appPath: "", ready: "main", postLoadDelayMs: 800 },
-  { slug: "02-inventory", appPath: "inventory", ready: "[data-testid='page-inventory']", postLoadDelayMs: 600 },
-  { slug: "03-spools", appPath: "spools", ready: "[data-testid='page-spools']", postLoadDelayMs: 400 },
-  { slug: "04-prints", appPath: "prints", ready: "[data-testid='page-prints']", postLoadDelayMs: 400 },
-  { slug: "05-history", appPath: "history", ready: "[data-testid='page-history']", postLoadDelayMs: 400 },
-  { slug: "06-orders", appPath: "orders", ready: "[data-testid='page-orders']", postLoadDelayMs: 400 },
-  { slug: "07-analytics", appPath: "analytics", ready: "main", postLoadDelayMs: 1000 },
-  { slug: "08-scan", appPath: "scan", ready: "[data-testid='page-scan']", postLoadDelayMs: 300 },
-  { slug: "09-admin", appPath: "admin", ready: "[data-testid='page-admin']", postLoadDelayMs: 400 },
-  { slug: "10-admin-diagnostics", appPath: "admin/diagnostics", ready: "main", postLoadDelayMs: 600 },
+  { slug: "02-inventory", appPath: "ingress/inventory", ready: "[data-testid='page-inventory']", postLoadDelayMs: 600 },
+  { slug: "03-spools", appPath: "ingress/spools", ready: "[data-testid='page-spools']", postLoadDelayMs: 400 },
+  { slug: "04-prints", appPath: "ingress/prints", ready: "[data-testid='page-prints']", postLoadDelayMs: 400 },
+  { slug: "05-history", appPath: "ingress/history", ready: "[data-testid='page-history']", postLoadDelayMs: 400 },
+  { slug: "06-orders", appPath: "ingress/orders", ready: "[data-testid='page-orders']", postLoadDelayMs: 400 },
+  { slug: "07-analytics", appPath: "ingress/analytics", ready: "main", postLoadDelayMs: 1000 },
+  { slug: "08-scan", appPath: "ingress/scan", ready: "[data-testid='page-scan']", postLoadDelayMs: 300 },
+  { slug: "09-admin", appPath: "ingress/admin", ready: "[data-testid='page-admin']", postLoadDelayMs: 400 },
+  { slug: "10-admin-diagnostics", appPath: "ingress/admin/diagnostics", ready: "main", postLoadDelayMs: 600 },
 ];
 
 // The walkthrough script — pages in order, with a brief pause between to let
 // the camera "settle". 30s total at 1.5s pacing == 20 transitions.
 const WALKTHROUGH_PATH: Array<{ appPath: string; ready: string; dwellMs: number }> = [
   { appPath: "", ready: "main", dwellMs: 2500 },
-  { appPath: "inventory", ready: "[data-testid='page-inventory']", dwellMs: 2500 },
-  { appPath: "spools", ready: "[data-testid='page-spools']", dwellMs: 2500 },
-  { appPath: "prints", ready: "[data-testid='page-prints']", dwellMs: 2500 },
-  { appPath: "orders", ready: "[data-testid='page-orders']", dwellMs: 2500 },
-  { appPath: "analytics", ready: "main", dwellMs: 3500 },
-  { appPath: "admin/diagnostics", ready: "main", dwellMs: 2500 },
+  { appPath: "ingress/inventory", ready: "[data-testid='page-inventory']", dwellMs: 2500 },
+  { appPath: "ingress/spools", ready: "[data-testid='page-spools']", dwellMs: 2500 },
+  { appPath: "ingress/prints", ready: "[data-testid='page-prints']", dwellMs: 2500 },
+  { appPath: "ingress/orders", ready: "[data-testid='page-orders']", dwellMs: 2500 },
+  { appPath: "ingress/analytics", ready: "main", dwellMs: 3500 },
+  { appPath: "ingress/admin/diagnostics", ready: "main", dwellMs: 2500 },
 ];
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -105,6 +108,65 @@ async function checkAddonReachable(): Promise<void> {
   console.log(`[mkt] addon reachable, version=${body.version ?? "?"}`);
 }
 
+/**
+ * Two-layer redaction pass before every screenshot:
+ *
+ * Layer 1 — regex on all text nodes:
+ *   - private IPv4 (192.168.x, 10.x) → 192.168.x.x / 10.x.x.x
+ *   - Amazon order numbers (NNN-NNNNNNN-NNNNNNN) → XXX-XXXXXXX-XXXXXXX
+ *
+ * Layer 2 — selector-targeted on admin-style label/value pairs:
+ *   any element whose own text matches a sensitive label receives a sibling
+ *   override that masks the value. Catches Bambu device IDs and printer
+ *   serials that don't fit a stable regex.
+ */
+// Serialized as a string + injected with addScriptTag-equivalent so tsx's
+// named-function decoration (`__name(...)`) doesn't leak into the browser
+// runtime (where __name is undefined and page.evaluate then crashes).
+const REDACTION_SCRIPT = `(() => {
+  // Layer 1 — regex pass on every text node
+  const patterns = [
+    [/\\b192\\.168\\.\\d{1,3}\\.\\d{1,3}\\b/g, "192.168.x.x"],
+    [/\\b10\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\b/g, "10.x.x.x"],
+    [/\\b172\\.(1[6-9]|2[0-9]|3[01])\\.\\d{1,3}\\.\\d{1,3}\\b/g, "172.x.x.x"],
+    [/\\b\\d{3}-\\d{7}-\\d{7}\\b/g, "XXX-XXXXXXX-XXXXXXX"]
+  ];
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  let node;
+  while ((node = walker.nextNode())) {
+    const orig = node.nodeValue || "";
+    let next = orig;
+    for (const [re, repl] of patterns) next = next.replace(re, repl);
+    if (next !== orig) node.nodeValue = next;
+  }
+
+  // Layer 2 — label/value pairs in admin
+  const sensitiveLabels = [
+    "device id", "ha device id", "hadeviceid",
+    "ip address", "ipaddress", "serial",
+    "ha url", "websocket url"
+  ];
+  document.querySelectorAll("*").forEach((el) => {
+    const own = (el.textContent || "").trim().toLowerCase();
+    if (!own || own.length > 32) return;
+    let match = false;
+    for (let i = 0; i < sensitiveLabels.length; i++) {
+      if (own.indexOf(sensitiveLabels[i]) !== -1) { match = true; break; }
+    }
+    if (!match) return;
+    const sibling = el.nextElementSibling;
+    if (!sibling) return;
+    const sibText = (sibling.textContent || "").trim();
+    if (sibText.length < 6) return;
+    if (sibText.indexOf("••") !== -1) return;
+    sibling.textContent = "••••";
+  });
+})();`;
+
+async function applyRedactions(page: Page): Promise<void> {
+  await page.evaluate(REDACTION_SCRIPT);
+}
+
 async function capturePage(
   page: Page,
   pageDef: PageDef,
@@ -113,7 +175,9 @@ async function capturePage(
   const url = pageDef.appPath
     ? `${ADDON_BASE_URL}/${pageDef.appPath}`
     : ADDON_BASE_URL;
-  await page.goto(url, { waitUntil: "networkidle", timeout: 25_000 });
+  // domcontentloaded — networkidle never fires on pages with React Query
+  // polling (inventory polls AMS slots every 30 s; analytics polls metrics).
+  await page.goto(url, { waitUntil: "domcontentloaded", timeout: 25_000 });
 
   try {
     await page.waitForSelector(pageDef.ready, { timeout: 8_000, state: "visible" });
@@ -123,6 +187,7 @@ async function capturePage(
   if (pageDef.postLoadDelayMs) {
     await page.waitForTimeout(pageDef.postLoadDelayMs);
   }
+  await applyRedactions(page);
   await page.screenshot({ path: outFile, fullPage: true, animations: "disabled" });
 }
 
@@ -187,12 +252,15 @@ async function captureWalkthrough(): Promise<void> {
     for (const stop of WALKTHROUGH_PATH) {
       const url = stop.appPath ? `${ADDON_BASE_URL}/${stop.appPath}` : ADDON_BASE_URL;
       process.stderr.write(`[mkt] walkthrough -> /${stop.appPath || ""}\n`);
-      await page.goto(url, { waitUntil: "networkidle", timeout: 20_000 });
+      await page.goto(url, { waitUntil: "domcontentloaded", timeout: 20_000 });
       try {
         await page.waitForSelector(stop.ready, { timeout: 8_000, state: "visible" });
       } catch {
         /* ignore — keep recording */
       }
+      // Apply same redactions in the recorded video — DOM mutations are
+      // safe inside the recording context.
+      await applyRedactions(page).catch(() => {});
       await page.waitForTimeout(stop.dwellMs);
     }
 

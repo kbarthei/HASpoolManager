@@ -53,13 +53,15 @@ next-env.d.ts
 /handoff/
 app/globals.css.bak
 
-# marketing screenshots — captured against the LIVE addon, never committed.
-# scripts/capture-marketing-screenshots.ts writes here. Cf. /docs/screenshots/
-# which IS git-managed and holds synthetic captures from the e2e harness.
-/marketing/screenshots/
+# marketing screenshots — captured against the LIVE addon. Sensitive
+# values are redacted by scripts/capture-marketing-screenshots.ts before
+# the screenshot is taken (IPs, Amazon order numbers, Bambu device IDs +
+# serials), so they're safe to commit.
+#
+# Latest captures (refreshed every nightly run) and the walkthrough video
+# are tracked. Daily archive folders are not — they'd churn git for
+# little gain. Logs are local-only.
 /marketing/archive/
-/marketing/walkthrough.mp4
-/marketing/walkthrough.webm
 /marketing/.video-tmp/
 /marketing/launchagent.*.log
 
