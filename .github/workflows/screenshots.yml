@@ -72,9 +72,15 @@ jobs:
           git add docs/screenshots/
           git commit -m "docs: refresh UI screenshots [skip ci]"
           # Rebase onto any commits that landed on main while we were capturing
-          # (e.g. the changelog bot). Retry the push a few times in case of races.
+          # (changelog bot, parallel screenshots run). For binary conflicts on
+          # the PNGs themselves, prefer "theirs" — i.e. the commit being
+          # replayed (our newly captured screenshots) over the upstream version.
+          # In rebase, -X theirs means "prefer the commits being applied".
           for attempt in 1 2 3; do
-            git pull --rebase origin main && git push origin main && exit 0
+            if git pull --rebase -X theirs origin main && git push origin main; then
+              exit 0
+            fi
+            git rebase --abort 2>/dev/null || true
             sleep $((attempt * 5))
           done
           echo "::error::failed to push after 3 rebase attempts"
