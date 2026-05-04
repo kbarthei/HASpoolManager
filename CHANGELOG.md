@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## May 2026
 
+- **chore:** refresh against v1.1.23 with trim mode (`596c05b`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`7893ee3`)
 - **chore:** bump addon to 1.1.23 — admin-{sync-log,hms-log} testids (`4263dbd`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`0f98db9`)
 - - refactor(screenshots): single folder + trim mode + testids (`7a6ec3e`)
