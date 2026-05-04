@@ -6,6 +6,9 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## May 2026
 
+- **fix:** rebase with -X theirs to auto-resolve PNG conflicts (`5639576`)
+- **docs:** refresh UI screenshots [skip ci] (`6e93300`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`6f2a0ae`)
 - **fix:** domcontentloaded + drop running print (`01c3ee4`)
 - **docs:** refresh UI screenshots [skip ci] (`f8d1d8a`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`c20ff76`)
