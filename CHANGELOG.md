@@ -6,6 +6,9 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## May 2026
 
+- **fix:** domcontentloaded + drop running print (`01c3ee4`)
+- **docs:** refresh UI screenshots [skip ci] (`f8d1d8a`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`c20ff76`)
 - **fix:** use 'ingress/<page>' paths to match Next.js basePath (`b79e2ed`)
 - **docs:** refresh UI screenshots [skip ci] (`6b9e81a`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`1f5ee01`)
