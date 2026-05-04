@@ -6,6 +6,9 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## May 2026
 
+- **fix:** drop /admin and inspector material-profile from capture (`3d297bb`)
+- **docs:** refresh UI screenshots [skip ci] (`96cccf6`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`1a0ff74`)
 - **fix:** correct section selectors + scroll-into-view (`1cd9f8f`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`ee8978d`)
 - **docs:** embed section clips (printer-live, AMS section, orphan-photos) (`952e7ab`)
