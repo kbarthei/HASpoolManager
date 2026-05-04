@@ -68,6 +68,27 @@ testdata/                  # Test data files
 - **`testdata/`** — for DB snapshots and test CSVs.
 - Snapshot the prod DB before risky changes: `cp data/haspoolmanager.db testdata/db-snapshots/prod-$(date +%Y-%m-%d).db`
 
+## Screenshots
+
+**Single source of truth for all UI screenshots: `/screenshots/` at repo root.** Captured against the live HA addon by `scripts/capture-screenshots.ts`, redacted (IPs, Amazon order numbers, Bambu device IDs + serials → `••••`), committed to git.
+
+```
+screenshots/
+  light/{desktop,mobile,social-square}/        # full-page shots, 10 pages each
+  light/desktop/sections/                      # card-level clips (desktop only)
+  dark/                                        # same shape
+  walkthrough.webm                             # 30s nav-through video
+  archive/<YYYY-MM-DD>/                        # gitignored, daily timeline
+```
+
+- **Refresh:** `npm run screenshots` (Mac on the same LAN as Home Assistant) — `--no-video` / `--video-only` flags for partial runs
+- **Nightly schedule:** `bash scripts/launchagent/install.sh` installs a LaunchAgent that fires at 03:00 local time
+- **Doc embeds:** README uses `screenshots/light/desktop/...`, operator docs use `../../screenshots/light/desktop/...` (one extra level up from `docs/operator/`)
+- **No CI step** — the Mac is the only machine on the printer's LAN; CI cannot reach the addon
+- **Trim mode** — long pages (e.g. `/admin` with sync-log + HMS-log tables) are pre-cropped via `display:none` on noisy elements (see `PageDef.hide` in the script)
+
+**Do NOT create `docs/screenshots/`, `docs/images/`, or `marketing/`** — those were earlier iterations and have been consolidated.
+
 ## Testing Convention
 
 **Every code change must include appropriate tests.** Follow the test pyramid:
