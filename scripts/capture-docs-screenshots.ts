@@ -206,13 +206,13 @@ function seedDemoData(dbPath: string): string {
   ).run(shopId, "Bambu Lab EU Store");
 
   sqlite.prepare(
-    `INSERT OR IGNORE INTO orders (id, shop_id, order_number, ordered_at, total_amount, currency, status)
-     VALUES (?, ?, '306-7723421-0193445', date('now', '-3 days'), 64.97, 'EUR', 'shipped')`,
+    `INSERT OR IGNORE INTO orders (id, shop_id, order_number, order_date, total_cost, currency, status)
+     VALUES (?, ?, '306-7723421-0193445', date('now', '-3 days'), 64.97, 'EUR', 'delivered')`,
   ).run("demo-order-0", shopId);
 
   sqlite.prepare(
-    `INSERT OR IGNORE INTO order_items (id, order_id, filament_id, quantity, unit_price, total_price)
-     VALUES (?, ?, ?, 3, 19.99, 59.97)`,
+    `INSERT OR IGNORE INTO order_items (id, order_id, filament_id, quantity, unit_price)
+     VALUES (?, ?, ?, 3, 19.99)`,
   ).run("demo-order-item-0", "demo-order-0", "demo-fil-pla-charcoal");
 
   sqlite.close();
