@@ -6,6 +6,9 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## May 2026
 
+- **docs:** embed section clips (printer-live, AMS section, orphan-photos) (`952e7ab`)
+- **docs:** refresh UI screenshots [skip ci] (`7093df7`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`73dfcc9`)
 - **docs:** switch embedded screenshots from dark to light theme (`d76470b`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`f3c9b3a`)
 - **feat:** section clips for cards + UI sub-areas (`7872ef6`)
