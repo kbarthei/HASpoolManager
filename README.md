@@ -28,11 +28,19 @@
 
 HASpoolManager is a self-hosted Home Assistant addon for Bambu Lab printer setups. It manages the complete filament lifecycle — from ordering new spools to tracking per-print costs — across 30+ spools with RFID exact matching for Bambu filaments and CIE Delta-E color-distance fuzzy matching for third-party brands. The mobile-first UI is designed for use at the printer, with direct PWA access on port 3001.
 
-**Purchase -- Inventory -- Storage -- AMS Loading -- Print Tracking -- Usage Deduction -- Cost Analytics**
+**Purchase → Inventory → Storage → AMS Loading → Print Tracking → Usage Deduction → Cost Analytics**
 
-![Dashboard](docs/images/dashboard.png)
-![Inventory](docs/images/inventory.png)
-![Spool Detail](docs/images/spool-detail.png)
+![Dashboard](docs/screenshots/dark/desktop/01-dashboard.png)
+
+The Inventory page mirrors your physical setup — AMS slots on top, rack grid below, workbench + surplus as flat lists:
+
+![Inventory](docs/screenshots/dark/desktop/02-inventory.png)
+
+Click any spool to drill into its full lifecycle — remaining weight, cost-per-gram, usage history, location:
+
+![Spool Inspector](docs/screenshots/dark/desktop/04-spool-inspector.png)
+
+Screenshots are auto-refreshed weekly from a deterministic e2e harness — see [`docs/screenshots/`](docs/screenshots/) for the full set (dark + light × desktop + mobile).
 
 ---
 
@@ -42,15 +50,17 @@ HASpoolManager is a self-hosted Home Assistant addon for Bambu Lab printer setup
 |---|---|
 | **Zero-Config Sync** | Auto-discovers printers via HA websocket — no YAML, no rest_command, no automations needed |
 | **AI Order Parsing** | Paste an order confirmation email — Claude extracts filament line items, quantities, unit prices, and shops automatically |
-| **Smart Inventory** | Track 30+ spools across rack, AMS, surplus, and workbench with full lifecycle state machine |
+| **Smart Inventory** | Multi-rack + multi-AMS support with drag-and-drop placement, brand/material chips, and a digital twin of every shelf |
 | **AMS Integration** | Real-time slot status for AMS (4-slot) and AMS HT (1-slot); RFID exact match plus CIE Delta-E fuzzy matching |
 | **AMS Drying Status** | Track drying state per AMS unit with automatic status updates |
 | **Per-Tray Weight Tracking** | 3MF-based per-tray weight consumption for accurate usage tracking |
-| **Mid-Print Spool Swap Detection** | Automatically detects and handles spool swaps during active prints |
-| **Cost Analytics** | Per-print filament costs, per-gram price history, shopping list with live price crawling |
-| **Digital Rack Twin** | Configurable 4x8 grid mirrors the physical spool rack — drag-and-drop positions, overflow areas, archive mode |
+| **Mid-Print Spool Swap Detection** | Automatically detects and handles spool swaps during active prints; oscillation guard prevents duplicate-draft spawns from non-RFID color drift |
+| **Cover-Image + Camera Snapshot** | Captures the slicer's cover preview at print start (event-driven, race-resistant) and a camera snapshot at end |
+| **Cost Analytics** | Per-print filament + energy costs, per-gram price history, shopping list with live price crawling |
+| **Live Watchdog Polling** | Active prints poll every 30 s for progress + remaining-time so the dashboard never goes stale |
+| **Diagnostics + Self-Heal** | `/admin/diagnostics` surfaces 8 live detectors plus orphan-photo cleanup, all one click away from the affected records |
 | **Full Lifecycle** | Order, receive, store, load, print, track, archive — with confidence-scored spool matching at every step |
-| **Home Assistant Addon** | Native HA websocket sync worker with 21 auto-discovered entities (German + English support) |
+| **Home Assistant Addon** | Native HA websocket sync worker with auto-discovered entities (German + English `original_name` mapping) |
 | **Apple Health Design** | Clean light/dark UI with teal accent, Geist fonts, dense mobile-first layout optimized for use at the printer |
 
 ---
@@ -182,14 +192,14 @@ npm run db:studio          # Drizzle Studio
 
 | Level | Tests | Files |
 |-------|------:|------:|
-| Unit | 485 | 17 |
-| Integration | 130 | 14 |
+| Unit | 537 | 22 |
+| Integration | 186 | 22 |
 | E2e | ~50 | 18 |
-| **Total** | **~665** | **49** |
+| **Total** | **~773** | **62** |
 
-Unit tests cover the spool matching engine (RFID, CIE Delta-E, fuzzy), API route validation (Zod schemas), cost calculation, and data transformation utilities. Integration tests call route handlers directly against a per-worker SQLite harness. E2e tests run against the full addon stack: Next.js standalone, Docker nginx with production config, and a Node.js ingress simulator.
+Unit tests cover the spool matching engine (RFID, CIE Delta-E, fuzzy), API route validation (Zod schemas), cost calculation, and data transformation utilities. Integration tests call route handlers directly against a per-worker SQLite harness — including a **browser auth contract** test that asserts every browser-callable route accepts no-Bearer requests. E2e tests run against the full addon stack: Next.js standalone, Docker nginx with production config, and a Node.js ingress simulator.
 
-**CI pipeline:** lint + typecheck + unit + integration on every PR; e2e on main push.
+**CI pipeline:** lint + typecheck + unit + integration on every PR; e2e on main push. Screenshots are regenerated weekly via `.github/workflows/screenshots.yml` and committed back to `docs/screenshots/`.
 
 ---
 

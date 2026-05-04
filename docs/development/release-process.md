@@ -236,6 +236,27 @@ Patches don't get tags (they come and go).
 A `UserPromptSubmit` hook in `.claude/settings.json` checks CI status at
 the start of every conversation and warns about failures.
 
+### Screenshots workflow
+
+`.github/workflows/screenshots.yml` regenerates `docs/screenshots/` (44
+PNGs: 11 pages × dark+light × desktop+mobile) and commits them back as
+`docs: refresh UI screenshots [skip ci]`:
+
+- **Weekly cron:** Mondays 04:00 UTC — refresh the baseline
+- **On push to `main`** that touches `app/`, `components/`, or
+  `scripts/capture-docs-screenshots.ts` — keeps docs in sync with shipped UI
+- **Manual:** `gh workflow run screenshots.yml` or via the Actions tab
+
+The workflow uses the same e2e harness (Docker nginx + ingress simulator
++ Next.js standalone) seeded with deterministic demo data. PNGs are
+small (mostly < 250 KB) so they belong in git.
+
+For LIVE-data screenshots used in marketing, see
+[`scripts/capture-marketing-screenshots.ts`](../../scripts/capture-marketing-screenshots.ts)
+and the LaunchAgent at
+[`scripts/launchagent/`](../../scripts/launchagent/) — those run
+nightly on the maintainer's Mac, output to `marketing/` (gitignored).
+
 ---
 
 ## 9. Changelog

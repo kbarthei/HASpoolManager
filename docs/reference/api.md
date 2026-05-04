@@ -6,8 +6,15 @@ All routes are under `/api/v1/`. The base URL for local development is `http://l
 
 | Mode | Header | Used by |
 |------|--------|---------|
-| `requireAuth` | `Authorization: Bearer <token>` | All write (POST/PUT/DELETE) routes and sensitive GET routes |
-| `optionalAuth` | `Authorization: Bearer <token>` (optional) | Read-only routes accessible from the web UI without a token |
+| `requireAuth` | `Authorization: Bearer <token>` | Routes called exclusively by external integrations (HA scripts, sync-worker, third-party tools) — never from the browser |
+| `optionalAuth` | `Authorization: Bearer <token>` (optional) | Routes the web UI calls. Browser fetches don't send a Bearer header; HA ingress authenticates the user before proxying, and direct LAN port 3001 is treated as trusted-LAN |
+
+> The browser-auth-contract is enforced by
+> [`tests/integration/browser-auth-contract.test.ts`](../../tests/integration/browser-auth-contract.test.ts):
+> the meta-test calls every browser-callable route without auth and asserts
+> the response is **not 401**. Adding a new `fetch("/api/v1/...")` from
+> `app/` or `components/` requires registering it in the test —
+> drift back to `requireAuth` fails CI immediately.
 
 ---
 

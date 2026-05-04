@@ -295,6 +295,53 @@ Check `/admin/printer-mappings` and confirm `cover_image` points at
 
 ---
 
+## 7c. "Hundreds of duplicate ASA/PLA draft spools appeared"
+
+**Symptom:** `/spools?status=draft` shows N identical "Unknown ASA"
+(or other generic) drafts created within the last few hours, each at
+1000g/1000g, mostly at `workbench` with one at the AMS slot.
+
+**Cause:** A non-RFID spool sits in an AMS slot whose user-entered
+filament colour (e.g. `FFFFFF` white) diverges from Bambu's
+camera-reported colour (e.g. `C1C1C1` light grey). Each watchdog poll
+(every 30 s during active prints) flip-flopped between binding the
+active spool and detecting a "swap" — spawning a fresh draft each
+cycle. Fixed in v1.1.20 with two guards:
+
+- `autoCreateDraftSpool` dedups by `filament_id` + `status='draft'`
+  before INSERT
+- Swap-detection compares incoming `tray_color` to the slot's
+  previously-observed `bambu_color` (not to the linked spool's
+  `filament.color_hex`)
+
+**Cleanup recipe** (assuming you've already updated to v1.1.20+):
+
+```bash
+# Dry-run: count and inspect the drafts
+curl -s -X POST http://homeassistant.local:3001/api/v1/admin/sql/execute \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "sql":"UPDATE spools SET status=?, location=?, updated_at=CURRENT_TIMESTAMP WHERE id IN (SELECT s.id FROM spools s JOIN filaments f ON s.filament_id=f.id JOIN vendors v ON f.vendor_id=v.id WHERE s.status=? AND f.material=? AND v.name=? AND f.color_hex=? AND s.initial_weight=1000 AND s.remaining_weight=1000)",
+    "params":["archived","archive","draft","ASA","Unknown","C1C1C1"],
+    "dryRun":true
+  }'
+
+# When dry-run reports the expected count, re-run with dryRun: false
+```
+
+Adjust the `material` and `color_hex` params for your case. After the
+deploy of v1.1.20+, the oscillation cannot recur — the new test
+`J6d: repeated syncs of an unmatchable non-RFID slot do NOT spawn
+duplicate drafts` enforces this in CI.
+
+**Prevent recurrence:** at the printer, set the AMS-HT slot's colour
+in Bambu Studio to match what the user-entered `filament.color_hex`
+says. Or update the filament colour in the app to match what Bambu's
+camera reports.
+
+---
+
 ## 8. "DB is corrupted / won't open"
 
 **Symptom:** addon won't start, logs show `SQLite: database is malformed`
@@ -316,6 +363,15 @@ Prevention: every schema-changing deploy should take a snapshot. See
 ---
 
 ## 9. "Data quality looks bad overall"
+
+Start at `/admin/diagnostics` — nine live detectors plus an orphan-photos
+cleanup card surface every kind of data drift:
+
+![Diagnostics dashboard](../screenshots/dark/desktop/11-admin-diagnostics.png)
+
+Each card deep-links to the affected records with `?issue=<id>` and a
+banner explaining the rule. Use that as the entry point before running
+scripts.
 
 Run the cleanup scripts in preview mode (dry run):
 

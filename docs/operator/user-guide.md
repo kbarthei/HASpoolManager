@@ -5,6 +5,12 @@ addon, start with [`installation.md`](installation.md); if you want to
 understand how things work under the hood, jump to
 [`../architecture/overview.md`](../architecture/overview.md).
 
+The **Dashboard** is the daily landing page — printer status, monthly
+spend, prints, low-stock alerts, recent prints, and analytics charts
+all on one screen:
+
+![Dashboard](../screenshots/dark/desktop/01-dashboard.png)
+
 ---
 
 ## 1. The location system
@@ -32,6 +38,8 @@ Purchased → Rack → AMS → Workbench → Rack → … → Empty → Archive
 The **Inventory** page is the cockpit: AMS section on top, rack grid(s)
 below, then Workbench + Surplus as flat lists.
 
+![Inventory](../screenshots/dark/desktop/02-inventory.png)
+
 ---
 
 ## 2. Buying filament → receiving an order
@@ -49,6 +57,8 @@ Three paths in the app:
    a CSV matching the template.
 
 A placeholder `spool` row gets created for every item, `location: "ordered"`.
+
+![Orders](../screenshots/dark/desktop/07-orders.png)
 
 ### B. Receive the order
 
@@ -79,23 +89,41 @@ When the printer starts a job, the sync worker writes to DB **without
 any manual action from you**:
 
 1. **Print starts** — `prints` row created with `status = "running"`,
-   the current AMS slot contents captured as `remain_snapshot`
-2. **Active spool identified** — via RFID tag on the AMS tray, or
+   the current AMS slot contents captured as `remain_snapshot`. Energy
+   meter (kWh) is read for later cost computation.
+2. **Cover image captured** — Bambu's slicer preview lands on the
+   `cover_image` HA entity 30 s–15 min after the start event; the sync
+   worker watches for that `state_changed` and saves it to
+   `/config/haspoolmanager/photos/<printId>/cover.jpg`. Race-resistant
+   and idempotent (re-firing the manual capture replaces, the auto
+   path is append-skip).
+3. **Active spool identified** — via RFID tag on the AMS tray, or
    Bambu filament-idx + slot memory, or color/material fuzzy match.
    Every spool seen during the print accumulates in `activeSpoolIds`.
-3. **Mid-print swap detected** — if the tray color changes more than
-   the ΔE threshold OR an RFID-runout event fires, the swap is
-   recorded and the old spool moves off the slot
-4. **Print finishes** — final weight deducted from the spool's
+4. **Watchdog poll** — every 30 s the worker pulls fresh
+   `print_progress` and `print_remaining_time` from HA so the dashboard
+   never goes stale (Bambu's HA integration reports remaining time in
+   hours with minute-precision; we convert at the UI boundary).
+5. **Mid-print swap detected** — if the AMS slot's last-observed
+   bambu-color changes by more than the ΔE threshold OR an RFID-runout
+   event fires, the swap is recorded and the old spool moves to
+   workbench. Non-RFID color drift (where the user-entered filament
+   colour diverges from Bambu's camera reading) no longer spawns
+   duplicate drafts thanks to the identity-dedup guard in
+   `autoCreateDraftSpool`.
+6. **Print finishes** — final weight deducted from the spool's
    `remainingWeight`. Multi-spool prints distribute weight by AMS
-   remain-delta or 3MF per-tray weights when available
-5. **Cost computed** — filament cost (price-per-spool × grams used) +
-   energy cost (kWh × price) → `prints.totalCost`
-6. **Sync log entry** — `sync_log` table records the event for the
-   `/admin/diagnostics` dashboard
+   remain-delta or 3MF per-tray weights when available. A camera
+   snapshot is saved alongside the cover image.
+7. **Cost computed** — filament cost (price-per-spool × grams used) +
+   energy cost (kWh × price) → `prints.totalCost`.
+8. **Sync log entry** — `sync_log` table records the event for the
+   `/admin/diagnostics` dashboard.
 
 **You do nothing.** The Inventory page auto-refreshes, the Prints page
 shows the new record, the Dashboard widgets update.
+
+![Prints](../screenshots/dark/desktop/05-prints.png)
 
 ### When things go wrong
 
@@ -129,6 +157,14 @@ the loop.
 
 ## 5. Everyday management
 
+### Browsing all spools
+
+`/spools` shows the flat catalogue with material, vendor, color, and
+status filters. The grid view is best for at-a-glance browsing; the
+list view (toggle top-right) makes bulk-edit work easier.
+
+![Spools list](../screenshots/dark/desktop/03-spools.png)
+
 ### Adding a spool manually
 
 Inventory → "+ Add Spool" → pick filament from dropdown (or create new
@@ -150,8 +186,10 @@ initial weight; position them afterwards by drag-drop.
 
 ### Identifying a spool physically
 
-Inventory → click any spool → right-side drawer shows weight, location,
-print history, last used.
+Inventory → click any spool → opens the Spool Inspector with weight,
+location, cost-per-gram, identification table, and print history.
+
+![Spool Inspector](../screenshots/dark/desktop/04-spool-inspector.png)
 
 ### Moving spools
 
@@ -174,7 +212,7 @@ and stop syncing.
 
 ## 6. Diagnostics
 
-`/admin/diagnostics` surfaces eight live health checks:
+`/admin/diagnostics` surfaces nine live health checks plus storage cleanup:
 
 | Detector | Trigger |
 |---|---|
@@ -186,6 +224,9 @@ and stop syncing.
 | No-usage | Finished print without a `print_usage` row |
 | Stuck orders | `ordered` status for >30 days |
 | Recent sync errors | Last N entries from `sync_log` with level `error` |
+| Orphan photos | Files no print references, dead `photo_urls` entries, legacy `/config/snapshots/` dump — single "Cleanup now" button |
+
+![Diagnostics](../screenshots/dark/desktop/11-admin-diagnostics.png)
 
 Each card deep-links to the affected records with an `?issue=<id>`
 query param and banner. Below that, the Health-Check section shows
