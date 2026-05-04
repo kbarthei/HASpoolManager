@@ -163,6 +163,8 @@ The Supply Engine watches consumption and warns before you run out:
 The engine **never places an order automatically**. You're always in
 the loop.
 
+![Supply Rules](../screenshots/light/desktop/sections/07-orders--supply-rules.png)
+
 ---
 
 ## 5. Everyday management
@@ -174,6 +176,11 @@ status filters. The grid view is best for at-a-glance browsing; the
 list view (toggle top-right) makes bulk-edit work easier.
 
 ![Spools list](../screenshots/light/desktop/03-spools.png)
+
+Each spool card surfaces the essential info at a glance — colour dot,
+material badge, vendor + name, remaining %, location, price:
+
+![Spool card](../screenshots/light/desktop/sections/03-spools--spool-card.png)
 
 ### Adding a spool manually
 
