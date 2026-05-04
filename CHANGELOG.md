@@ -6,6 +6,9 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## May 2026
 
+- **fix:** use real schema column names (order_date, total_cost, delivered) (`9eee8e9`)
+- **feat:** synthetic CI captures + live marketing pipeline (`794d9ec`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`0f84e67`)
 - **fix:** widen RouteHandler type in browser-auth-contract meta-test (`723dbd3`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`22755f5`)
 - **chore:** bump addon to 1.1.22 (`2ca22f9`)
