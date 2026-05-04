@@ -47,18 +47,24 @@ type PageDef = {
   postLoadDelayMs?: number;
 };
 
+// Paths follow the e2e-test convention: "ingress/<page>" — the addon's
+// Next.js basePath is /ingress when HA_ADDON=true, and the ingress
+// simulator's incoming path is `/api/hassio_ingress/<token>/ingress/<page>`
+// which gets stripped to `/ingress/<page>` before forwarding to nginx.
+// The bare dashboard at "/" is special-cased: nginx routes "/" to "/ingress"
+// internally for the addon's home page.
 const PAGES: PageDef[] = [
-  { slug: "01-dashboard", ingressPath: "", ready: "[data-testid='page-dashboard'], main", postLoadDelayMs: 600 },
-  { slug: "02-inventory", ingressPath: "inventory", ready: "[data-testid='page-inventory']", postLoadDelayMs: 400 },
-  { slug: "03-spools", ingressPath: "spools", ready: "[data-testid='page-spools']" },
+  { slug: "01-dashboard", ingressPath: "", ready: "main", postLoadDelayMs: 600 },
+  { slug: "02-inventory", ingressPath: "ingress/inventory", ready: "[data-testid='page-inventory']", postLoadDelayMs: 400 },
+  { slug: "03-spools", ingressPath: "ingress/spools", ready: "[data-testid='page-spools']" },
   { slug: "04-spool-inspector", ingressPath: "__SPOOL_INSPECTOR__", ready: "main", postLoadDelayMs: 500 },
-  { slug: "05-prints", ingressPath: "prints", ready: "[data-testid='page-prints']" },
-  { slug: "06-history", ingressPath: "history", ready: "[data-testid='page-history']" },
-  { slug: "07-orders", ingressPath: "orders", ready: "[data-testid='page-orders']", postLoadDelayMs: 300 },
-  { slug: "08-analytics", ingressPath: "analytics", ready: "main", postLoadDelayMs: 800 },
-  { slug: "09-scan", ingressPath: "scan", ready: "[data-testid='page-scan']" },
-  { slug: "10-admin", ingressPath: "admin", ready: "[data-testid='page-admin']" },
-  { slug: "11-admin-diagnostics", ingressPath: "admin/diagnostics", ready: "main", postLoadDelayMs: 400 },
+  { slug: "05-prints", ingressPath: "ingress/prints", ready: "[data-testid='page-prints']" },
+  { slug: "06-history", ingressPath: "ingress/history", ready: "[data-testid='page-history']" },
+  { slug: "07-orders", ingressPath: "ingress/orders", ready: "[data-testid='page-orders']", postLoadDelayMs: 300 },
+  { slug: "08-analytics", ingressPath: "ingress/analytics", ready: "main", postLoadDelayMs: 800 },
+  { slug: "09-scan", ingressPath: "ingress/scan", ready: "[data-testid='page-scan']" },
+  { slug: "10-admin", ingressPath: "ingress/admin", ready: "[data-testid='page-admin']" },
+  { slug: "11-admin-diagnostics", ingressPath: "ingress/admin/diagnostics", ready: "main", postLoadDelayMs: 400 },
 ];
 
 // ── Seed ────────────────────────────────────────────────────────────────────
@@ -236,7 +242,7 @@ async function capturePage(
   outFile: string,
 ): Promise<void> {
   const ingressPath = pageDef.ingressPath === "__SPOOL_INSPECTOR__"
-    ? `spools/${spoolId}`
+    ? `ingress/spools/${spoolId}`
     : pageDef.ingressPath;
 
   const url = ingressPath ? `${baseUrl.replace(/\/$/, "")}/${ingressPath}` : baseUrl;
