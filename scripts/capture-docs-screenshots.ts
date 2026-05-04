@@ -36,6 +36,13 @@ const VIEWPORTS: Viewport[] = [
 const THEMES = ["dark", "light"] as const;
 type Theme = (typeof THEMES)[number];
 
+type Section = {
+  /** Filename stem for the section clip (e.g. "ams-section") */
+  slug: string;
+  /** CSS selector — usually a data-testid — for the element to clip */
+  selector: string;
+};
+
 type PageDef = {
   /** Filename stem (without extension) */
   slug: string;
@@ -45,6 +52,12 @@ type PageDef = {
   ready: string;
   /** Optional extra wait — pages that render charts need a moment for animation */
   postLoadDelayMs?: number;
+  /**
+   * Optional element-level captures. Saved under
+   *   docs/screenshots/<theme>/desktop/sections/<page-slug>--<section-slug>.png
+   * Skipped on mobile viewports (the layout is too narrow to be useful).
+   */
+  sections?: Section[];
 };
 
 // Paths follow the e2e-test convention: "ingress/<page>" — the addon's
@@ -54,17 +67,96 @@ type PageDef = {
 // The bare dashboard at "/" is special-cased: nginx routes "/" to "/ingress"
 // internally for the addon's home page.
 const PAGES: PageDef[] = [
-  { slug: "01-dashboard", ingressPath: "", ready: "main", postLoadDelayMs: 600 },
-  { slug: "02-inventory", ingressPath: "ingress/inventory", ready: "[data-testid='page-inventory']", postLoadDelayMs: 400 },
-  { slug: "03-spools", ingressPath: "ingress/spools", ready: "[data-testid='page-spools']" },
-  { slug: "04-spool-inspector", ingressPath: "__SPOOL_INSPECTOR__", ready: "main", postLoadDelayMs: 500 },
-  { slug: "05-prints", ingressPath: "ingress/prints", ready: "[data-testid='page-prints']" },
-  { slug: "06-history", ingressPath: "ingress/history", ready: "[data-testid='page-history']" },
-  { slug: "07-orders", ingressPath: "ingress/orders", ready: "[data-testid='page-orders']", postLoadDelayMs: 300 },
-  { slug: "08-analytics", ingressPath: "ingress/analytics", ready: "main", postLoadDelayMs: 800 },
-  { slug: "09-scan", ingressPath: "ingress/scan", ready: "[data-testid='page-scan']" },
-  { slug: "10-admin", ingressPath: "ingress/admin", ready: "[data-testid='page-admin']" },
-  { slug: "11-admin-diagnostics", ingressPath: "ingress/admin/diagnostics", ready: "main", postLoadDelayMs: 400 },
+  {
+    slug: "01-dashboard",
+    ingressPath: "",
+    ready: "main",
+    postLoadDelayMs: 600,
+    sections: [
+      { slug: "printer-live", selector: "[data-testid='printer-live']" },
+      { slug: "stats", selector: "[data-testid='dashboard-stats']" },
+      { slug: "recent-prints", selector: "[data-testid='recent-prints']" },
+      { slug: "data-quality", selector: "[data-testid='data-quality-card']" },
+    ],
+  },
+  {
+    slug: "02-inventory",
+    ingressPath: "ingress/inventory",
+    ready: "[data-testid='page-inventory']",
+    postLoadDelayMs: 400,
+    sections: [
+      { slug: "ams-section", selector: "[data-testid='printer-section']" },
+      { slug: "rack-grid", selector: "[data-testid='rack-selector']" },
+      { slug: "workbench", selector: "[data-testid='workbench-section']" },
+      { slug: "filter-chips", selector: "[data-testid='filter-chips']" },
+    ],
+  },
+  {
+    slug: "03-spools",
+    ingressPath: "ingress/spools",
+    ready: "[data-testid='page-spools']",
+  },
+  {
+    slug: "04-spool-inspector",
+    ingressPath: "__SPOOL_INSPECTOR__",
+    ready: "main",
+    postLoadDelayMs: 500,
+    sections: [
+      { slug: "card", selector: "[data-testid='spool-card']" },
+      { slug: "material-profile", selector: "[data-testid='material-profile-card']" },
+    ],
+  },
+  {
+    slug: "05-prints",
+    ingressPath: "ingress/prints",
+    ready: "[data-testid='page-prints']",
+  },
+  {
+    slug: "06-history",
+    ingressPath: "ingress/history",
+    ready: "[data-testid='page-history']",
+  },
+  {
+    slug: "07-orders",
+    ingressPath: "ingress/orders",
+    ready: "[data-testid='page-orders']",
+    postLoadDelayMs: 300,
+    sections: [
+      { slug: "budget", selector: "[data-testid='budget-card']" },
+      { slug: "optimized-cart", selector: "[data-testid='optimized-cart']" },
+      { slug: "supply-rules", selector: "[data-testid='supply-rules']" },
+    ],
+  },
+  {
+    slug: "08-analytics",
+    ingressPath: "ingress/analytics",
+    ready: "main",
+    postLoadDelayMs: 800,
+  },
+  {
+    slug: "09-scan",
+    ingressPath: "ingress/scan",
+    ready: "[data-testid='page-scan']",
+  },
+  {
+    slug: "10-admin",
+    ingressPath: "ingress/admin",
+    ready: "[data-testid='page-admin']",
+    sections: [
+      { slug: "racks-card", selector: "[data-testid='racks-card']" },
+      { slug: "backups-card", selector: "[data-testid='admin-backups-card']" },
+    ],
+  },
+  {
+    slug: "11-admin-diagnostics",
+    ingressPath: "ingress/admin/diagnostics",
+    ready: "main",
+    postLoadDelayMs: 400,
+    sections: [
+      { slug: "needs-attention", selector: "[data-testid='needs-attention']" },
+      { slug: "orphan-photos", selector: "[data-testid='issue-orphan-photos']" },
+    ],
+  },
 ];
 
 // ── Seed ────────────────────────────────────────────────────────────────────
@@ -241,12 +333,11 @@ async function ensureFreshOutDir(): Promise<void> {
   fs.mkdirSync(OUT_ROOT, { recursive: true });
 }
 
-async function capturePage(
+async function navigateToPage(
   page: Page,
   baseUrl: string,
   pageDef: PageDef,
   spoolId: string,
-  outFile: string,
 ): Promise<void> {
   const ingressPath = pageDef.ingressPath === "__SPOOL_INSPECTOR__"
     ? `ingress/spools/${spoolId}`
@@ -267,7 +358,33 @@ async function capturePage(
   if (pageDef.postLoadDelayMs) {
     await page.waitForTimeout(pageDef.postLoadDelayMs);
   }
+}
+
+async function capturePageFull(
+  page: Page,
+  outFile: string,
+): Promise<void> {
   await page.screenshot({ path: outFile, fullPage: true, animations: "disabled" });
+}
+
+async function captureSections(
+  page: Page,
+  pageDef: PageDef,
+  outDir: string,
+): Promise<void> {
+  if (!pageDef.sections) return;
+  for (const section of pageDef.sections) {
+    const outFile = path.join(outDir, `${pageDef.slug}--${section.slug}.png`);
+    process.stderr.write(`[shot]   section ${pageDef.slug}/${section.slug} … `);
+    try {
+      const handle = await page.locator(section.selector).first();
+      await handle.waitFor({ state: "visible", timeout: 4_000 });
+      await handle.screenshot({ path: outFile, animations: "disabled" });
+      process.stderr.write("ok\n");
+    } catch (err) {
+      process.stderr.write(`skip (${(err as Error).message.split("\n")[0]})\n`);
+    }
+  }
 }
 
 async function captureAll(stack: AddonStack, spoolId: string): Promise<void> {
@@ -284,13 +401,24 @@ async function captureAll(stack: AddonStack, spoolId: string): Promise<void> {
         });
         const page = await ctx.newPage();
         const outDir = path.join(OUT_ROOT, theme, vp.name);
+        const sectionsDir = path.join(outDir, "sections");
         fs.mkdirSync(outDir, { recursive: true });
+        if (vp.name === "desktop") {
+          fs.mkdirSync(sectionsDir, { recursive: true });
+        }
+
         for (const def of PAGES) {
           const outFile = path.join(outDir, `${def.slug}.png`);
           process.stderr.write(`[shot] ${theme}/${vp.name}/${def.slug}.png … `);
           try {
-            await capturePage(page, stack.baseUrl, def, spoolId, outFile);
+            await navigateToPage(page, stack.baseUrl, def, spoolId);
+            await capturePageFull(page, outFile);
             process.stderr.write("ok\n");
+            // Section clips on desktop only — they're cards, mobile layout
+            // collapses them into stacks where the clip isn't useful.
+            if (vp.name === "desktop") {
+              await captureSections(page, def, sectionsDir);
+            }
           } catch (err) {
             process.stderr.write(`FAILED: ${(err as Error).message}\n`);
           }
