@@ -6,6 +6,9 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## May 2026
 
+- **fix:** use 'ingress/<page>' paths to match Next.js basePath (`b79e2ed`)
+- **docs:** refresh UI screenshots [skip ci] (`6b9e81a`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`1f5ee01`)
 - **fix:** rebase before push + always upload artifact (`3278cc2`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`ee31c12`)
 - **fix:** use real schema column names (order_date, total_cost, delivered) (`9eee8e9`)
