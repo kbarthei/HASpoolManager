@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## May 2026
 
+- **fix:** rebase before push + always upload artifact (`3278cc2`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`ee31c12`)
 - **fix:** use real schema column names (order_date, total_cost, delivered) (`9eee8e9`)
 - **feat:** synthetic CI captures + live marketing pipeline (`794d9ec`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`0f84e67`)
