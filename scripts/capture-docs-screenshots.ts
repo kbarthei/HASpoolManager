@@ -105,9 +105,8 @@ const PAGES: PageDef[] = [
     ingressPath: "__SPOOL_INSPECTOR__",
     ready: "[data-testid='page-spool-detail']",
     postLoadDelayMs: 600,
-    sections: [
-      { slug: "material-profile", selector: "[data-testid='material-profile-card']" },
-    ],
+    // material-profile-card only renders when the spool has print-usage
+    // history; with the synthetic seed it stays hidden — so no sections.
   },
   {
     slug: "05-prints",
@@ -140,17 +139,12 @@ const PAGES: PageDef[] = [
     ingressPath: "ingress/scan",
     ready: "[data-testid='page-scan']",
   },
-  {
-    slug: "10-admin",
-    ingressPath: "ingress/admin",
-    ready: "[data-testid='page-admin']",
-    postLoadDelayMs: 800,
-    sections: [
-      { slug: "data-quality", selector: "[data-testid='data-quality-card']" },
-      { slug: "racks-card", selector: "[data-testid='racks-card']" },
-      { slug: "backups-card", selector: "[data-testid='admin-backups-card']" },
-    ],
-  },
+  // /admin omitted: its page-level Server Component crashes with the
+  // synthetic seed (one of the parallel queries trips an unrelated error
+  // path), so the page-level shot just shows the error boundary. Bring
+  // it back once the seed gets the missing fixture or the admin page
+  // becomes more defensive. Filename slug stays "11-..." so existing
+  // doc references and git history don't churn.
   {
     slug: "11-admin-diagnostics",
     ingressPath: "ingress/admin/diagnostics",
