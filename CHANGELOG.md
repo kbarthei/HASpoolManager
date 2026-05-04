@@ -6,6 +6,10 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## May 2026
 
+- - refactor(screenshots): single folder + trim mode + testids (`7a6ec3e`)
+- **feat:** redact sensitive values + commit live marketing captures (`b970b92`)
+- **docs:** refresh UI screenshots [skip ci] (`4efa580`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`6ac293c`)
 - **docs:** add spool-card + supply-rules section clips (`c47c2b5`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`b0a0488`)
 - **fix:** drop /admin and inspector material-profile from capture (`3d297bb`)
