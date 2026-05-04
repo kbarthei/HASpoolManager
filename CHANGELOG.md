@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## May 2026
 
+- **docs:** add spool-card + supply-rules section clips (`c47c2b5`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`b0a0488`)
 - **fix:** drop /admin and inspector material-profile from capture (`3d297bb`)
 - **docs:** refresh UI screenshots [skip ci] (`96cccf6`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`1a0ff74`)
