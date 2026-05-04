@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## May 2026
 
+- **docs:** refresh for v1.1.22 — embed screenshots, sync new features (`a479b69`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`f5d285b`)
 - **feat:** broaden bash auto-approve + smart pipeline hook (`1770e31`)
 - **docs:** refresh UI screenshots [skip ci] (`66e046b`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`c093836`)
