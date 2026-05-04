@@ -180,14 +180,21 @@ function seedDemoData(dbPath: string): string {
     JSON.stringify(["demo-spool-pla-charcoal"]),
   );
 
+  // Seed a second finished print (no running prints — computeCostEstimate
+  // crashes on incomplete seed data and trips the page error boundary).
   sqlite.prepare(
-    `INSERT OR IGNORE INTO prints (id, printer_id, name, status, started_at, total_layers, active_spool_ids)
-     VALUES (?, ?, ?, 'running', ?, 412, ?)`,
+    `INSERT OR IGNORE INTO prints (id, printer_id, name, status, started_at, finished_at, duration_seconds, print_weight, total_cost, active_spool_ids)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
-    "demo-print-running",
+    "demo-print-finished-2",
     printerId,
     "kamerahalter_north_pillar.gcode",
-    new Date(Date.now() - 3 * 3600 * 1000).toISOString(),
+    "finished",
+    new Date(Date.now() - 3 * 24 * 3600 * 1000).toISOString(),
+    new Date(Date.now() - 3 * 24 * 3600 * 1000 + 5.5 * 3600 * 1000).toISOString(),
+    19800,
+    178,
+    4.27,
     JSON.stringify(["demo-spool-asa-white"]),
   );
 
@@ -246,7 +253,9 @@ async function capturePage(
     : pageDef.ingressPath;
 
   const url = ingressPath ? `${baseUrl.replace(/\/$/, "")}/${ingressPath}` : baseUrl;
-  await page.goto(url, { waitUntil: "networkidle", timeout: 20_000 });
+  // domcontentloaded — networkidle hangs forever on pages with React Query
+  // polling (inventory polls AMS slots every 30s).
+  await page.goto(url, { waitUntil: "domcontentloaded", timeout: 20_000 });
 
   // Wait for the page-ready selector. Fall back to a generous delay if missing,
   // since some pages don't have a stable testid yet.
