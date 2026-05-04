@@ -22,7 +22,30 @@
       "Bash(chmod:*)",
       "Bash(kill:*)",
       "Bash(pkill:*)",
-      "Bash(gh:*)"
+      "Bash(gh:*)",
+      "Bash(find:*)",
+      "Bash(awk:*)",
+      "Bash(sort:*)",
+      "Bash(head:*)",
+      "Bash(tail:*)",
+      "Bash(du:*)",
+      "Bash(jq:*)",
+      "Bash(xargs:*)",
+      "Bash(tree:*)",
+      "Bash(tar:*)",
+      "Bash(diff:*)",
+      "Bash(printf:*)",
+      "Bash(stat:*)",
+      "Bash(file:*)",
+      "Bash(sqlite3:*)",
+      "Bash(docker info:*)",
+      "Bash(docker logs:*)",
+      "Bash(docker ps:*)",
+      "Bash(which:*)",
+      "Bash(whoami:*)",
+      "Bash(true:*)",
+      "Bash(false:*)",
+      "Bash(test:*)"
     ],
     "deny": [
       "Bash(cd :*)",
@@ -48,7 +71,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "jq -r '.tool_input.command // \"\"' | { read -r cmd; case \"$cmd\" in cd\\ *|cd\\\"*|cd\\/*) echo '{\"decision\":\"block\",\"reason\":\"Do not use cd prefix. The working directory is already the project root. Run commands directly.\"}'; exit 0;; *) exit 0;; esac; }"
+            "command": "python3 .claude/hooks/bash-pre-tool-use.py"
           }
         ]
       }
