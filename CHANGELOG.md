@@ -6,6 +6,9 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## May 2026
 
+- **feat:** broaden bash auto-approve + smart pipeline hook (`1770e31`)
+- **docs:** refresh UI screenshots [skip ci] (`66e046b`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`c093836`)
 - **fix:** rebase with -X theirs to auto-resolve PNG conflicts (`5639576`)
 - **docs:** refresh UI screenshots [skip ci] (`6e93300`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`6f2a0ae`)
