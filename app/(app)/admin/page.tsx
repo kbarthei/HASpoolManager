@@ -208,7 +208,7 @@ export default async function AdminPage() {
       </div>
 
       {/* ── HMS Error Log ──────────────────────────────────────────────── */}
-      <div className="lg:col-span-2">
+      <div className="lg:col-span-2" data-testid="admin-hms-log">
         <HmsErrorLog />
       </div>
 
@@ -225,7 +225,7 @@ export default async function AdminPage() {
       </div>
 
       {/* ── Sync Log ─────────────────────────────────────────────────────── */}
-      <Card className="lg:col-span-2 p-4">
+      <Card className="lg:col-span-2 p-4" data-testid="admin-sync-log">
         <SyncLogTable />
       </Card>
 

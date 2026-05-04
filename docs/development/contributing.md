@@ -104,7 +104,7 @@ for the canonical mapping. TL;DR:
 | **Browser fetch to a route** | Register the route in `tests/integration/browser-auth-contract.test.ts` so it asserts non-401 without a Bearer header |
 | New UI page/route | E2E spec |
 | Schema change | Migration entry + fresh-DB test via Drizzle migrator |
-| New UI page that should be in docs | The page is captured automatically by `.github/workflows/screenshots.yml` once added to `scripts/capture-docs-screenshots.ts` |
+| New UI page that should be in docs | Add to the `PAGES` array in `scripts/capture-screenshots.ts`, then run `npm run screenshots` (Mac on LAN with the addon) |
 
 **Every code change must include appropriate tests.** No exceptions,
 not even for "trivial" changes — the trivial ones are where the bugs

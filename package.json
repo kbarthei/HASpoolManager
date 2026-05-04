@@ -16,8 +16,7 @@
     "test:unit": "vitest run tests/unit",
     "test:integration": "vitest run tests/integration",
     "test:e2e": "playwright test",
-    "screenshots:docs": "tsx scripts/capture-docs-screenshots.ts",
-    "screenshots:marketing": "tsx scripts/capture-marketing-screenshots.ts"
+    "screenshots": "tsx scripts/capture-screenshots.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.68",

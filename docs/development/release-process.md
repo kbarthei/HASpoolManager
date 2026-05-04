@@ -236,26 +236,24 @@ Patches don't get tags (they come and go).
 A `UserPromptSubmit` hook in `.claude/settings.json` checks CI status at
 the start of every conversation and warns about failures.
 
-### Screenshots workflow
+### Screenshots
 
-`.github/workflows/screenshots.yml` regenerates `docs/screenshots/` (44
-PNGs: 11 pages × dark+light × desktop+mobile) and commits them back as
-`docs: refresh UI screenshots [skip ci]`:
+`scripts/capture-screenshots.ts` captures the running addon (live data,
+real spools) and writes everything under `screenshots/` in git. Two
+redaction layers (regex on text nodes + selector-targeted on admin
+label/value pairs) replace IPs, Amazon order numbers, Bambu device IDs
+and serials with placeholders before each shot, so the output is safe
+to commit.
 
-- **Weekly cron:** Mondays 04:00 UTC — refresh the baseline
-- **On push to `main`** that touches `app/`, `components/`, or
-  `scripts/capture-docs-screenshots.ts` — keeps docs in sync with shipped UI
-- **Manual:** `gh workflow run screenshots.yml` or via the Actions tab
+Trigger paths:
 
-The workflow uses the same e2e harness (Docker nginx + ingress simulator
-+ Next.js standalone) seeded with deterministic demo data. PNGs are
-small (mostly < 250 KB) so they belong in git.
+- **Manual:** `npm run screenshots` (full set), `-- --no-video` /
+  `-- --video-only` flags for partial runs
+- **Nightly:** `bash scripts/launchagent/install.sh` schedules a
+  daily 03:00 local-time run on the maintainer's Mac
 
-For LIVE-data screenshots used in marketing, see
-[`scripts/capture-marketing-screenshots.ts`](../../scripts/capture-marketing-screenshots.ts)
-and the LaunchAgent at
-[`scripts/launchagent/`](../../scripts/launchagent/) — those run
-nightly on the maintainer's Mac, output to `marketing/` (gitignored).
+There is no CI-side screenshot job — the Mac is the single source of
+truth, since it's the only machine on the same LAN as the printer.
 
 ---
 

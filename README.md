@@ -30,21 +30,21 @@ HASpoolManager is a self-hosted Home Assistant addon for Bambu Lab printer setup
 
 **Purchase → Inventory → Storage → AMS Loading → Print Tracking → Usage Deduction → Cost Analytics**
 
-![Dashboard](docs/screenshots/light/desktop/01-dashboard.png)
+![Dashboard](screenshots/light/desktop/01-dashboard.png)
 
 The printer hero on the dashboard shows live AMS slot state — RFID-matched names, remaining percentages, idle vs. printing, all from one HA websocket subscription:
 
-![Printer hero](docs/screenshots/light/desktop/sections/01-dashboard--printer-live.png)
+![Printer hero](screenshots/light/desktop/sections/01-dashboard--printer-live.png)
 
 The Inventory page mirrors your physical setup — AMS slots on top, rack grid below, workbench + surplus as flat lists:
 
-![Inventory](docs/screenshots/light/desktop/02-inventory.png)
+![Inventory](screenshots/light/desktop/02-inventory.png)
 
 Click any spool to drill into its full lifecycle — remaining weight, cost-per-gram, usage history, location:
 
-![Spool Inspector](docs/screenshots/light/desktop/04-spool-inspector.png)
+![Spool Inspector](screenshots/light/desktop/04-spool-inspector.png)
 
-Screenshots are auto-refreshed weekly from a deterministic e2e harness — see [`docs/screenshots/`](docs/screenshots/) for the full set (dark + light × desktop + mobile, plus card-level section clips).
+Screenshots are captured from the live addon and committed after redaction — see [`screenshots/`](screenshots/) for the full set (dark + light × desktop + mobile + social-square, card-level section clips, and a 30 s walkthrough video).
 
 ---
 
@@ -203,7 +203,7 @@ npm run db:studio          # Drizzle Studio
 
 Unit tests cover the spool matching engine (RFID, CIE Delta-E, fuzzy), API route validation (Zod schemas), cost calculation, and data transformation utilities. Integration tests call route handlers directly against a per-worker SQLite harness — including a **browser auth contract** test that asserts every browser-callable route accepts no-Bearer requests. E2e tests run against the full addon stack: Next.js standalone, Docker nginx with production config, and a Node.js ingress simulator.
 
-**CI pipeline:** lint + typecheck + unit + integration on every PR; e2e on main push. Screenshots are regenerated weekly via `.github/workflows/screenshots.yml` and committed back to `docs/screenshots/`.
+**CI pipeline:** lint + typecheck + unit + integration on every PR; e2e on main push. Screenshots are regenerated on demand via `npm run screenshots` against the live addon and committed after redaction — no CI side-task.
 
 ---
 

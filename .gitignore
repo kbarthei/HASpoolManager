@@ -53,17 +53,15 @@ next-env.d.ts
 /handoff/
 app/globals.css.bak
 
-# marketing screenshots — captured against the LIVE addon. Sensitive
-# values are redacted by scripts/capture-marketing-screenshots.ts before
-# the screenshot is taken (IPs, Amazon order numbers, Bambu device IDs +
-# serials), so they're safe to commit.
+# Live screenshots — captured against the running addon by
+# scripts/capture-screenshots.ts. Sensitive values (IPs, order numbers,
+# Bambu device IDs + serials) are redacted before capture, so the latest
+# set + walkthrough video are safe to commit.
 #
-# Latest captures (refreshed every nightly run) and the walkthrough video
-# are tracked. Daily archive folders are not — they'd churn git for
-# little gain. Logs are local-only.
-/marketing/archive/
-/marketing/.video-tmp/
-/marketing/launchagent.*.log
+# Daily archive folders + logs + temp video files stay local.
+/screenshots/archive/
+/screenshots/.video-tmp/
+/screenshots/launchagent.*.log
 
 # test
 /test-results/

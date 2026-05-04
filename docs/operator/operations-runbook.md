@@ -276,7 +276,7 @@ by the **Orphan photos** detector at `/admin/diagnostics` (Storage section).
 Click "Cleanup now" to delete files no print references and strip dead
 photo_urls entries.
 
-![Orphan photos detector](../screenshots/light/desktop/sections/11-admin-diagnostics--orphan-photos.png)
+![Orphan photos detector](../../screenshots/light/desktop/sections/11-admin-diagnostics--orphan-photos.png)
 
 **Diagnose the auto path** if manual works but auto doesn't:
 
@@ -369,7 +369,7 @@ Prevention: every schema-changing deploy should take a snapshot. See
 Start at `/admin/diagnostics` — nine live detectors plus an orphan-photos
 cleanup card surface every kind of data drift:
 
-![Diagnostics dashboard](../screenshots/light/desktop/11-admin-diagnostics.png)
+![Diagnostics dashboard](../../screenshots/light/desktop/11-admin-diagnostics.png)
 
 Each card deep-links to the affected records with `?issue=<id>` and a
 banner explaining the rule. Use that as the entry point before running

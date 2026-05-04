@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Installs the marketing-screenshots LaunchAgent on this Mac.
+# Installs the screenshots LaunchAgent on this Mac.
 # Idempotent: re-running it overwrites the existing agent and reloads it.
 
 set -euo pipefail
@@ -31,7 +31,7 @@ launchctl load "$DST_PLIST"
 
 echo "Installed: $DST_PLIST"
 echo "Schedule:  daily at 03:00 local time"
-echo "Logs:      $REPO_ROOT/marketing/launchagent.{stdout,stderr}.log"
+echo "Logs:      $REPO_ROOT/screenshots/launchagent.{stdout,stderr}.log"
 echo
 echo "Trigger now (smoke test):"
 echo "  launchctl start $PLIST_NAME"

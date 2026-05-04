@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Uninstalls the marketing-screenshots LaunchAgent.
+# Uninstalls the screenshots LaunchAgent.
 
 set -euo pipefail
 

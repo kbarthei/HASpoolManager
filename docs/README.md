@@ -38,7 +38,7 @@ Deep dives:
 - [`reference/ha-entities.md`](reference/ha-entities.md) — German/English HA entity-name → field mapping
 
 ### …see the UI
-- [`screenshots/`](screenshots/) — 44 auto-captured PNGs (dark + light × desktop + mobile), refreshed weekly by `.github/workflows/screenshots.yml` — paired with live-data marketing captures in [`../marketing/`](../marketing/)
+- [`../screenshots/`](../screenshots/) — single-source UI captures from the live addon (dark + light × desktop + mobile + social-square), section clips per card, plus a 30 s walkthrough video. Sensitive values are redacted before commit. Refresh on demand with `npm run screenshots` (Mac on the LAN) or schedule nightly via `scripts/launchagent/install.sh`.
 
 ### …contribute to the code
 Start here → [`development/getting-started.md`](development/getting-started.md)
