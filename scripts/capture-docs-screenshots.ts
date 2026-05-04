@@ -71,23 +71,22 @@ const PAGES: PageDef[] = [
     slug: "01-dashboard",
     ingressPath: "",
     ready: "main",
-    postLoadDelayMs: 600,
+    postLoadDelayMs: 800,
     sections: [
       { slug: "printer-live", selector: "[data-testid='printer-live']" },
       { slug: "stats", selector: "[data-testid='dashboard-stats']" },
       { slug: "recent-prints", selector: "[data-testid='recent-prints']" },
-      { slug: "data-quality", selector: "[data-testid='data-quality-card']" },
     ],
   },
   {
     slug: "02-inventory",
     ingressPath: "ingress/inventory",
     ready: "[data-testid='page-inventory']",
-    postLoadDelayMs: 400,
+    postLoadDelayMs: 600,
     sections: [
       { slug: "ams-section", selector: "[data-testid='printer-section']" },
-      { slug: "rack-grid", selector: "[data-testid='rack-selector']" },
       { slug: "workbench", selector: "[data-testid='workbench-section']" },
+      { slug: "surplus", selector: "[data-testid='surplus-section']" },
       { slug: "filter-chips", selector: "[data-testid='filter-chips']" },
     ],
   },
@@ -95,14 +94,18 @@ const PAGES: PageDef[] = [
     slug: "03-spools",
     ingressPath: "ingress/spools",
     ready: "[data-testid='page-spools']",
+    postLoadDelayMs: 400,
+    sections: [
+      // First spool card on the catalogue. Scoped by .first() inside captureSections.
+      { slug: "spool-card", selector: "[data-testid='spool-card']" },
+    ],
   },
   {
     slug: "04-spool-inspector",
     ingressPath: "__SPOOL_INSPECTOR__",
-    ready: "main",
-    postLoadDelayMs: 500,
+    ready: "[data-testid='page-spool-detail']",
+    postLoadDelayMs: 600,
     sections: [
-      { slug: "card", selector: "[data-testid='spool-card']" },
       { slug: "material-profile", selector: "[data-testid='material-profile-card']" },
     ],
   },
@@ -120,10 +123,9 @@ const PAGES: PageDef[] = [
     slug: "07-orders",
     ingressPath: "ingress/orders",
     ready: "[data-testid='page-orders']",
-    postLoadDelayMs: 300,
+    postLoadDelayMs: 600,
     sections: [
       { slug: "budget", selector: "[data-testid='budget-card']" },
-      { slug: "optimized-cart", selector: "[data-testid='optimized-cart']" },
       { slug: "supply-rules", selector: "[data-testid='supply-rules']" },
     ],
   },
@@ -131,7 +133,7 @@ const PAGES: PageDef[] = [
     slug: "08-analytics",
     ingressPath: "ingress/analytics",
     ready: "main",
-    postLoadDelayMs: 800,
+    postLoadDelayMs: 1000,
   },
   {
     slug: "09-scan",
@@ -142,7 +144,9 @@ const PAGES: PageDef[] = [
     slug: "10-admin",
     ingressPath: "ingress/admin",
     ready: "[data-testid='page-admin']",
+    postLoadDelayMs: 800,
     sections: [
+      { slug: "data-quality", selector: "[data-testid='data-quality-card']" },
       { slug: "racks-card", selector: "[data-testid='racks-card']" },
       { slug: "backups-card", selector: "[data-testid='admin-backups-card']" },
     ],
@@ -151,9 +155,8 @@ const PAGES: PageDef[] = [
     slug: "11-admin-diagnostics",
     ingressPath: "ingress/admin/diagnostics",
     ready: "main",
-    postLoadDelayMs: 400,
+    postLoadDelayMs: 600,
     sections: [
-      { slug: "needs-attention", selector: "[data-testid='needs-attention']" },
       { slug: "orphan-photos", selector: "[data-testid='issue-orphan-photos']" },
     ],
   },
@@ -378,7 +381,10 @@ async function captureSections(
     process.stderr.write(`[shot]   section ${pageDef.slug}/${section.slug} … `);
     try {
       const handle = await page.locator(section.selector).first();
-      await handle.waitFor({ state: "visible", timeout: 4_000 });
+      await handle.waitFor({ state: "attached", timeout: 8_000 });
+      // Scroll the element into view so screenshot of an offscreen card
+      // doesn't render a tiny clipped or empty image.
+      await handle.scrollIntoViewIfNeeded();
       await handle.screenshot({ path: outFile, animations: "disabled" });
       process.stderr.write("ok\n");
     } catch (err) {
