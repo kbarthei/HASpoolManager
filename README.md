@@ -30,15 +30,15 @@ HASpoolManager is a self-hosted Home Assistant addon for Bambu Lab printer setup
 
 **Purchase → Inventory → Storage → AMS Loading → Print Tracking → Usage Deduction → Cost Analytics**
 
-![Dashboard](docs/screenshots/dark/desktop/01-dashboard.png)
+![Dashboard](docs/screenshots/light/desktop/01-dashboard.png)
 
 The Inventory page mirrors your physical setup — AMS slots on top, rack grid below, workbench + surplus as flat lists:
 
-![Inventory](docs/screenshots/dark/desktop/02-inventory.png)
+![Inventory](docs/screenshots/light/desktop/02-inventory.png)
 
 Click any spool to drill into its full lifecycle — remaining weight, cost-per-gram, usage history, location:
 
-![Spool Inspector](docs/screenshots/dark/desktop/04-spool-inspector.png)
+![Spool Inspector](docs/screenshots/light/desktop/04-spool-inspector.png)
 
 Screenshots are auto-refreshed weekly from a deterministic e2e harness — see [`docs/screenshots/`](docs/screenshots/) for the full set (dark + light × desktop + mobile).
 

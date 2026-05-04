@@ -9,7 +9,7 @@ The **Dashboard** is the daily landing page — printer status, monthly
 spend, prints, low-stock alerts, recent prints, and analytics charts
 all on one screen:
 
-![Dashboard](../screenshots/dark/desktop/01-dashboard.png)
+![Dashboard](../screenshots/light/desktop/01-dashboard.png)
 
 ---
 
@@ -38,7 +38,7 @@ Purchased → Rack → AMS → Workbench → Rack → … → Empty → Archive
 The **Inventory** page is the cockpit: AMS section on top, rack grid(s)
 below, then Workbench + Surplus as flat lists.
 
-![Inventory](../screenshots/dark/desktop/02-inventory.png)
+![Inventory](../screenshots/light/desktop/02-inventory.png)
 
 ---
 
@@ -58,7 +58,7 @@ Three paths in the app:
 
 A placeholder `spool` row gets created for every item, `location: "ordered"`.
 
-![Orders](../screenshots/dark/desktop/07-orders.png)
+![Orders](../screenshots/light/desktop/07-orders.png)
 
 ### B. Receive the order
 
@@ -123,7 +123,7 @@ any manual action from you**:
 **You do nothing.** The Inventory page auto-refreshes, the Prints page
 shows the new record, the Dashboard widgets update.
 
-![Prints](../screenshots/dark/desktop/05-prints.png)
+![Prints](../screenshots/light/desktop/05-prints.png)
 
 ### When things go wrong
 
@@ -163,7 +163,7 @@ the loop.
 status filters. The grid view is best for at-a-glance browsing; the
 list view (toggle top-right) makes bulk-edit work easier.
 
-![Spools list](../screenshots/dark/desktop/03-spools.png)
+![Spools list](../screenshots/light/desktop/03-spools.png)
 
 ### Adding a spool manually
 
@@ -189,7 +189,7 @@ initial weight; position them afterwards by drag-drop.
 Inventory → click any spool → opens the Spool Inspector with weight,
 location, cost-per-gram, identification table, and print history.
 
-![Spool Inspector](../screenshots/dark/desktop/04-spool-inspector.png)
+![Spool Inspector](../screenshots/light/desktop/04-spool-inspector.png)
 
 ### Moving spools
 
@@ -226,7 +226,7 @@ and stop syncing.
 | Recent sync errors | Last N entries from `sync_log` with level `error` |
 | Orphan photos | Files no print references, dead `photo_urls` entries, legacy `/config/snapshots/` dump — single "Cleanup now" button |
 
-![Diagnostics](../screenshots/dark/desktop/11-admin-diagnostics.png)
+![Diagnostics](../screenshots/light/desktop/11-admin-diagnostics.png)
 
 Each card deep-links to the affected records with an `?issue=<id>`
 query param and banner. Below that, the Health-Check section shows
