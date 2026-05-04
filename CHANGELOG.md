@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## May 2026
 
+- **docs:** document screenshots pipeline location + conventions (`e0937d6`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`d883fb8`)
 - **chore:** remove stale docs/screenshots/ + docs/images/ (`d25a993`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`ae1fd33`)
 - **chore:** refresh against v1.1.23 with trim mode (`596c05b`)
