@@ -89,6 +89,18 @@ screenshots/
 
 **Do NOT create `docs/screenshots/`, `docs/images/`, or `marketing/`** — those were earlier iterations and have been consolidated.
 
+## Demo Video (video/)
+
+Subfolder `video/` holds the **Remotion demo-video project** (separate `package.json`, isolated deps, own build via `remotion render`). Lives inside the repo so video source + screenshots + addon UI stay in sync.
+
+- **Setup:** `cd video && npm ci && npm run setup` (mirrors `../screenshots/` into `public/screenshots/` + fetches Pixabay CC0 music)
+- **Dev:** `npm run dev` (Remotion Studio)
+- **Render:** see `video/CLAUDE.md` for the full pipeline (16:9 + 9:16 + GIF)
+- **Output:** `video/out/` (gitignored). Selectively copy a final render into `screenshots/` if it should land in the README.
+- **Source assets:** Remotion reads from `video/public/screenshots/` — that's a gitignored mirror of the canonical `/screenshots/`. Re-sync with `npm run setup:screenshots`.
+
+`video/CLAUDE.md` has the project-specific conventions (beat structure, theme tokens, common gotchas).
+
 ## Testing Convention
 
 **Every code change must include appropriate tests.** Follow the test pyramid:
