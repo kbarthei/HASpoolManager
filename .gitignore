@@ -58,8 +58,7 @@ app/globals.css.bak
 # Bambu device IDs + serials) are redacted before capture, so the latest
 # set + walkthrough video are safe to commit.
 #
-# Daily archive folders + logs + temp video files stay local.
-/screenshots/archive/
+# Logs + temp video files stay local.
 /screenshots/.video-tmp/
 /screenshots/launchagent.*.log
 

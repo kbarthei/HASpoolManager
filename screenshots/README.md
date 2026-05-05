@@ -43,9 +43,11 @@ screenshots/
 │   ├── mobile/               # 390×844 @2x (iPhone 14)
 │   └── social-square/        # 1080×1080 @1x
 ├── dark/                     # same as light
-├── walkthrough.webm          # 30s nav-through clip (1920×1080, dark)
-└── archive/<YYYY-MM-DD>/     # gitignored — daily timeline copy for video
+└── walkthrough.webm          # 30s nav-through clip (1920×1080, dark)
 ```
+
+Each rerun **overwrites** the existing PNGs in place — no archive, no
+timeline. The current files are always the latest.
 
 ## Redaction layers
 

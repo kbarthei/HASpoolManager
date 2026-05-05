@@ -14,7 +14,6 @@
  *   screenshots/walkthrough.webm                          - 30s nav-through clip (1920×1080, dark)
  *
  * Output (gitignored):
- *   screenshots/archive/<YYYY-MM-DD>/                     - dated copy of full-pages
  *   screenshots/.video-tmp/                               - Playwright recording scratch
  *   screenshots/launchagent.{stdout,stderr}.log           - LaunchAgent logs
  *
@@ -31,7 +30,6 @@ import { chromium, type BrowserContext, type Page } from "playwright";
 
 const REPO_ROOT = path.resolve(__dirname, "..");
 const OUT_LATEST = path.join(REPO_ROOT, "screenshots");
-const OUT_ARCHIVE_ROOT = path.join(REPO_ROOT, "screenshots", "archive");
 const WALKTHROUGH_OUT = path.join(REPO_ROOT, "screenshots", "walkthrough.webm");
 
 const ADDON_BASE_URL = process.env.HASPOOLMANAGER_URL ?? "http://homeassistant.local:3001";
@@ -200,20 +198,13 @@ const WALKTHROUGH_PATH: Array<{ appPath: string; ready: string; dwellMs: number 
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
-async function ensureOutputDirs(): Promise<{ archiveDir: string }> {
+async function ensureOutputDirs(): Promise<void> {
   // Wipe only the per-theme/per-viewport output trees, not the whole
-  // screenshots/ folder (which holds README.md + walkthrough.webm + archive/).
+  // screenshots/ folder (which holds README.md + walkthrough.webm).
   for (const theme of THEMES) {
     const themeDir = path.join(OUT_LATEST, theme);
     if (fs.existsSync(themeDir)) fs.rmSync(themeDir, { recursive: true, force: true });
   }
-
-  const today = new Date().toISOString().slice(0, 10);
-  const archiveDir = path.join(OUT_ARCHIVE_ROOT, today);
-  if (fs.existsSync(archiveDir)) fs.rmSync(archiveDir, { recursive: true, force: true });
-  fs.mkdirSync(archiveDir, { recursive: true });
-
-  return { archiveDir };
 }
 
 async function checkAddonReachable(): Promise<void> {
@@ -374,7 +365,7 @@ async function captureSections(
   }
 }
 
-async function captureStills(archiveDir: string, spoolInspectorId: string | null): Promise<void> {
+async function captureStills(spoolInspectorId: string | null): Promise<void> {
   const browser = await chromium.launch();
   try {
     for (const theme of THEMES) {
@@ -389,9 +380,7 @@ async function captureStills(archiveDir: string, spoolInspectorId: string | null
         const page = await ctx.newPage();
         const latestDir = path.join(OUT_LATEST, theme, vp.name);
         const sectionsDir = path.join(latestDir, "sections");
-        const archiveSubDir = path.join(archiveDir, theme, vp.name);
         fs.mkdirSync(latestDir, { recursive: true });
-        fs.mkdirSync(archiveSubDir, { recursive: true });
         if (vp.name === "desktop") {
           fs.mkdirSync(sectionsDir, { recursive: true });
         }
@@ -402,11 +391,6 @@ async function captureStills(archiveDir: string, spoolInspectorId: string | null
           try {
             await navigateToPage(page, def, spoolInspectorId);
             await capturePageFull(page, def, latestFile);
-            try {
-              fs.linkSync(latestFile, path.join(archiveSubDir, `${def.slug}.png`));
-            } catch {
-              fs.copyFileSync(latestFile, path.join(archiveSubDir, `${def.slug}.png`));
-            }
             process.stderr.write("ok\n");
             if (vp.name === "desktop") {
               await captureSections(page, def, sectionsDir);
@@ -474,7 +458,7 @@ async function captureWalkthrough(): Promise<void> {
 
 async function main(): Promise<void> {
   await checkAddonReachable();
-  const { archiveDir } = await ensureOutputDirs();
+  await ensureOutputDirs();
 
   const skipVideo = process.argv.includes("--no-video");
   const skipStills = process.argv.includes("--video-only");
@@ -490,7 +474,7 @@ async function main(): Promise<void> {
     console.log(
       `[shot] capturing ${PAGES.length} pages × ${THEMES.length} themes × ${VIEWPORTS.length} viewports = ${PAGES.length * THEMES.length * VIEWPORTS.length} stills + section clips on desktop`,
     );
-    await captureStills(archiveDir, spoolInspectorId);
+    await captureStills(spoolInspectorId);
   }
   if (!skipVideo) {
     console.log("[shot] recording walkthrough video …");
@@ -498,8 +482,7 @@ async function main(): Promise<void> {
   }
 
   console.log("[shot] done");
-  console.log(`       latest:  ${path.relative(REPO_ROOT, OUT_LATEST)}/`);
-  console.log(`       archive: ${path.relative(REPO_ROOT, archiveDir)}/`);
+  console.log(`       output: ${path.relative(REPO_ROOT, OUT_LATEST)}/`);
 }
 
 main().catch((err) => {

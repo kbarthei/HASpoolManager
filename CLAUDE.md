@@ -78,7 +78,6 @@ screenshots/
   light/desktop/sections/                      # card-level clips (desktop only)
   dark/                                        # same shape
   walkthrough.webm                             # 30s nav-through video
-  archive/<YYYY-MM-DD>/                        # gitignored, daily timeline
 ```
 
 - **Refresh:** `npm run screenshots` (Mac on the same LAN as Home Assistant) — `--no-video` / `--video-only` flags for partial runs
