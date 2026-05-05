@@ -1,42 +1,32 @@
 #!/usr/bin/env bash
-# Mirrors HASpoolManager's canonical /screenshots/ tree into video/public/
-# so Remotion's staticFile() can resolve them. Idempotent — safe to re-run.
+# Symlinks the canonical /screenshots/ tree into video/public/screenshots/ so
+# Remotion's staticFile() resolves them. Single source of truth — no duplication,
+# no sync drift. Idempotent — safe to re-run.
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-SHOTS_SRC="$REPO_ROOT/screenshots"
+SHOTS_SRC_ABS="$REPO_ROOT/screenshots"
 SHOTS_DST="$REPO_ROOT/video/public/screenshots"
+SHOTS_DST_PARENT="$REPO_ROOT/video/public"
 
-if [ ! -d "$SHOTS_SRC" ]; then
-  echo "ERROR: screenshots not found at $SHOTS_SRC"
+if [ ! -d "$SHOTS_SRC_ABS" ]; then
+  echo "ERROR: screenshots not found at $SHOTS_SRC_ABS"
   echo "       Run 'npm run screenshots' from $REPO_ROOT first."
   exit 1
 fi
 
-# Refresh — wipe + copy. Cheap (rsync handles deltas if we want later).
+# Wipe whatever is at the destination — file, dir, or stale symlink.
 rm -rf "$SHOTS_DST"
-mkdir -p "$SHOTS_DST"
+mkdir -p "$SHOTS_DST_PARENT"
 
-# Copy only the trees Remotion uses. Keep the layout matching staticFile() paths.
-for theme in dark light; do
-  for vp in desktop mobile social-square; do
-    SRC="$SHOTS_SRC/$theme/$vp"
-    DST="$SHOTS_DST/$theme/$vp"
-    [ -d "$SRC" ] || continue
-    mkdir -p "$DST"
-    cp -R "$SRC/." "$DST/"
-  done
-done
+# Relative symlink so the repo is portable across machines.
+# From video/public/, walk up to repo root, then into screenshots.
+ln -s ../../screenshots "$SHOTS_DST"
 
-# Section clips (desktop only)
-if [ -d "$SHOTS_SRC/light/desktop/sections" ]; then
-  mkdir -p "$SHOTS_DST/light/desktop/sections"
-  cp -R "$SHOTS_SRC/light/desktop/sections/." "$SHOTS_DST/light/desktop/sections/"
+# Verify
+if [ ! -d "$SHOTS_DST" ]; then
+  echo "ERROR: symlink creation failed"
+  exit 1
 fi
-if [ -d "$SHOTS_SRC/dark/desktop/sections" ]; then
-  mkdir -p "$SHOTS_DST/dark/desktop/sections"
-  cp -R "$SHOTS_SRC/dark/desktop/sections/." "$SHOTS_DST/dark/desktop/sections/"
-fi
-
-COUNT=$(find "$SHOTS_DST" -type f -name "*.png" | wc -l | tr -d ' ')
-echo "[setup:screenshots] mirrored $COUNT PNGs from $SHOTS_SRC → $SHOTS_DST"
+COUNT=$(find -L "$SHOTS_DST" -maxdepth 4 -type f -name "*.png" 2>/dev/null | wc -l | tr -d ' ')
+echo "[setup:screenshots] symlinked $SHOTS_DST → ../../screenshots ($COUNT PNGs reachable)"

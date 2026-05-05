@@ -17,6 +17,8 @@ const eslintConfig = defineConfig([
     "scripts/**",
     "tests/integration/**",
     "ha-addon/haspoolmanager/app/**",
+    // video/ is its own Remotion project (own package.json + tsconfig + eslint)
+    "video/**",
   ]),
 ]);
 

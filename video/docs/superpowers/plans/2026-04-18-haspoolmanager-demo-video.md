@@ -1,4 +1,6 @@
-# HASpoolManager Demo Video Implementation Plan
+# HASpoolManager Demo Video Implementation Plan (v1 — SUPERSEDED)
+
+> ⚠️ **SUPERSEDED on 2026-05-04 by `2026-05-04-haspoolmanager-demo-video-v2.md`.** v1 was a 60s synthesized demo (no real screenshots). v2 ships a 90s cut driven by real screenshots + subtitles + music + vertical variant. This file is kept only as historical record of the v1 architecture.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 

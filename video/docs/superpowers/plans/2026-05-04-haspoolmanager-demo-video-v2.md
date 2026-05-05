@@ -1,5 +1,9 @@
 # HASpoolManager Demo Video v2 — 90s with Real Screenshots, Subtitles, Music & Vertical Variant
 
+> **2026-05-05 update:** The `my-video` standalone repo was merged into HASpoolManager as `video/`. Tasks 1–18 below were executed against the old standalone path; the structural decisions (9-beat layout, theme tokens, subtitles, music, render pipeline) are unchanged. Two things shifted post-migration:
+> - Working directory is now `video/` inside HASpoolManager (was `~/Documents/privat/smartHome/my-video`).
+> - Step 4 (mirror screenshots) is replaced by `npm run setup:screenshots` which symlinks `public/screenshots → ../../screenshots` instead of copying. No more drift between addon screenshots and video assets.
+>
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Replace the v1 60s synthesized demo with a **90s** Remotion video that uses **real HASpoolManager screenshots as the primary visual** layered with synthesized animated overlays/highlights, **English burnt-in subtitles**, a **royalty-free music bed**, and **two output formats** (16:9 1920×1080 MP4 for MacBook/README + 9:16 1080×1920 MP4 for social) plus an **animated GIF** version of the 16:9 cut for embedding in the GitHub README.
@@ -14,9 +18,9 @@
 **Tech Stack:**
 Remotion 4.0.448, React 19.2.3, TypeScript 5.9.3, Tailwind v4, `@remotion/transitions` (TransitionSeries with slide/fade/wipe), `@remotion/google-fonts/Geist` + `@remotion/google-fonts/GeistMono`, ffmpeg (already vendored by Remotion's CLI for MP4 render; used directly for GIF).
 
-**Repo:** `/Users/kbarthei/Documents/privat/smartHome/my-video` — work directly on `main`. Per user's earlier approval, no worktree.
+**Repo:** `video/` subfolder of HASpoolManager. Work directly on `main` of the parent repo (per user's earlier approval, no worktree).
 
-**Source screenshots:** `/Users/kbarthei/Library/Mobile Documents/com~apple~CloudDocs/privat/smartHome/HASpoolManager/screenshots/{dark,light}/{desktop,mobile}/*.png` (and `desktop/sections/*.png`). Mirror these into `public/screenshots/...` so Remotion's bundler picks them up via `staticFile()`.
+**Source screenshots:** `../screenshots/{dark,light}/{desktop,mobile}/*.png` (and `desktop/sections/*.png`). They are not copied into `video/` — `public/screenshots/` is a symlink to `../../screenshots`, created by `npm run setup:screenshots` (gitignored). Remotion's bundler picks them up via `staticFile()`.
 
 ---
 
@@ -58,11 +62,11 @@ Remotion 4.0.448, React 19.2.3, TypeScript 5.9.3, Tailwind v4, `@remotion/transi
 
 ## Pre-flight
 
-All commands assume the repo root:
-
-```bash
-cd "/Users/kbarthei/Documents/privat/smartHome/my-video"
-```
+All commands assume `video/` as the working directory (the parent
+HASpoolManager repo can live anywhere — paths inside this plan are
+relative to `video/`). After the `2026-05-05` migration into the
+HASpoolManager repo, the standalone `~/Documents/privat/smartHome/my-video`
+checkout no longer exists; everything happens inside the parent repo.
 
 Verification convention:
 - "tests" = `npm run lint` (TypeScript + ESLint) plus a single-frame still render (`npx remotion still ...`) for the beat just built.
@@ -301,25 +305,22 @@ export const monthlySpend: { label: string; value: number }[] = [
 export const totalFilamentCostEur = 124.5;
 ```
 
-- [ ] **Step 4: Mirror screenshots into `public/screenshots/`**
+- [ ] **Step 4: Symlink screenshots into `public/screenshots/`**
+
+After the migration into the HASpoolManager repo, screenshots live at
+`../screenshots/` relative to `video/`. We don't copy them — a symlink
+keeps the canonical PNGs as single source of truth and avoids drift.
 
 ```bash
-mkdir -p public/screenshots/dark/desktop/sections public/screenshots/dark/mobile \
-         public/screenshots/light/desktop/sections public/screenshots/light/mobile
-
-ICLOUD_SHOTS="/Users/kbarthei/Library/Mobile Documents/com~apple~CloudDocs/privat/smartHome/HASpoolManager/screenshots"
-
-cp -R "$ICLOUD_SHOTS/dark/desktop/."  public/screenshots/dark/desktop/
-cp -R "$ICLOUD_SHOTS/dark/mobile/."   public/screenshots/dark/mobile/
-cp -R "$ICLOUD_SHOTS/light/desktop/." public/screenshots/light/desktop/
-cp -R "$ICLOUD_SHOTS/light/mobile/."  public/screenshots/light/mobile/
-
-# Drop iCloud sync conflict directories that may have been copied (they have spaces/numbers in names).
-find public/screenshots -type d -name "* [0-9]*" -prune -exec rm -rf {} +
-find public/screenshots -type f -name "* [0-9]*.png" -delete
+npm run setup:screenshots
 ```
 
-Verify with `ls public/screenshots/dark/desktop/*.png | wc -l` — expect at least 10 PNGs.
+Behind the scenes this calls `scripts/sync-screenshots.sh`, which
+removes any existing `public/screenshots/` and creates a relative
+symlink to `../../screenshots`. `public/screenshots/` is gitignored.
+
+Verify with `ls -L public/screenshots/light/desktop/*.png | wc -l` —
+expect at least 10 PNGs reachable through the link.
 
 - [ ] **Step 5: Lint + commit**
 

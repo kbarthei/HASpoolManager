@@ -22,4 +22,5 @@ public/music.mp3
 # Screenshots are mirrored from ../screenshots/ at setup-time via
 # npm run setup:screenshots — single source of truth lives at the
 # HASpoolManager repo root, not duplicated into git here.
+public/screenshots
 public/screenshots/

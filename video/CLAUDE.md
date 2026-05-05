@@ -32,8 +32,11 @@ video/
 
 Screenshots are the **canonical asset** at `../screenshots/` (HASpoolManager
 repo root). Remotion reads them via `staticFile("screenshots/<theme>/<vp>/<page>.png")`,
-which resolves to `public/screenshots/...` at bundle time. Run
-`npm run setup:screenshots` once after pulling; the mirror is gitignored.
+which resolves to `public/screenshots/...` at bundle time. That path is a
+**symlink** to `../../screenshots`, so there is no duplication and no
+sync drift — edit a PNG once at the repo root, both the addon docs and
+the video pick it up. Run `npm run setup:screenshots` after the first
+checkout to create the symlink (gitignored).
 
 ```
 ../screenshots/
