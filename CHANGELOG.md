@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## May 2026
 
+- **feat:** import remotion demo-video project as video/ subfolder (`2817770`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`43521ee`)
 - **docs:** document screenshots pipeline location + conventions (`e0937d6`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`d883fb8`)
 - **chore:** remove stale docs/screenshots/ + docs/images/ (`d25a993`)
