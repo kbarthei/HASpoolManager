@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## May 2026
 
+- **fix:** exclude from parent CI + symlink screenshots instead of copy (`01fcd7a`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`2a3ede0`)
 - **feat:** import remotion demo-video project as video/ subfolder (`2817770`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`43521ee`)
 - **docs:** document screenshots pipeline location + conventions (`e0937d6`)
