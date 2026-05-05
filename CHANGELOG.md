@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## May 2026
 
+- **chore:** drop screenshots/archive + iCloud-sync duplicates (`2c3d4d4`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`e28214b`)
 - - refactor(video): drop symlink, point Remotion publicDir at parent repo (`aca1a63`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`ccd6878`)
 - **fix:** exclude from parent CI + symlink screenshots instead of copy (`01fcd7a`)
