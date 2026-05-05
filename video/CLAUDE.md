@@ -18,8 +18,7 @@ video/
 │   ├── screenshots/             # gitignored — synced from ../screenshots/
 │   └── music.mp3                # gitignored — fetched via setup:music
 ├── scripts/
-│   ├── fetch-music.sh           # Pixabay CC0 grab
-│   └── sync-screenshots.sh      # mirrors ../screenshots/ → public/screenshots/
+│   └── fetch-music.sh           # Pixabay CC0 grab
 ├── docs/superpowers/            # historical plan + spec docs (Remotion-internal)
 ├── out/                         # gitignored render output
 ├── package.json
@@ -30,13 +29,17 @@ video/
 
 ## Source assets
 
-Screenshots are the **canonical asset** at `../screenshots/` (HASpoolManager
-repo root). Remotion reads them via `staticFile("screenshots/<theme>/<vp>/<page>.png")`,
-which resolves to `public/screenshots/...` at bundle time. That path is a
-**symlink** to `../../screenshots`, so there is no duplication and no
-sync drift — edit a PNG once at the repo root, both the addon docs and
-the video pick it up. Run `npm run setup:screenshots` after the first
-checkout to create the symlink (gitignored).
+`remotion.config.ts` sets `publicDir: ".."` so Remotion's `staticFile()`
+resolves directly against the parent repo root. No copy, no symlink,
+no `setup:screenshots` step:
+
+- `staticFile("screenshots/light/desktop/01-dashboard.png")` →
+  `<HASpoolManager>/screenshots/light/desktop/01-dashboard.png`
+- `staticFile("video/public/music.mp3")` → the music bed (video-only,
+  needs the longer path because publicDir is now repo root).
+
+Edit a PNG at `/screenshots/`; the video picks it up on the next
+`npm run dev` reload.
 
 ```
 ../screenshots/
@@ -49,7 +52,7 @@ checkout to create the symlink (gitignored).
 
 ```bash
 npm ci                    # iCloud sometimes corrupts node_modules — re-install
-npm run setup             # = sync-screenshots + fetch-music
+npm run setup             # fetches Pixabay CC0 music to public/music.mp3
 npm run lint              # eslint + tsc; must pass before render
 npm run dev               # Remotion Studio
 ```
@@ -99,7 +102,7 @@ GIF (palette two-pass via ffmpeg) — see `docs/superpowers/plans/`.
 | Symptom | Cause | Fix |
 |---|---|---|
 | `Cannot find module '@remotion/bundler/...'` | iCloud sync ate `node_modules` | `npm ci` |
-| `staticFile('screenshots/...') 404` | mirror not synced | `npm run setup:screenshots` |
+| `staticFile('screenshots/...') 404` | `publicDir` not set or repo root missing screenshots | check `remotion.config.ts` has `Config.setPublicDir("..")` and `/screenshots/` exists |
 | Tall screenshot renders as thin vertical strip | `objectFit: contain` on portrait PNG | `ScreenshotFrame fit="top-aligned"` |
 | Last 90 frames render black | TransitionSeries overlap subtracted | `TOTAL_DURATION = BEAT_SUM - N_TRANSITIONS × TRANSITION_FRAMES` |
 | Lint warning `@remotion/non-pure-animation` | CSS `transition` property used | Remove or replace with frame-driven animation |

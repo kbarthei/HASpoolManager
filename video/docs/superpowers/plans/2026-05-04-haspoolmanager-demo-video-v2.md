@@ -2,7 +2,7 @@
 
 > **2026-05-05 update:** The `my-video` standalone repo was merged into HASpoolManager as `video/`. Tasks 1–18 below were executed against the old standalone path; the structural decisions (9-beat layout, theme tokens, subtitles, music, render pipeline) are unchanged. Two things shifted post-migration:
 > - Working directory is now `video/` inside HASpoolManager (was `~/Documents/privat/smartHome/my-video`).
-> - Step 4 (mirror screenshots) is replaced by `npm run setup:screenshots` which symlinks `public/screenshots → ../../screenshots` instead of copying. No more drift between addon screenshots and video assets.
+> - Step 4 (mirror screenshots) is gone. `remotion.config.ts` sets `publicDir: ".."` so `staticFile("screenshots/...")` resolves directly against the parent repo's `/screenshots/` tree — no copy, no symlink. Music path bumped to `staticFile("video/public/music.mp3")`.
 >
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -20,7 +20,7 @@ Remotion 4.0.448, React 19.2.3, TypeScript 5.9.3, Tailwind v4, `@remotion/transi
 
 **Repo:** `video/` subfolder of HASpoolManager. Work directly on `main` of the parent repo (per user's earlier approval, no worktree).
 
-**Source screenshots:** `../screenshots/{dark,light}/{desktop,mobile}/*.png` (and `desktop/sections/*.png`). They are not copied into `video/` — `public/screenshots/` is a symlink to `../../screenshots`, created by `npm run setup:screenshots` (gitignored). Remotion's bundler picks them up via `staticFile()`.
+**Source screenshots:** `../screenshots/{dark,light}/{desktop,mobile}/*.png` (and `desktop/sections/*.png`). Not copied, not symlinked — `remotion.config.ts` sets `publicDir: ".."` so `staticFile("screenshots/...")` reads them straight from the parent repo. Single source of truth: edit a PNG once at `/screenshots/`, both the addon docs and the video pick it up on the next dev reload.
 
 ---
 
@@ -305,22 +305,18 @@ export const monthlySpend: { label: string; value: number }[] = [
 export const totalFilamentCostEur = 124.5;
 ```
 
-- [ ] **Step 4: Symlink screenshots into `public/screenshots/`**
+- [x] **Step 4: Point Remotion at the parent repo's screenshots/ directly**
 
-After the migration into the HASpoolManager repo, screenshots live at
-`../screenshots/` relative to `video/`. We don't copy them — a symlink
-keeps the canonical PNGs as single source of truth and avoids drift.
+After the migration into HASpoolManager, screenshots live at
+`../screenshots/` relative to `video/`. We neither copy nor symlink —
+`remotion.config.ts` sets `Config.setPublicDir("..")` so `staticFile("screenshots/...")`
+reads straight from the canonical tree. The video's only video-specific
+asset (`music.mp3`) keeps living under `video/public/` and is referenced
+as `staticFile("video/public/music.mp3")` from `Soundtrack.tsx`.
 
-```bash
-npm run setup:screenshots
-```
-
-Behind the scenes this calls `scripts/sync-screenshots.sh`, which
-removes any existing `public/screenshots/` and creates a relative
-symlink to `../../screenshots`. `public/screenshots/` is gitignored.
-
-Verify with `ls -L public/screenshots/light/desktop/*.png | wc -l` —
-expect at least 10 PNGs reachable through the link.
+Verify: `npm run dev`, open Studio, any beat with a `<ScreenshotFrame>`
+should render the PNG. If 404, the parent's `/screenshots/` is empty —
+run `npm run screenshots` from the parent repo first.
 
 - [ ] **Step 5: Lint + commit**
 

@@ -19,8 +19,6 @@ out/
 # Music bed — fetched at setup time via npm run setup:music
 public/music.mp3
 
-# Screenshots are mirrored from ../screenshots/ at setup-time via
-# npm run setup:screenshots — single source of truth lives at the
-# HASpoolManager repo root, not duplicated into git here.
-public/screenshots
-public/screenshots/
+# Renders go here — kept local, not committed (~50 MB MP4 + GIF).
+# If a render should ship in the README, copy or rename it under
+# /screenshots/ (parent repo root) — that folder is git-managed.

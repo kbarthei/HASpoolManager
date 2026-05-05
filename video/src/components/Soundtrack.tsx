@@ -3,7 +3,9 @@ import { Audio, staticFile, useVideoConfig, interpolate, useCurrentFrame } from 
 
 const tryStaticUrl = (): string | null => {
   try {
-    return staticFile("music.mp3");
+    // publicDir = parent repo root (see remotion.config.ts) — video-only
+    // assets like the music bed need the full path under video/public/.
+    return staticFile("video/public/music.mp3");
   } catch {
     return null;
   }

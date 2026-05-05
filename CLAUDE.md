@@ -93,11 +93,11 @@ screenshots/
 
 Subfolder `video/` holds the **Remotion demo-video project** (separate `package.json`, isolated deps, own build via `remotion render`). Lives inside the repo so video source + screenshots + addon UI stay in sync.
 
-- **Setup:** `cd video && npm ci && npm run setup` (mirrors `../screenshots/` into `public/screenshots/` + fetches Pixabay CC0 music)
+- **Setup:** `cd video && npm ci && npm run setup` (fetches Pixabay CC0 music to `video/public/music.mp3`)
 - **Dev:** `npm run dev` (Remotion Studio)
 - **Render:** see `video/CLAUDE.md` for the full pipeline (16:9 + 9:16 + GIF)
 - **Output:** `video/out/` (gitignored). Selectively copy a final render into `screenshots/` if it should land in the README.
-- **Source assets:** Remotion reads from `video/public/screenshots/` — that's a gitignored mirror of the canonical `/screenshots/`. Re-sync with `npm run setup:screenshots`.
+- **Source assets:** Remotion's `publicDir` is set to `..` (the parent repo root) — `staticFile("screenshots/...")` resolves directly onto the canonical `/screenshots/` tree. No copy, no symlink, no separate sync step.
 
 `video/CLAUDE.md` has the project-specific conventions (beat structure, theme tokens, common gotchas).
 
