@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## May 2026
 
+- - refactor(video): drop symlink, point Remotion publicDir at parent repo (`aca1a63`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`ccd6878`)
 - **fix:** exclude from parent CI + symlink screenshots instead of copy (`01fcd7a`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`2a3ede0`)
 - **feat:** import remotion demo-video project as video/ subfolder (`2817770`)
