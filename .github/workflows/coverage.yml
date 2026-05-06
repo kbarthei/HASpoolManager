@@ -1,0 +1,44 @@
+name: Coverage
+
+# Trend-only coverage report. Runs nightly + on demand.
+# Not gated against PRs — high coverage != good tests, so we don't fail
+# builds on coverage drops. The artifact is a visibility tool, nothing more.
+
+on:
+  schedule:
+    - cron: "0 4 * * *"  # 04:00 UTC daily
+  workflow_dispatch:
+
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Unit tests with coverage
+        run: npx vitest run tests/unit --coverage --coverage.reporter=text-summary --coverage.reporter=html
+        continue-on-error: true
+
+      - name: Integration tests with coverage (separate dir to merge later)
+        run: |
+          mv coverage coverage-unit 2>/dev/null || true
+          npx vitest run tests/integration --coverage --coverage.reporter=text-summary --coverage.reporter=html
+          mv coverage coverage-integration 2>/dev/null || true
+        continue-on-error: true
+
+      - name: Upload coverage report artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-html
+          path: |
+            coverage-unit/
+            coverage-integration/
+          retention-days: 14

@@ -404,6 +404,41 @@ table; surface via `/admin/diagnostics` → Health Check section.
 Snapshot files are gitignored; kept locally. Keep them around for at
 least 30 days after a feature ships.
 
+### Verifying snapshot integrity
+
+Snapshots can silently corrupt — bad SMB sessions during the source
+copy, interrupted WAL flushes, even disk-level bit rot over years. We
+restore from these for local dev seeds and rollback drills, so a
+silent corruption only surfaces when you actually need the file.
+
+Run the integrity check periodically:
+
+```bash
+bash scripts/verify-backups.sh
+```
+
+The script iterates every `*.db` in `testdata/db-snapshots/` and runs
+`PRAGMA integrity_check`. Exit 0 = all ok, 1 = at least one corrupt
+(filename printed), 2 = no snapshots present (fresh clone — fine).
+
+Wire it into a weekly `launchd` agent on the maintainer's Mac:
+
+```xml
+<!-- ~/Library/LaunchAgents/de.bartheidel.haspoolmanager-verify-backups.plist -->
+<key>ProgramArguments</key>
+<array>
+  <string>/bin/bash</string>
+  <string>/Users/kbarthei/Code/smartHome/HASpoolManager/scripts/verify-backups.sh</string>
+</array>
+<key>StartCalendarInterval</key>
+<dict>
+  <key>Weekday</key><integer>0</integer>
+  <key>Hour</key><integer>4</integer>
+</dict>
+```
+
+Or — simpler — add it to your existing nightly screenshot LaunchAgent.
+
 ---
 
 ## 11. Automated backups
