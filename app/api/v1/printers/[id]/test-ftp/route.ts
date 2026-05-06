@@ -2,11 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { printers } from "@/lib/db/schema";
-import { requireAuth } from "@/lib/auth";
+import { optionalAuth } from "@/lib/auth";
 import { testFtpConnection } from "@/lib/printer-ftp";
 
+// Browser-callable from the admin Access Code card. optionalAuth matches
+// the convention for admin UI actions; LAN-only PWA gating is the
+// security boundary, not an in-app Bearer requirement.
 export async function POST(request: NextRequest, ctx: { params: Promise<{ id: string }> }) {
-  const auth = await requireAuth(request);
+  const auth = await optionalAuth(request);
   if (!auth.authenticated) return auth.response;
 
   const { id } = await ctx.params;

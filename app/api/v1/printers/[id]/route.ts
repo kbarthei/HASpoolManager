@@ -42,11 +42,14 @@ export async function GET(
 }
 
 // PUT /api/v1/printers/:id — Update printer
+//
+// optionalAuth: called from /admin browser UI (access-code card); HA ingress
+// gates access at the addon layer. Tests pass Bearer too — both work.
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await requireAuth(request);
+  const auth = await optionalAuth(request);
   if (!auth.authenticated) return auth.response;
 
   try {

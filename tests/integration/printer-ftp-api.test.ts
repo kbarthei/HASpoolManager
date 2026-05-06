@@ -62,7 +62,10 @@ describe("/api/v1/printers/[id]/test-ftp", () => {
     expect(body.error).toMatch(/not reachable/i);
   }, 5000);
 
-  it("returns 401 without auth", async () => {
+  it("accepts requests without Bearer token (browser path)", async () => {
+    // Browser-callable from /admin Access Code card. The probe attempt
+    // returns ok:false at "probe" step against TEST-NET-1 — the point of
+    // this test is just that auth doesn't gate the call.
     const { POST } = await import("@/app/api/v1/printers/[id]/test-ftp/route");
     const { NextRequest } = await import("next/server");
     const req = new NextRequest(new URL(`/api/v1/printers/${printerId}/test-ftp`, "http://test.local"), {
@@ -70,7 +73,7 @@ describe("/api/v1/printers/[id]/test-ftp", () => {
       body: JSON.stringify({ accessCode: "12345678" }),
     });
     const res = await POST(req, routeContext({ id: printerId }));
-    expect(res.status).toBe(401);
+    expect(res.status).toBe(200);
   });
 
   it("returns 404 for unknown printer", async () => {

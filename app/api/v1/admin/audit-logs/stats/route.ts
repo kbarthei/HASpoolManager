@@ -10,12 +10,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { and, eq, gte, like, lte, sql, type SQL } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { auditLogs } from "@/lib/db/schema";
-import { requireAuth } from "@/lib/auth";
+import { optionalAuth } from "@/lib/auth";
 
 const VALID_OPS = new Set(["SELECT", "INSERT", "UPDATE", "DELETE", "PRAGMA", "DDL"]);
 
+// Aggregates over the same filter set as the list endpoint — browser-
+// callable, optionalAuth (mirrors /audit-logs).
 export async function GET(request: NextRequest) {
-  const auth = await requireAuth(request);
+  const auth = await optionalAuth(request);
   if (!auth.authenticated) return auth.response;
 
   try {

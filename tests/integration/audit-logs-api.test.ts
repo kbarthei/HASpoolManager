@@ -86,10 +86,13 @@ describe("/api/v1/admin/audit-logs", () => {
   });
 
   describe("auth", () => {
-    it("rejects without Bearer token", async () => {
+    // Browser-callable from /admin without a Bearer token; security
+    // boundary is HA ingress / LAN-only PWA gating (see auth-tier
+    // convention in CLAUDE.md). Browser-auth-contract test ensures this.
+    it("accepts requests without Bearer token (browser path)", async () => {
       const { GET } = await import("@/app/api/v1/admin/audit-logs/route");
       const res = await GET(makeGetRequest("/api/v1/admin/audit-logs", false));
-      expect(res.status).toBe(401);
+      expect(res.status).toBe(200);
     });
   });
 
@@ -223,10 +226,10 @@ describe("/api/v1/admin/audit-logs", () => {
       expect(body.avgMs).toBeNull();
     });
 
-    it("requires auth", async () => {
+    it("accepts requests without Bearer token (browser path)", async () => {
       const { GET } = await import("@/app/api/v1/admin/audit-logs/stats/route");
       const res = await GET(makeGetRequest("/api/v1/admin/audit-logs/stats", false));
-      expect(res.status).toBe(401);
+      expect(res.status).toBe(200);
     });
   });
 

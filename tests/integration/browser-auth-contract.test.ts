@@ -166,6 +166,42 @@ const BROWSER_ROUTES: RouteCase[] = [
       params: { id: "p123", usageId: "u456" },
     }),
   },
+  {
+    label: "GET /api/v1/admin/audit-logs",
+    method: "GET",
+    route: async () => ({
+      handler: (await import("@/app/api/v1/admin/audit-logs/route")).GET,
+      path: "/api/v1/admin/audit-logs",
+    }),
+  },
+  {
+    label: "GET /api/v1/admin/audit-logs/stats",
+    method: "GET",
+    route: async () => ({
+      handler: (await import("@/app/api/v1/admin/audit-logs/stats/route")).GET,
+      path: "/api/v1/admin/audit-logs/stats",
+    }),
+  },
+  {
+    label: "POST /api/v1/printers/[id]/test-ftp",
+    method: "POST",
+    route: async () => ({
+      handler: (await import("@/app/api/v1/printers/[id]/test-ftp/route")).POST,
+      path: "/api/v1/printers/p123/test-ftp",
+      body: { accessCode: "12345678" },
+      params: { id: "p123" },
+    }),
+  },
+  {
+    label: "PUT /api/v1/printers/[id]",
+    method: "PUT",
+    route: async () => ({
+      handler: (await import("@/app/api/v1/printers/[id]/route")).PUT,
+      path: "/api/v1/printers/p123",
+      body: { accessCode: "98765432" },
+      params: { id: "p123" },
+    }),
+  },
 ];
 
 function buildRequest(c: RouteCase, payload: Awaited<ReturnType<RouteCase["route"]>>) {

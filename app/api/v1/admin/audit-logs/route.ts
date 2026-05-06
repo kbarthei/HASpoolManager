@@ -11,13 +11,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { and, asc, desc, eq, gt, gte, like, lte, or, sql, type SQL } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { auditLogs } from "@/lib/db/schema";
-import { requireAuth } from "@/lib/auth";
+import { optionalAuth } from "@/lib/auth";
 
 const SORTABLE = new Set(["createdAt", "userId", "operation", "executionTimeMs", "rowsAffected"]);
 const VALID_OPS = new Set(["SELECT", "INSERT", "UPDATE", "DELETE", "PRAGMA", "DDL"]);
 
+// Read-only listing — browser-callable from /admin without a Bearer
+// token (HA ingress / LAN-only PWA gates access at the addon layer).
+// See docs/architecture/security-model.md for the auth-tier convention.
 export async function GET(request: NextRequest) {
-  const auth = await requireAuth(request);
+  const auth = await optionalAuth(request);
   if (!auth.authenticated) return auth.response;
 
   try {
