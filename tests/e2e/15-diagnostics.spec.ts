@@ -11,13 +11,17 @@ test.describe("diagnostics dashboard", () => {
     // hits the DOM synchronously but the issue-card children arrive via
     // RSC payload chunks (<script>self.__next_f.push(...)</script>) that
     // require client-side hydration to materialise as DOM elements.
-    // Playwright's getByTestId only matches actual DOM attributes, so we
-    // need to wait for hydration to drain the stream into the document.
     //
-    // `networkidle` waits for ≥500ms of zero network activity — covers
-    // both initial RSC chunks AND any flight responses they trigger.
-    await page.goto("ingress/admin/diagnostics", { waitUntil: "networkidle" });
+    // Background pollers (sync-worker watchdog REST sensors, react-query)
+    // mean `networkidle` deadlocks. Instead, wait directly on the cards'
+    // DOM presence via the locator's auto-wait — Playwright will poll the
+    // DOM until the element appears, bypassing the streaming gap entirely.
+    await page.goto("ingress/admin/diagnostics");
     await expect(page.getByTestId("page-diagnostics")).toBeVisible({ timeout: 30_000 });
+
+    // The first card is the canary — once it lands in DOM, all cards are
+    // hydrated together (same RSC chunk). 30s soaks up CI cold-start.
+    await page.locator('[data-testid="issue-spool-drift"]').waitFor({ timeout: 30_000 });
     const ids = [
       "issue-spool-drift",
       "issue-spool-stale",
