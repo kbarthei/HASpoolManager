@@ -6,6 +6,9 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## May 2026
 
+- **feat:** implement file upload security (Phase 1, Item 4) (`accc6be`)
+- **feat:** implement comprehensive audit logging for admin SQL endpoints (`97760f3`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`fd8c61d`)
 - **chore:** drop screenshots/archive + iCloud-sync duplicates (`2c3d4d4`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`e28214b`)
 - - refactor(video): drop symlink, point Remotion publicDir at parent repo (`aca1a63`)
