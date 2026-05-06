@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## May 2026
 
+- **fix:** drop brittle heading-text assertions on diagnostics (`cfa7f72`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`c0a5e6e`)
 - **fix:** bump diagnostics timeouts for CI cold-start (`02ffc33`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`76081ff`)
 - **feat:** implement file upload security (Phase 1, Item 4) (`accc6be`)
