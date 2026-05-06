@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## May 2026
 
+- **fix:** use toBeAttached for diagnostics card grid (`0d3ff4b`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`91c8e92`)
 - **fix:** drop brittle heading-text assertions on diagnostics (`cfa7f72`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`c0a5e6e`)
 - **fix:** bump diagnostics timeouts for CI cold-start (`02ffc33`)
