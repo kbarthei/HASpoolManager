@@ -13,7 +13,7 @@ test.describe("diagnostics dashboard", () => {
     // a render failure across the page. CI wall time should be sub-second.
     await page.goto("ingress/admin/diagnostics");
     await expect(page.getByTestId("page-diagnostics")).toBeVisible({ timeout: 30_000 });
-    for (const id of [
+    const ids = [
       "issue-spool-drift",
       "issue-spool-stale",
       "issue-spool-zero-active",
@@ -22,9 +22,38 @@ test.describe("diagnostics dashboard", () => {
       "issue-print-no-usage",
       "issue-order-stuck",
       "issue-sync-errors",
-    ]) {
-      await expect(page.getByTestId(id)).toBeAttached({ timeout: 15_000 });
-      await expect(page.getByTestId(`${id}-count`)).toBeAttached();
+    ];
+    try {
+      for (const id of ids) {
+        await expect(page.getByTestId(id)).toBeAttached({ timeout: 15_000 });
+        await expect(page.getByTestId(`${id}-count`)).toBeAttached();
+      }
+    } catch (err) {
+      // Surface CI-only failures: dump testid presence counts + a 4KB snippet
+      // around any missing testid so we can see what the page actually rendered.
+      // eslint-disable-next-line no-console
+      console.error("[15-diagnostics] failure — dumping page state");
+      const html = await page.content();
+      // eslint-disable-next-line no-console
+      console.error(`[15-diagnostics] body length: ${html.length}`);
+      for (const id of ids) {
+        const cardHits = (html.match(new RegExp(`data-testid="${id}"`, "g")) || []).length;
+        const countHits = (html.match(new RegExp(`data-testid="${id}-count"`, "g")) || []).length;
+        // eslint-disable-next-line no-console
+        console.error(`[15-diagnostics] ${id}: card=${cardHits} count=${countHits}`);
+      }
+      // Find the first missing testid and dump its expected location context.
+      for (const id of ids) {
+        const idx = html.indexOf(`data-testid="${id}"`);
+        if (idx === -1) {
+          // eslint-disable-next-line no-console
+          console.error(`[15-diagnostics] FIRST MISSING: ${id}. HTML around end of stream:`);
+          // eslint-disable-next-line no-console
+          console.error(html.slice(Math.max(0, html.length - 2000)));
+          break;
+        }
+      }
+      throw err;
     }
   });
 
