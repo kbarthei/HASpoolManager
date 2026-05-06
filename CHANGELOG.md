@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## May 2026
 
+- **fix:** auto-discover browser-auth-contract violations (`f2c2ece`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`22d2c80`)
 - **chore:** allow 127.0.0.1 / localhost / *.local for dev HMR (`1001d5d`)
 - **fix:** switch 4 browser-called routes from requireAuth to optionalAuth (`c5b34cb`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`731f86e`)
