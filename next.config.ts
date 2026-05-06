@@ -10,6 +10,12 @@ function readAddonVersion(): string {
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  // Allow dev HMR + assets when accessing via 127.0.0.1 / 9.83.x (LAN IP)
+  // alongside `localhost`. Without this, hitting http://127.0.0.1:3000
+  // while Next thinks the origin is `localhost` triggers a cross-origin
+  // block on /_next/webpack-hmr requests — pages render but live-reload
+  // breaks and the page can look "stuck". Production builds are unaffected.
+  allowedDevOrigins: ["127.0.0.1", "localhost", "0.0.0.0", "*.local"],
   // In HA addon mode, serve the app under a stable /ingress basePath.
   // Next.js then emits ALL asset/link URLs with this prefix, including
   // the dynamic chunk URLs that Turbopack builds at runtime. The addon's
