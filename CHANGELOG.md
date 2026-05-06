@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## May 2026
 
+- - ci(e2e): skip diagnostics card test — RSC streaming gap on CI runner (`9b879de`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`17ac2a3`)
 - **fix:** wait for first card via locator.waitFor (networkidle deadlocks) (`afb7942`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`9506dc3`)
 - **fix:** wait for networkidle to drain RSC stream into DOM (`b2bf120`)
