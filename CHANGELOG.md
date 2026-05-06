@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## May 2026
 
+- **fix:** replace require() in sync-worker-health + restore /health 200 contract (`e78f854`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`2c4aa22`)
 - **docs:** add comprehensive nginx configuration guide (Phase 2, Item 3) (`fdc5e26`)
 - **feat:** standardize API error handling (Phase 2, Item 2) (`4f6e602`)
 - **feat:** implement sync worker health monitoring (Phase 2, Item 1) (`be00a70`)
