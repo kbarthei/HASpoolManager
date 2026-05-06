@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## May 2026
 
+- **chore:** 4 architecture-review action items (Bob's review, post-critique) (`2b42fa1`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`c1e1012`)
 - **docs:** document local dev DB restore + browser-auth-contract for agents (`2cb2b26`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`646342d`)
 - **fix:** auto-discover browser-auth-contract violations (`f2c2ece`)
