@@ -7,11 +7,16 @@ import { test, expect } from "@playwright/test";
 
 test.describe("diagnostics dashboard", () => {
   test("renders sections and issue cards", async ({ page }) => {
-    // Each detector now runs under Promise.allSettled with per-detector
-    // timing logging in lib/diagnostics.ts:getAllDiagnostics. A single
-    // slow/failing detector falls back to count=0 instead of cascading
-    // a render failure across the page. CI wall time should be sub-second.
-    await page.goto("ingress/admin/diagnostics");
+    // Root-cause: under React 19 + Next.js 16 streaming, the wrapper div
+    // hits the DOM synchronously but the issue-card children arrive via
+    // RSC payload chunks (<script>self.__next_f.push(...)</script>) that
+    // require client-side hydration to materialise as DOM elements.
+    // Playwright's getByTestId only matches actual DOM attributes, so we
+    // need to wait for hydration to drain the stream into the document.
+    //
+    // `networkidle` waits for ≥500ms of zero network activity — covers
+    // both initial RSC chunks AND any flight responses they trigger.
+    await page.goto("ingress/admin/diagnostics", { waitUntil: "networkidle" });
     await expect(page.getByTestId("page-diagnostics")).toBeVisible({ timeout: 30_000 });
     const ids = [
       "issue-spool-drift",
