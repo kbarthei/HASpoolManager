@@ -1,9 +1,11 @@
 /**
  * Sync Worker Health Monitoring
- * 
+ *
  * Provides health status, metrics, and diagnostics for the sync worker.
  * Used by the /api/v1/health endpoint and admin dashboard.
  */
+
+import { listBackups } from "./backup-manager";
 
 export interface PrinterHealth {
   printerId: string;
@@ -262,13 +264,11 @@ export function getHealth(): SyncWorkerHealth {
     overallStatus = "healthy";
   }
 
-  // Get backup count
   let backupCount = 0;
   try {
-    const { listBackups } = require("./backup-manager");
     backupCount = listBackups().length;
   } catch {
-    // Backup manager not available
+    // Backup manager not available (e.g. /config not mounted in dev)
   }
 
   return {

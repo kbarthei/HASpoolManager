@@ -16,25 +16,26 @@ export async function GET(request: NextRequest) {
   const detailed = searchParams.get("detailed") === "true";
 
   if (detailed) {
-    // Full health metrics for admin dashboard
+    // Full health metrics for admin dashboard. Always 200; the body
+    // describes degraded / unhealthy states.
     const health = getHealth();
+    const simple = getSimpleHealth();
     return NextResponse.json({
-      version: packageJson.version,
       ...health,
-    });
-  }
-
-  // Simple health check for load balancers / monitoring tools
-  const simple = getSimpleHealth();
-  const statusCode = simple.status === "error" ? 503 : simple.status === "degraded" ? 200 : 200;
-  
-  return NextResponse.json(
-    {
-      status: simple.status,
+      status: simple.status === "error" ? "unhealthy" : simple.status,
       version: packageJson.version,
       timestamp: new Date().toISOString(),
       ...(simple.message ? { message: simple.message } : {}),
-    },
-    { status: statusCode }
-  );
+    });
+  }
+
+  // Simple liveness probe for load balancers / monitoring tools. The web
+  // server itself responding is the contract here — sync-worker state
+  // belongs behind ?detailed=true. Always 200 unless the process can't
+  // even reach this handler.
+  return NextResponse.json({
+    status: "ok",
+    version: packageJson.version,
+    timestamp: new Date().toISOString(),
+  });
 }

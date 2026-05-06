@@ -22,7 +22,8 @@ describe("API health + harness smoke", () => {
 
   it("GET /api/v1/health returns ok via direct handler call", async () => {
     const { GET } = await import("@/app/api/v1/health/route");
-    const res = await GET();
+    const { makeGetRequest } = await import("../harness/request");
+    const res = await GET(makeGetRequest("/api/v1/health"));
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(data.status).toBe("ok");
