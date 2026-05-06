@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## May 2026
 
+- **fix:** bump diagnostics timeouts for CI cold-start (`02ffc33`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`76081ff`)
 - **feat:** implement file upload security (Phase 1, Item 4) (`accc6be`)
 - **feat:** implement comprehensive audit logging for admin SQL endpoints (`97760f3`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`fd8c61d`)
