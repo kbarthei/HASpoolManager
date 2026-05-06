@@ -6,6 +6,10 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## May 2026
 
+- **docs:** add comprehensive nginx configuration guide (Phase 2, Item 3) (`fdc5e26`)
+- **feat:** standardize API error handling (Phase 2, Item 2) (`4f6e602`)
+- **feat:** implement sync worker health monitoring (Phase 2, Item 1) (`be00a70`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`0e9589c`)
 - - ci(e2e): skip diagnostics card test — RSC streaming gap on CI runner (`9b879de`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`17ac2a3`)
 - **fix:** wait for first card via locator.waitFor (networkidle deadlocks) (`afb7942`)
