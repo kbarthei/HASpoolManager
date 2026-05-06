@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## May 2026
 
+- **docs:** document local dev DB restore + browser-auth-contract for agents (`2cb2b26`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`646342d`)
 - **fix:** auto-discover browser-auth-contract violations (`f2c2ece`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`22d2c80`)
 - **chore:** allow 127.0.0.1 / localhost / *.local for dev HMR (`1001d5d`)
