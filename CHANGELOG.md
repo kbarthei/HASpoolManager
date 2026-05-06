@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## May 2026
 
+- **feat:** rich audit-logs UI — table, filters, search, pagination, stats (`1ded1b6`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`624d2dc`)
 - - ci(e2e): skip flaky diagnostics card-grid test (TODO instrument) (`4443d4c`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`1339590`)
 - **fix:** use toBeAttached for diagnostics card grid (`0d3ff4b`)
