@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## May 2026
 
+- **test:** dump page state on diagnostics failure to debug CI flake (`35ac7a5`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`6191095`)
 - **fix:** isolate detectors with Promise.allSettled + timing logs (`b8852a0`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`51260c0`)
 - **feat:** rich audit-logs UI — table, filters, search, pagination, stats (`1ded1b6`)
