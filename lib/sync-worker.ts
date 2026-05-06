@@ -13,6 +13,7 @@ import { getEntityState, getEntityStates } from "./ha-api";
 import { discoverPrinters, buildFieldToEntityMap, buildEntityToFieldMap, type DiscoveredPrinter, type EntityMapping } from "./ha-discovery";
 import { isHAEntityAvailable } from "./printer-sync-helpers";
 import { captureCover, makeFetchImageViaSupervisor, makeGetCoverStateFromHA } from "./cover-capture";
+import * as health from "./sync-worker-health";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -255,6 +256,8 @@ async function processHmsErrors(
 // ── Event handlers ──────────────────────────────────────────────────────────
 
 async function handleBambuEvent(event: Record<string, unknown>) {
+  health.recordBambuEvent();
+  
   // bambu_lab_event structure: { event_type, data: { device_id, type }, ... }
   const eventData = (event.data ?? event) as Record<string, unknown>;
   const deviceId = (eventData.device_id ?? event.device_id) as string;
@@ -482,10 +485,12 @@ let stateChangedCount = 0;
 let lastStatsLog = Date.now();
 
 async function handleStateChanged(event: Record<string, unknown>) {
+  health.recordStateChangedEvent();
   stateChangedCount++;
   // Log stats every 60s
   if (Date.now() - lastStatsLog > 60000) {
     console.log(`[sync-worker] state_changed: ${stateChangedCount} events received in last 60s`);
+    health.resetEventCounters();
     stateChangedCount = 0;
     lastStatsLog = Date.now();
   }
@@ -720,6 +725,18 @@ async function registerPrinter(discovered: DiscoveredPrinter): Promise<PrinterSy
 
   printers.set(discovered.deviceId, state);
 
+  // Update health monitoring
+  health.updatePrinterHealth(
+    state.printerId,
+    state.deviceId,
+    discovered.name,
+    state.isActive,
+    state.lastEventAt,
+    state.lastSyncAt,
+    state.mappings.length,
+    state.pendingSwaps.length,
+  );
+
   const missing = discovered.mappings.filter((m) => m.status === "missing");
   console.log(
     `[sync-worker] registered printer "${discovered.name}" (${discovered.model}) — ` +
@@ -771,7 +788,11 @@ function startWatchdog() {
   const ACTIVE_INTERVAL = 30 * 1000; // 30 s
   const IDLE_INTERVAL = 5 * 60 * 1000; // 5 min
 
+  health.setWatchdogRunning(true);
+
   watchdogTimer = setInterval(async () => {
+    health.recordWatchdogRun();
+    
     for (const printer of printers.values()) {
       const sinceLastSync = Date.now() - printer.lastSyncAt;
       const interval = printer.isActive ? ACTIVE_INTERVAL : IDLE_INTERVAL;
@@ -782,6 +803,18 @@ function startWatchdog() {
       );
       const payload = await buildSyncPayload(printer);
       await callSyncEngine(payload, printer);
+      
+      // Update health after sync
+      health.updatePrinterHealth(
+        printer.printerId,
+        printer.deviceId,
+        "", // name not available here
+        printer.isActive,
+        printer.lastEventAt,
+        printer.lastSyncAt,
+        printer.mappings.length,
+        printer.pendingSwaps.length,
+      );
     }
   }, 15_000); // check every 15s — actual poll cadence is ACTIVE/IDLE_INTERVAL
 }
@@ -812,6 +845,7 @@ async function maybeRunScheduledBackup(): Promise<void> {
     console.log("[backup] starting scheduled daily backup");
     const result = await runBackup();
     const cleanup = cleanupOldBackups();
+    health.recordBackup();
     console.log(`[backup] ${result.filename} (${Math.round(result.size / 1024)}KB, ${result.durationMs}ms); deleted ${cleanup.deleted.length} old backup(s)`);
   } catch (error) {
     console.error("[backup] scheduled backup failed:", (error as Error).message);
@@ -835,6 +869,7 @@ async function runSmokeBackup(): Promise<void> {
 }
 
 function startBackupScheduler(): void {
+  health.setBackupSchedulerRunning(true);
   backupSchedulerTimer = setInterval(maybeRunScheduledBackup, 60 * 60 * 1000);
   backupSmokeTimer = setTimeout(runSmokeBackup, 60_000);
   console.log(`[backup] scheduler started — daily at ${String(BACKUP_HOUR).padStart(2, "0")}:00 ${BACKUP_TIMEZONE}`);
@@ -844,9 +879,11 @@ function startBackupScheduler(): void {
 
 export async function startSyncWorker(): Promise<void> {
   console.log("[sync-worker] starting...");
+  health.initializeHealth();
 
   wsClient = new HAWebSocketClient({
     onConnected: async () => {
+      health.recordWebSocketConnected();
       console.log("[sync-worker] subscribing to events...");
       try {
         // Subscribe to bambu_lab custom events (print lifecycle)
@@ -881,6 +918,7 @@ export async function startSyncWorker(): Promise<void> {
       }
     },
     onDisconnected: () => {
+      health.recordWebSocketDisconnected();
       console.log("[sync-worker] lost HA connection — will reconnect");
     },
   });
@@ -895,6 +933,9 @@ export async function startSyncWorker(): Promise<void> {
 
 /** Stop the sync worker (for graceful shutdown). */
 export function stopSyncWorker(): void {
+  health.setWatchdogRunning(false);
+  health.setBackupSchedulerRunning(false);
+  
   if (watchdogTimer) {
     clearInterval(watchdogTimer);
     watchdogTimer = null;
