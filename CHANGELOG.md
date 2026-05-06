@@ -6,6 +6,9 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## May 2026
 
+- **chore:** allow 127.0.0.1 / localhost / *.local for dev HMR (`1001d5d`)
+- **fix:** switch 4 browser-called routes from requireAuth to optionalAuth (`c5b34cb`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`731f86e`)
 - **fix:** replace require() in sync-worker-health + restore /health 200 contract (`e78f854`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`2c4aa22`)
 - **docs:** add comprehensive nginx configuration guide (Phase 2, Item 3) (`fdc5e26`)
