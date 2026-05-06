@@ -7,12 +7,18 @@ import { test, expect } from "@playwright/test";
 
 test.describe("diagnostics dashboard", () => {
   test("renders sections and issue cards", async ({ page }) => {
+    // Cold-start on CI compiles many lazy-loaded routes; first hit can take
+    // 10–20s before the first <h2> paints. Use generous timeouts on the
+    // initial visibility checks, then default-fast for the rest (the page
+    // tree streams together once compilation has run).
     await page.goto("ingress/admin/diagnostics");
-    await expect(page.getByTestId("page-diagnostics")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId("page-diagnostics")).toBeVisible({ timeout: 30_000 });
 
-    // Section headers — disambiguate from the bottom-nav links by role.
-    await expect(page.getByRole("heading", { name: "Diagnostics" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Spools", exact: true })).toBeVisible();
+    // Anchor headings — wait for these so we know the server-component tree
+    // has finished streaming, not just the outer wrapper.
+    await expect(page.getByRole("heading", { name: "Diagnostics" })).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole("heading", { name: "Spools", exact: true })).toBeVisible({ timeout: 20_000 });
+
     await expect(page.getByRole("heading", { name: "Prints", exact: true })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Orders", exact: true })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Sync", exact: true })).toBeVisible();
