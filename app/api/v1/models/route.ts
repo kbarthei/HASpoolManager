@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { desc, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { modelFiles, modelFileFilaments } from "@/lib/db/schema";
-import { requireAuth, optionalAuth } from "@/lib/auth";
+import { optionalAuth } from "@/lib/auth";
 import { parseModelFile, summarize } from "@/lib/3mf-parser";
 import { saveCover } from "@/lib/model-file-store";
 import { validate3MFUpload, sanitizeFilename, validateExtension } from "@/lib/file-validator";
@@ -31,8 +31,11 @@ export async function GET(request: NextRequest) {
   }
 }
 
+// Browser-callable from /models drag-drop. optionalAuth keeps the LAN-only
+// PWA + HA ingress gate as the security boundary (consistent with
+// /admin/printer-mappings POST + other admin UI mutations).
 export async function POST(request: NextRequest) {
-  const auth = await requireAuth(request);
+  const auth = await optionalAuth(request);
   if (!auth.authenticated) return auth.response;
 
   try {

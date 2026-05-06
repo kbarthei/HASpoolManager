@@ -104,7 +104,9 @@ describe("/api/v1/models", () => {
       expect(b2.id).toBe(b1.id);
     });
 
-    it("rejects request without auth", async () => {
+    it("accepts uploads without Bearer token (browser path)", async () => {
+      // Browser-called from /models drag-drop. Auth-tier convention:
+      // optionalAuth + HA-ingress / LAN-only PWA gating is the boundary.
       const { POST } = await import("@/app/api/v1/models/route");
       const form = new FormData();
       form.append("file", new Blob([new Uint8Array(fixture("new-single-object.3mf"))]), "x.3mf");
@@ -114,7 +116,7 @@ describe("/api/v1/models", () => {
         body: form,
       });
       const res = await POST(req);
-      expect(res.status).toBe(401);
+      expect(res.status).toBe(201);
     });
 
     it("rejects upload without file field", async () => {

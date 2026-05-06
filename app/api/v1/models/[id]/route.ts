@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { modelFiles, modelFileFilaments } from "@/lib/db/schema";
-import { requireAuth, optionalAuth } from "@/lib/auth";
+import { optionalAuth } from "@/lib/auth";
 import { computeCompatibility } from "@/lib/model-file-compatibility";
 import { deleteModelFileDir } from "@/lib/model-file-store";
 
@@ -40,8 +40,9 @@ export async function GET(request: NextRequest, ctx: { params: Promise<{ id: str
   }
 }
 
+// Browser-callable from /models trash button.
 export async function DELETE(request: NextRequest, ctx: { params: Promise<{ id: string }> }) {
-  const auth = await requireAuth(request);
+  const auth = await optionalAuth(request);
   if (!auth.authenticated) return auth.response;
 
   const { id } = await ctx.params;
