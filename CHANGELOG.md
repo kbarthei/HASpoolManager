@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## May 2026
 
+- - ci(e2e): skip flaky diagnostics card-grid test (TODO instrument) (`4443d4c`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`1339590`)
 - **fix:** use toBeAttached for diagnostics card grid (`0d3ff4b`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`91c8e92`)
 - **fix:** drop brittle heading-text assertions on diagnostics (`cfa7f72`)
