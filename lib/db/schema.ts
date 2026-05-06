@@ -254,6 +254,8 @@ export const prints = sqliteTable(
     coverImagePath: text("cover_image_path"), // 3D model preview from slicer (captured at print start)
     snapshotPath: text("snapshot_path"), // Camera snapshot (captured at print finish)
     photoUrls: text("photo_urls"), // JSON array of {path, kind: "cover"|"snapshot"|"user", captured_at}
+    modelFileId: text("model_file_id").references(() => modelFiles.id, { onDelete: "set null" }), // Linked 3MF source (Bambu Studio export)
+    plannedWeightG: real("planned_weight_g"), // Slicer-predicted weight (only Full-Mode 3MFs)
     haEventId: text("ha_event_id"),
     notes: text("notes"),
     createdAt: tsCol("created_at").notNull().default(sql`(datetime('now'))`),
@@ -273,6 +275,10 @@ export const printsRelations = relations(prints, ({ one, many }) => ({
     references: [printers.id],
   }),
   usage: many(printUsage),
+  modelFile: one(modelFiles, {
+    fields: [prints.modelFileId],
+    references: [modelFiles.id],
+  }),
 }));
 
 // ─── Print Usage ────────────────────────────────────────────────────────────
@@ -753,6 +759,66 @@ export const materialProfiles = sqliteTable("material_profiles", {
   updatedAt: tsCol("updated_at").notNull().default(sql`(datetime('now'))`),
 });
 
+// ─── Model Files (3MF uploads) ──────────────────────────────────────────────
+
+export const modelFiles = sqliteTable(
+  "model_files",
+  {
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    filename: text("filename").notNull(),
+    sha256: text("sha256").notNull().unique(),
+    format: text("format").notNull(), // 'old' | 'new' | 'geometry-only'
+    uploadedAt: tsCol("uploaded_at").notNull().default(sql`(datetime('now'))`),
+    uploadedVia: text("uploaded_via").notNull().default("upload"), // 'upload' | 'sync'
+    printerModel: text("printer_model"),
+    layerHeightMm: real("layer_height_mm"),
+    nozzleDiameterMm: real("nozzle_diameter_mm"),
+    platerName: text("plater_name"),
+    plateCount: integer("plate_count").notNull().default(1),
+    totalPredictionSeconds: integer("total_prediction_seconds"), // null when new-format (no slice gcode)
+    totalWeightGrams: real("total_weight_grams"), // null when new-format
+    coverPath: text("cover_path"), // <id>/plate_1.png — relative to MODEL_FILE_DIR
+    parseWarnings: text("parse_warnings"), // JSON array of strings
+  },
+  (table) => [
+    index("idx_model_files_uploaded").on(table.uploadedAt),
+    index("idx_model_files_filename").on(table.filename),
+  ]
+);
+
+export const modelFileFilaments = sqliteTable(
+  "model_file_filaments",
+  {
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    modelFileId: text("model_file_id")
+      .notNull()
+      .references(() => modelFiles.id, { onDelete: "cascade" }),
+    plateIndex: integer("plate_index").notNull(),
+    sequenceId: integer("sequence_id").notNull(),
+    trayInfoIdx: text("tray_info_idx"), // "GFA00" — matches filaments.bambuIdx
+    filamentType: text("filament_type"),
+    colorHex: text("color_hex"),
+    usedGrams: real("used_grams"),
+    usedMeters: real("used_meters"),
+  },
+  (table) => [
+    index("idx_mff_model").on(table.modelFileId),
+    index("idx_mff_tray").on(table.trayInfoIdx),
+  ]
+);
+
+export const modelFilesRelations = relations(modelFiles, ({ many }) => ({
+  filaments: many(modelFileFilaments),
+  prints: many(prints),
+}));
+
+export const modelFileFilamentsRelations = relations(modelFileFilaments, ({ one }) => ({
+  modelFile: one(modelFiles, {
+    fields: [modelFileFilaments.modelFileId],
+    references: [modelFiles.id],
+  }),
+}));
+
 // ─── Data Quality Log ───────────────────────────────────────────────────────
 
 export const dataQualityLog = sqliteTable(
@@ -772,4 +838,33 @@ export const dataQualityLog = sqliteTable(
     runAtIdx: index("idx_quality_log_run_at").on(table.runAt),
     ruleIdx: index("idx_quality_log_rule").on(table.ruleId),
   })
+);
+
+// ─── Audit Logs ─────────────────────────────────────────────────────────────
+
+export const auditLogs = sqliteTable(
+  "audit_logs",
+  {
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    action: text("action").notNull(), // 'sql_execute' | 'sql_query' | etc.
+    userId: text("user_id").notNull(), // API key name or 'web-ui' or 'env-secret'
+    userKeyId: text("user_key_id").notNull(), // API key ID or 'web-ui' or 'env'
+    sqlStatement: text("sql_statement").notNull(),
+    sqlParams: text("sql_params"), // JSON array of parameters
+    operation: text("operation"), // 'UPDATE' | 'INSERT' | 'DELETE' | 'SELECT' | etc.
+    dryRun: integer("dry_run", { mode: "boolean" }).notNull().default(false),
+    success: integer("success", { mode: "boolean" }).notNull(),
+    rowsAffected: integer("rows_affected"),
+    errorMessage: text("error_message"),
+    executionTimeMs: integer("execution_time_ms"),
+    ipAddress: text("ip_address"),
+    userAgent: text("user_agent"),
+    createdAt: tsCol("created_at").notNull().default(sql`(datetime('now'))`),
+  },
+  (table) => [
+    index("idx_audit_logs_created").on(table.createdAt),
+    index("idx_audit_logs_user").on(table.userId),
+    index("idx_audit_logs_action").on(table.action),
+    index("idx_audit_logs_success").on(table.success),
+  ]
 );

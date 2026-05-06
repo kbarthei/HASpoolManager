@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth";
 import Database from "better-sqlite3";
+import { db } from "@/lib/db";
+import { auditLogs } from "@/lib/db/schema";
 
 /**
  * POST /api/v1/admin/sql/execute
@@ -55,9 +57,52 @@ function firstVerb(sql: string): string {
   return match ? match[1].toUpperCase() : "";
 }
 
+async function logAudit(data: {
+  userId: string;
+  userKeyId: string;
+  sqlStatement: string;
+  sqlParams: unknown[];
+  operation: string;
+  dryRun: boolean;
+  success: boolean;
+  rowsAffected?: number;
+  errorMessage?: string;
+  executionTimeMs: number;
+  ipAddress?: string;
+  userAgent?: string;
+}) {
+  try {
+    await db.insert(auditLogs).values({
+      action: "sql_execute",
+      userId: data.userId,
+      userKeyId: data.userKeyId,
+      sqlStatement: data.sqlStatement,
+      sqlParams: JSON.stringify(data.sqlParams),
+      operation: data.operation,
+      dryRun: data.dryRun,
+      success: data.success,
+      rowsAffected: data.rowsAffected,
+      errorMessage: data.errorMessage,
+      executionTimeMs: data.executionTimeMs,
+      ipAddress: data.ipAddress,
+      userAgent: data.userAgent,
+    });
+  } catch (err) {
+    // Log to console but don't fail the request if audit logging fails
+    console.error("[audit] Failed to log SQL execution:", err);
+  }
+}
+
 export async function POST(request: NextRequest) {
+  const startTime = Date.now();
   const auth = await requireAuth(request);
   if (!auth.authenticated) return auth.response;
+
+  // Extract request metadata for audit logging
+  const ipAddress = request.headers.get("x-forwarded-for") ||
+                    request.headers.get("x-real-ip") ||
+                    "unknown";
+  const userAgent = request.headers.get("user-agent") || "unknown";
 
   let body: { sql?: unknown; params?: unknown; dryRun?: unknown };
   try {
@@ -149,9 +194,26 @@ export async function POST(request: NextRequest) {
       lastInsertRowid = result.lastInsertRowid;
     }
 
+    const executionTimeMs = Date.now() - startTime;
+
     console.log(
-      `[sql/execute] ${auth.name} ${dryRun ? "DRY-RUN " : ""}${verb} → ${changes} row(s)`,
+      `[sql/execute] ${auth.name} ${dryRun ? "DRY-RUN " : ""}${verb} → ${changes} row(s) (${executionTimeMs}ms)`,
     );
+
+    // Log successful execution to audit log
+    await logAudit({
+      userId: auth.name,
+      userKeyId: auth.keyId,
+      sqlStatement: trimmed,
+      sqlParams: params,
+      operation: verb,
+      dryRun,
+      success: true,
+      rowsAffected: changes,
+      executionTimeMs,
+      ipAddress,
+      userAgent,
+    });
 
     return NextResponse.json({
       operation: verb,
@@ -163,11 +225,28 @@ export async function POST(request: NextRequest) {
       dryRun,
     });
   } catch (error) {
+    const executionTimeMs = Date.now() - startTime;
     const msg = (error as Error).message || "Execution error";
     // Sanitize SQLite errors — they can leak table/column names.
     const safeMsg = msg.startsWith("SQLITE_")
       ? "SQL error"
       : msg.replace(/\b(table|column|constraint)\s+\S+/gi, "$1 ?");
+
+    // Log failed execution to audit log
+    await logAudit({
+      userId: auth.name,
+      userKeyId: auth.keyId,
+      sqlStatement: trimmed,
+      sqlParams: params,
+      operation: verb,
+      dryRun,
+      success: false,
+      errorMessage: msg, // Store full error internally
+      executionTimeMs,
+      ipAddress,
+      userAgent,
+    });
+
     return NextResponse.json({ error: safeMsg }, { status: 400 });
   } finally {
     writeDb.close();

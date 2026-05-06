@@ -18,6 +18,7 @@ import { BackupsCard } from "./backups-card";
 import { PrinterMappings } from "./printer-mappings";
 import { EnergySettings } from "./energy-settings";
 import { DataQualityCard } from "./data-quality-card";
+import { AuditLogsCard } from "./audit-logs-card";
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -222,6 +223,11 @@ export default async function AdminPage() {
       {/* ── Import Historical Orders ──────────────────────────────────── */}
       <div className="lg:col-span-2">
         <ImportOrdersCard allSpools={JSON.parse(JSON.stringify(allSpools))} />
+      </div>
+
+      {/* ── Audit Log ─────────────────────────────────────────────────────── */}
+      <div className="lg:col-span-2">
+        <AuditLogsCard />
       </div>
 
       {/* ── Sync Log ─────────────────────────────────────────────────────── */}
