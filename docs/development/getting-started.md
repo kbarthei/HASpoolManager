@@ -38,22 +38,41 @@ ANTHROPIC_API_KEY=                       # leave empty unless testing AI parse
 
 ## 3. Seed a local database
 
-Two options:
+> **Where the test data lives:** `testdata/db-snapshots/` (gitignored, on the maintainer's Mac only). Each `prod-YYYY-MM-DD-*.db` is a SQLite copy of the live HA addon's database at that date — real spools, prints, orders, AMS slots. **30 GB+ of historical snapshots — never committed.** If you don't have them, ask the maintainer or fall back to Option A.
+
+Three options:
 
 **Option A — empty DB** (fresh install simulation):
 ```bash
 npm run db:push      # applies schema via Drizzle
 ```
-The first addon start inside `run.sh` would also run `scripts/migrate-db.js`, but for local dev `db:push` is enough.
+Quick, but the UI shows nothing — useful only for layout work. Note: `db:push` may complain about schema conflicts; pass `--force` if it does.
 
 **Option B — copy production snapshot** (recommended for real feature work):
 ```bash
-cp testdata/db-snapshots/prod-YYYY-MM-DD-*.db* data/
-mv data/prod-YYYY-MM-DD-*.db data/haspoolmanager.db
-mv data/prod-YYYY-MM-DD-*.db-wal data/haspoolmanager.db-wal 2>/dev/null || true
-mv data/prod-YYYY-MM-DD-*.db-shm data/haspoolmanager.db-shm 2>/dev/null || true
+# Pick the latest snapshot — these have the multi-rack + multi-AMS schema
+LATEST=$(ls -t testdata/db-snapshots/prod-*.db | head -1)
+cp "$LATEST" data/haspoolmanager.db
+rm -f data/haspoolmanager.db-shm data/haspoolmanager.db-wal
+
+# Apply schema migrations on top (handles new columns / tables added since
+# the snapshot was taken — e.g. audit_logs, api_keys, model_files)
+node scripts/migrate-db.js
 ```
-Now you're debugging against the real spool catalogue and print history.
+Now you're debugging against the real spool catalogue and print history (~60 spools, ~36 prints, ~8 orders, 1 rack with 6 AMS slots).
+
+**If migrate-db.js reports "no such table: api_keys" or similar**, the snapshot is older than some of the new tables. Drizzle's `db:push` re-creates them:
+```bash
+npm run db:push -- --force
+```
+This is non-destructive (no data is lost) — Drizzle adds missing columns and creates missing tables based on `lib/db/schema.ts`.
+
+**Option C — restore from `.backup` file** (if `data/haspoolmanager.db.backup` exists):
+The previous DB before any reset is auto-saved as `.backup`. Restore with:
+```bash
+cp data/haspoolmanager.db.backup data/haspoolmanager.db
+node scripts/migrate-db.js
+```
 
 ## 4. Run the dev server
 
@@ -74,8 +93,8 @@ local DB directly; you won't see AMS live data without the addon stack.
 Three layers, independent:
 
 ```bash
-npm run test:unit          # 485 tests, ~1s — pure logic, no DB
-npm run test:integration   # 130 tests, ~2s — per-worker SQLite, route handlers
+npm run test:unit          # ~660 tests, ~1s — pure logic, no DB
+npm run test:integration   # ~225 tests, ~5s — per-worker SQLite, route handlers
 npm run test:e2e           # ~50 tests, ~2min — Docker nginx + Playwright
 ```
 

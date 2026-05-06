@@ -66,7 +66,9 @@ testdata/                  # Test data files
 
 - **`workdir/`** — for implementation plans, research notes, brainstorming outputs, temp files. Save plans here, not in `docs/`. Nothing in `workdir/` goes to GitHub.
 - **`testdata/`** — for DB snapshots and test CSVs.
+  - **`testdata/db-snapshots/prod-YYYY-MM-DD-*.db`** — local-only copies of the live HA addon DB. Used for seeding the dev server with realistic data (~60 spools, ~36 prints, ~8 orders). **Not in git.** See `docs/development/getting-started.md` §3 for the full restore-and-migrate recipe (Option B is the recommended path).
 - Snapshot the prod DB before risky changes: `cp data/haspoolmanager.db testdata/db-snapshots/prod-$(date +%Y-%m-%d).db`
+- The dev server auto-saves `data/haspoolmanager.db.backup` — restore from there if a `db:push` accidentally wipes the file.
 
 ## Screenshots
 
@@ -223,9 +225,10 @@ The sync worker is the heart of the system — a background Node.js process alon
 
 ## Security Rules
 
-- **Admin/mutation endpoints:** `requireAuth` (Bearer token required)
-- **Read-only UI endpoints** (spools GET, printers GET, sync-log GET): `optionalAuth` (browser has no token, HA ingress handles auth)
-- **Port 3001 is unauthenticated by design** — LAN-only PWA access. All sensitive endpoints must use `requireAuth`.
+- **Admin/mutation endpoints:** `requireAuth` (Bearer token required) — only when called from server-side scripts / external clients, NOT from the browser UI
+- **Browser-called endpoints** (anything `fetch("/api/v1/...")` from `app/(app)/**` or `components/**`): `optionalAuth`. The browser does NOT send Bearer; HA ingress / LAN-only PWA gating IS the boundary.
+- **Auto-enforced** by `tests/integration/browser-auth-contract.test.ts` — scans every browser fetch + every route's auth tier and fails CI on a mismatch. Add a `// browser-auth-contract: ignore` line comment if a specific call wraps a Bearer client (rare).
+- **Port 3001 is unauthenticated by design** — LAN-only PWA access. The contract is "everything reachable by browser is reachable on 3001 too" — accept that and rely on network-layer gating.
 - **Raw SQL** (`sql.raw()`, `db.all()`): Use `better-sqlite3` readonly mode. Block semicolons and multi-statements. Sanitize error messages (don't expose table/column names).
 - **No dynamic code execution** with user-controlled data
 - **Validate URLs before server-side fetch** (order parser, price crawler) — prevent SSRF
