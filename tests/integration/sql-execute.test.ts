@@ -25,12 +25,9 @@ beforeAll(async () => {
 });
 
 describe("POST /api/v1/admin/sql/execute — auth", () => {
-  it("accepts unauthenticated requests (browser-callable from /admin sql-runner-card)", async () => {
-    // Switched from requireAuth to optionalAuth in 97760f3 when the
-    // sql-runner-card UI was added. LAN-only PWA gating is the boundary,
-    // not an in-app Bearer requirement. See feedback_browser_auth_contract.
+  it("rejects unauthenticated requests with 401", async () => {
     const { status } = await post({ sql: "UPDATE spools SET location = 'x'" }, false);
-    expect(status).not.toBe(401);
+    expect(status).toBe(401);
   });
 });
 
