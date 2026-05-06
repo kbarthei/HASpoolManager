@@ -435,40 +435,66 @@ export interface DiagnosticSummary {
   healthCheck: HealthCheckSummary;
 }
 
+/**
+ * Run every detector in parallel. Each is wrapped so a single failure (or
+ * a slow filesystem scan) doesn't poison the whole dashboard — the page
+ * still renders with `count=0` for the broken detector and the other nine
+ * cards are unaffected. Per-detector timing is logged to stdout so CI
+ * runs surface slow detectors without needing to instrument case-by-case.
+ */
 export async function getAllDiagnostics(): Promise<DiagnosticSummary> {
-  const [
-    spoolDrift,
-    spoolStale,
-    spoolZeroActive,
-    printStuck,
-    printNoWeight,
-    printNoUsage,
-    orderStuck,
-    syncErrors,
-    orphanPhotos,
-    healthCheck,
-  ] = await Promise.all([
-    getSpoolDrift(),
-    getSpoolStale(),
-    getSpoolZeroActive(),
-    getPrintStuck(),
-    getPrintNoWeight(),
-    getPrintNoUsage(),
-    getOrderStuck(),
-    getSyncErrors(),
-    getOrphanPhotos(),
-    getHealthCheckFindings(),
-  ]);
+  const tasks: Array<[keyof DiagnosticSummary, () => Promise<unknown>]> = [
+    ["spoolDrift", getSpoolDrift],
+    ["spoolStale", getSpoolStale],
+    ["spoolZeroActive", getSpoolZeroActive],
+    ["printStuck", getPrintStuck],
+    ["printNoWeight", getPrintNoWeight],
+    ["printNoUsage", getPrintNoUsage],
+    ["orderStuck", getOrderStuck],
+    ["syncErrors", getSyncErrors],
+    ["orphanPhotos", getOrphanPhotos],
+    ["healthCheck", getHealthCheckFindings],
+  ];
+
+  const wallStart = Date.now();
+  const settled = await Promise.allSettled(
+    tasks.map(async ([name, fn]) => {
+      const t0 = Date.now();
+      try {
+        const value = await fn();
+        const ms = Date.now() - t0;
+        if (ms > 200) console.log(`[diagnostics] ${name} took ${ms}ms`);
+        return value;
+      } catch (err) {
+        const ms = Date.now() - t0;
+        console.error(`[diagnostics] ${name} FAILED after ${ms}ms:`, (err as Error).message);
+        throw err;
+      }
+    }),
+  );
+
+  const totalMs = Date.now() - wallStart;
+  if (totalMs > 500) console.log(`[diagnostics] getAllDiagnostics wall=${totalMs}ms`);
+
+  const empty: DiagnosticResult<unknown> = { count: 0, rows: [] };
+  const fallbackHealthCheck: HealthCheckSummary = { latestRunAt: null, rules: [], counts: { autoFixed: 0, flagged: 0, info: 0 } };
+  const fallbackOrphanPhotos: OrphanPhotosSummary = { count: 0, fileCount: 0, deadEntryCount: 0, legacyCount: 0, bytes: 0, preview: [] };
+
+  const get = <T>(idx: number, fallback: T): T => {
+    const r = settled[idx];
+    return r.status === "fulfilled" ? (r.value as T) : fallback;
+  };
+
   return {
-    spoolDrift,
-    spoolStale,
-    spoolZeroActive,
-    printStuck,
-    printNoWeight,
-    printNoUsage,
-    orderStuck,
-    syncErrors,
-    orphanPhotos,
-    healthCheck,
+    spoolDrift: get(0, empty as DiagnosticResult<SpoolDriftRow>),
+    spoolStale: get(1, empty as DiagnosticResult<SpoolStaleRow>),
+    spoolZeroActive: get(2, empty as DiagnosticResult<SpoolZeroActiveRow>),
+    printStuck: get(3, empty as DiagnosticResult<PrintStuckRow>),
+    printNoWeight: get(4, empty as DiagnosticResult<PrintNoWeightRow>),
+    printNoUsage: get(5, empty as DiagnosticResult<PrintNoUsageRow>),
+    orderStuck: get(6, empty as DiagnosticResult<OrderStuckRow>),
+    syncErrors: get(7, empty as DiagnosticResult<SyncErrorRow>),
+    orphanPhotos: get(8, fallbackOrphanPhotos),
+    healthCheck: get(9, fallbackHealthCheck),
   };
 }

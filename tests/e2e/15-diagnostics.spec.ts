@@ -6,15 +6,11 @@
 import { test, expect } from "@playwright/test";
 
 test.describe("diagnostics dashboard", () => {
-  // FIXME: this test became flaky on CI after the 3MF + FTPS auto-pull
-  // work landed (commit accc6be). Page content lands fine in the dev /
-  // production browser but timing on the GitHub-Actions runner makes
-  // toBeAttached on individual cards flaky beyond 30s. The companion
-  // navigation test below still verifies the page is reachable and the
-  // link from /admin lands here. Re-enable after we instrument the slow
-  // server-render path or move the cards under a Suspense boundary so
-  // streaming order is deterministic.
-  test.skip("renders sections and issue cards", async ({ page }) => {
+  test("renders sections and issue cards", async ({ page }) => {
+    // Each detector now runs under Promise.allSettled with per-detector
+    // timing logging in lib/diagnostics.ts:getAllDiagnostics. A single
+    // slow/failing detector falls back to count=0 instead of cascading
+    // a render failure across the page. CI wall time should be sub-second.
     await page.goto("ingress/admin/diagnostics");
     await expect(page.getByTestId("page-diagnostics")).toBeVisible({ timeout: 30_000 });
     for (const id of [
@@ -27,7 +23,7 @@ test.describe("diagnostics dashboard", () => {
       "issue-order-stuck",
       "issue-sync-errors",
     ]) {
-      await expect(page.getByTestId(id)).toBeAttached({ timeout: 30_000 });
+      await expect(page.getByTestId(id)).toBeAttached({ timeout: 15_000 });
       await expect(page.getByTestId(`${id}-count`)).toBeAttached();
     }
   });
