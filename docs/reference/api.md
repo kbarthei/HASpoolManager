@@ -1424,3 +1424,58 @@ When `event_print_started` fires AND `printers.access_code` is set:
 If `printers.access_code` is empty, the pull is silently skipped — manual upload via `POST /api/v1/models` remains fully functional. Cloud connectivity (MakerWorld, mobile app) is unaffected by setting an access code; only the printer's "LAN Only Mode" toggle disables cloud, and we never touch that.
 
 MD5 short-circuit: if the model file has been pulled before (same `model_files.md5`), the FTP-fetch is skipped entirely and the existing row is reused.
+
+## 12. Audit Logs
+
+Read-only listing of admin SQL operations captured in the `audit_logs` table. The `audit-logs-card` UI on `/admin` consumes both endpoints; raw SQL access via `/api/v1/admin/query` is still available for ad-hoc reporting.
+
+### `GET /api/v1/admin/audit-logs`
+
+Paginated, filtered, sortable list of audit-log entries.
+
+- **Auth:** required (Bearer)
+- **Query params:**
+  - `op` — `SELECT` \| `INSERT` \| `UPDATE` \| `DELETE` \| `PRAGMA` \| `DDL`
+  - `success` — `true` \| `false`
+  - `user` — substring match on `user_id` (LIKE `%term%`)
+  - `q` — substring match on `sql_statement` (LIKE `%term%`)
+  - `from`, `to` — ISO date or full ISO timestamp; `to` with date-only is treated as end-of-day
+  - `sort` — `createdAt` (default) \| `userId` \| `operation` \| `executionTimeMs` \| `rowsAffected`
+  - `dir` — `asc` \| `desc` (default)
+  - `page` — 1-based, default 1
+  - `pageSize` — 1–200, default 50
+
+- **Response:**
+```json
+{
+  "rows": [ /* AuditLog[] in selected order */ ],
+  "total": 1234,
+  "page": 1,
+  "pageSize": 50,
+  "pageCount": 25
+}
+```
+
+Errors: `400` for invalid `sort` field, `401` without auth.
+
+### `GET /api/v1/admin/audit-logs/stats`
+
+Aggregates over the same filter set as the list endpoint. Used to power the four stat tiles on the audit-log card.
+
+- **Auth:** required (Bearer)
+- **Query params:** same as `/audit-logs` (filters only — `sort/page/pageSize` ignored)
+- **Response:**
+```json
+{
+  "total": 1234,
+  "successes": 1219,
+  "failures": 15,
+  "successRate": 0.9878,
+  "avgMs": 4.2,
+  "maxMs": 312,
+  "operations": [ { "op": "SELECT", "count": 980 }, { "op": "UPDATE", "count": 200 } ],
+  "topUsers":  [ { "userId": "web-ui", "count": 800 }, { "userId": "ha-script", "count": 230 } ]
+}
+```
+
+`successRate`, `avgMs`, `maxMs` are `null` when the filtered set is empty. `topUsers` is capped at 5.
