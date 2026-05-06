@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## May 2026
 
+- **fix:** wait for first card via locator.waitFor (networkidle deadlocks) (`afb7942`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`9506dc3`)
 - **fix:** wait for networkidle to drain RSC stream into DOM (`b2bf120`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`11d4ae5`)
 - **test:** dump page state on diagnostics failure to debug CI flake (`35ac7a5`)
