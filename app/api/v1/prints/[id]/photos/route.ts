@@ -4,13 +4,13 @@ import { db } from "@/lib/db";
 import { prints } from "@/lib/db/schema";
 import { optionalAuth, requireAuth } from "@/lib/auth";
 import {
-  ALLOWED_MIME_TYPES,
   MAX_PHOTO_BYTES,
   MAX_USER_PHOTOS_PER_PRINT,
   getPhotos,
   listUserPhotoCount,
   savePhoto,
 } from "@/lib/photo-manager";
+import { validateImageUpload, sanitizeFilename } from "@/lib/file-validator";
 
 export const dynamic = "force-dynamic";
 
@@ -59,21 +59,24 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!(file instanceof File)) {
     return NextResponse.json({ error: "Missing 'photo' field" }, { status: 400 });
   }
-  if (file.size > MAX_PHOTO_BYTES) {
-    return NextResponse.json(
-      { error: `Photo too large (max ${Math.round(MAX_PHOTO_BYTES / 1024 / 1024)}MB)` },
-      { status: 400 },
-    );
-  }
-  if (!ALLOWED_MIME_TYPES.has(file.type)) {
-    return NextResponse.json(
-      { error: `Unsupported mime type ${file.type}; allowed: ${[...ALLOWED_MIME_TYPES].join(", ")}` },
-      { status: 400 },
-    );
+
+  // Sanitize filename to prevent path traversal
+  const safeFilename = sanitizeFilename(file.name);
+  if (!safeFilename) {
+    return NextResponse.json({ error: "Invalid filename" }, { status: 400 });
   }
 
-  const ext = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
+  // Read file buffer for validation
   const buffer = Buffer.from(await file.arrayBuffer());
+
+  // Comprehensive validation: size, MIME type, magic bytes
+  const validation = validateImageUpload(buffer, file.type, MAX_PHOTO_BYTES);
+  if (!validation.valid) {
+    return NextResponse.json({ error: validation.error }, { status: 400 });
+  }
+
+  // Use validated extension from magic bytes detection
+  const ext = validation.extension!;
 
   try {
     const saved = await savePhoto(id, buffer, "user", ext);

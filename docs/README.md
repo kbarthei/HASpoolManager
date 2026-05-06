@@ -29,6 +29,9 @@ Deep dives:
 - [`architecture/supply-engine.md`](architecture/supply-engine.md) — reorder rules, alerts, order optimizer
 - [`architecture/color-system.md`](architecture/color-system.md) — CIE ΔE color matching and vendor palettes
 - [`architecture/security-model.md`](architecture/security-model.md) — auth tiers, SSRF, port 3001 model
+- [`architecture/audit-logging.md`](architecture/audit-logging.md) — SQL audit logs for admin operations
+- [`architecture/ssrf-protection.md`](architecture/ssrf-protection.md) — URL validation and price crawler security
+- [`architecture/api-key-management.md`](architecture/api-key-management.md) — API key expiration, rotation, and lifecycle
 
 ### …look something up
 - [`reference/api.md`](reference/api.md) — every `/api/v1/*` endpoint with request + response

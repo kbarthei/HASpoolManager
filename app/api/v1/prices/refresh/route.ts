@@ -4,10 +4,13 @@ import { shopListings } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { optionalAuth } from "@/lib/auth";
 import { fetchProductPrice } from "@/lib/price-crawler";
+import { validateURL } from "@/lib/url-validator";
 
 /**
  * POST /api/v1/prices/refresh
  * Body: { filamentId?: string } — refresh one filament's prices, or all if omitted
+ *
+ * SECURITY: Validates all URLs before fetching to prevent SSRF attacks.
  */
 export async function POST(request: NextRequest) {
   const auth = await optionalAuth(request);
@@ -28,7 +31,29 @@ export async function POST(request: NextRequest) {
     }
 
     const results = [];
+    let skipped = 0;
+
     for (const listing of listings) {
+      // Pre-validate URL before attempting fetch
+      const validation = validateURL(listing.productUrl);
+      if (!validation.valid) {
+        console.warn(
+          `[prices/refresh] Skipping invalid URL for listing ${listing.id}: ${validation.error}`
+        );
+        results.push({
+          listingId: listing.id,
+          filamentId: listing.filamentId,
+          url: listing.productUrl,
+          price: null,
+          currency: "EUR",
+          source: "failed",
+          inStock: null,
+          error: validation.error,
+        });
+        skipped++;
+        continue;
+      }
+
       const result = await fetchProductPrice(listing.productUrl);
 
       if (result.price !== null) {
@@ -53,10 +78,16 @@ export async function POST(request: NextRequest) {
         currency: result.currency,
         source: result.source,
         inStock: result.inStock,
+        error: result.error,
       });
     }
 
-    return NextResponse.json({ refreshed: results.length, results });
+    return NextResponse.json({
+      refreshed: results.length - skipped,
+      skipped,
+      total: results.length,
+      results
+    });
   } catch (error) {
     console.error("POST /api/v1/prices/refresh error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

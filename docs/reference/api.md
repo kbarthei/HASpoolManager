@@ -1258,3 +1258,169 @@ Topology endpoint for the HA companion script. Returns the enabled units plus th
   ]
 }
 ```
+
+## 11. Model Files (3MF metadata)
+
+Captured 3MF metadata from Bambu Studio / OrcaSlicer exports. Raw `.3mf`
+files are NOT stored on disk — only the cover PNG and parsed metadata.
+
+The parser handles both Bambu formats observed in the field:
+- **old** (FW ≤ 01.10): rich `Metadata/slice_info.config` with prediction + weight per plate.
+- **new** (FW ≥ 02.06): stub `slice_info.config`; metadata spread across `plate_1.json` + `project_settings.config` + `model_settings.config`. **No prediction/weight** unless the file was exported as "Sliced 3MF" with embedded G-code (which we don't parse — re-slicing is the slicer's job).
+- **geometry-only**: raw OPC, no slicer metadata.
+
+### `POST /api/v1/models`
+
+Upload a 3MF. Idempotent on `sha256` — uploading the same file twice returns
+the existing row with `deduped: true` (200) instead of creating a duplicate.
+
+- **Auth:** required (Bearer)
+- **Content-Type:** `multipart/form-data`
+- **Field:** `file` — the .3mf bytes (max 150 MB)
+
+**Response (201 created):**
+```json
+{
+  "id": "uuid",
+  "filename": "kamerahalter_nord_sliced.3mf",
+  "sha256": "b667bf613e28...",
+  "format": "new",
+  "uploadedAt": "2026-05-06T08:30:00Z",
+  "uploadedVia": "upload",
+  "printerModel": "Bambu Lab H2S",
+  "layerHeightMm": 0.2,
+  "nozzleDiameterMm": 0.4,
+  "platerName": "Router Mount",
+  "plateCount": 1,
+  "totalPredictionSeconds": null,
+  "totalWeightGrams": null,
+  "coverPath": "<id>/plate_1.png",
+  "parseWarnings": null
+}
+```
+
+**Response (200 deduped):** same fields plus `"deduped": true`.
+
+### `GET /api/v1/models`
+
+List uploaded models, newest first. Browser-callable.
+
+- **Auth:** optional
+- **Query:** `?limit=50&offset=0` (max limit 200)
+
+**Response:** `ModelFile[]`
+
+### `GET /api/v1/models/{id}`
+
+Detail with parsed filaments + spool compatibility match.
+
+- **Auth:** optional
+
+**Response:**
+```json
+{
+  "id": "uuid",
+  "filename": "...",
+  "format": "old",
+  "platerName": "...",
+  "filaments": [
+      {
+        "id": "uuid",
+        "plateIndex": 1,
+        "sequenceId": 1,
+        "trayInfoIdx": "GFA00",
+        "filamentType": "PLA",
+        "colorHex": "#FFFFFF",
+        "usedGrams": 27.68,
+        "usedMeters": 9.13
+      }
+    ],
+    "compatibility": [
+      {
+        "filamentSlotId": "uuid",
+        "plateIndex": 1,
+        "sequenceId": 1,
+        "required": { "trayInfoIdx": "GFA00", "type": "PLA", "colorHex": "#FFFFFF", "usedGrams": 27.68 },
+        "matches": [
+          {
+            "spoolId": "uuid",
+            "filamentId": "uuid",
+            "filamentName": "Bambu PLA Basic",
+            "vendorName": "Bambu Lab",
+            "colorHex": "#FFFFFF",
+            "remainingWeight": 850,
+            "location": "ams:0:0",
+            "inAms": true,
+            "matchedBy": "trayInfoIdx"
+          }
+        ]
+      }
+  ],
+  "parseWarnings": []
+}
+```
+
+Match strategy: (1) `trayInfoIdx` exact against `filaments.bambu_idx`, then
+(2) `material` + `color_hex` case-insensitive. AMS spools sort first; within
+each bucket, highest remaining weight first.
+
+### `DELETE /api/v1/models/{id}`
+
+Deletes the row + cascades filaments + removes the cover PNG from disk.
+
+- **Auth:** required
+- **Response:** 204 No Content
+
+### `GET /api/v1/models/{id}/cover`
+
+Returns the cover PNG bytes.
+
+- **Auth:** optional
+- **Response:** `image/png` with `Cache-Control: public, max-age=3600`
+
+### `POST /api/v1/prints/{id}/link-model`
+
+Manual fallback to attach a 3MF to a print row when the auto-match (sync-worker, ≥0.9 confidence) didn't fire.
+
+- **Auth:** required
+- **Body:** `{ "modelFileId": "uuid" | null }` (null clears the link)
+- **Response:** `{ "printId": "...", "modelFileId": "..." }`
+
+### Auto-link from sync-worker
+
+When `event_print_started` fires, the printer-sync route compares
+`print_name` against every `model_files.filename` and writes
+`prints.model_file_id` + `prints.planned_weight_g` if the normalized
+substring score is ≥0.9. Logs as `[model-match] linked print=...`.
+
+### `POST /api/v1/printers/{id}/test-ftp`
+
+Probe + login + list `cache/` against the printer's FTPS server. Used by
+the admin UI's "Test connection" button. Body is optional — if omitted the
+stored `accessCode` is used. **Does not write the access code; just tests it.**
+
+- **Auth:** required
+- **Body:** `{ "accessCode"?: "12345678" }` (optional override)
+- **Response:**
+  ```json
+  { "ok": true,  "step": "done",  "fileCount": 47 }
+  { "ok": false, "step": "probe", "error": "Port 990 not reachable on 192.168.178.99..." }
+  { "ok": false, "step": "login", "error": "Wrong access code..." }
+  ```
+
+`step` values: `probe` (TCP unreachable) → `tls` (handshake failed) → `login` (530) → `list` (post-login) → `done`.
+
+### FTP auto-pull from printer cache (sync-worker hook)
+
+When `event_print_started` fires AND `printers.access_code` is set:
+1. After 30s delay (let printer settle, avoid concurrent-FTP-during-print stalls)
+2. List `cache/` on printer (FTPS port 990, user `bblp`, pass = access_code)
+3. Find file matching `print_name` (substring) or fallback to most-recently-modified
+4. Download into memory (max 200 MB)
+5. Parse via `lib/3mf-parser.ts`
+6. Dedup by sha256 (skip insert if duplicate); else persist `model_files` row + cover PNG + filaments
+7. Update `prints.model_file_id` + `prints.planned_weight_g`
+
+If `printers.access_code` is empty, the pull is silently skipped — manual upload via `POST /api/v1/models` remains fully functional. Cloud connectivity (MakerWorld, mobile app) is unaffected by setting an access code; only the printer's "LAN Only Mode" toggle disables cloud, and we never touch that.
+
+MD5 short-circuit: if the model file has been pulled before (same `model_files.md5`), the FTP-fetch is skipped entirely and the existing row is reused.

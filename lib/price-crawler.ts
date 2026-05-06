@@ -1,31 +1,111 @@
 /**
  * Price crawler — fetches product pages and extracts current prices.
  * Uses shop-specific parsers for known shops, generic JSON-LD fallback for unknown.
+ *
+ * SECURITY: Includes SSRF protection via URL validation, timeout limits, and response size caps.
  */
+
+import { validateURL } from "./url-validator";
 
 interface PriceResult {
   price: number | null;
   currency: string;
   inStock: boolean | null;
   source: "parser" | "ai" | "failed";
+  error?: string;
 }
+
+// Security limits
+const FETCH_TIMEOUT_MS = 10_000;      // 10 seconds max
+const MAX_RESPONSE_SIZE = 5_000_000;  // 5 MB max (most product pages are <1MB)
 
 /** Fetch a product page and extract the price */
 export async function fetchProductPrice(url: string): Promise<PriceResult> {
+  // SSRF Protection: Validate URL before fetching
+  const validation = validateURL(url);
+  if (!validation.valid) {
+    console.warn(`[price-crawler] Blocked URL: ${url} - ${validation.error}`);
+    return {
+      price: null,
+      currency: "EUR",
+      inStock: null,
+      source: "failed",
+      error: validation.error
+    };
+  }
+
+  const sanitizedUrl = validation.sanitizedUrl!;
+
   try {
+    // Timeout protection: abort after FETCH_TIMEOUT_MS
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
     // Use German locale headers to get EUR prices
-    const res = await fetch(url, {
+    const res = await fetch(sanitizedUrl, {
       headers: {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+        "User-Agent": "HASpoolManager/1.0 (Filament Price Crawler)",
         "Accept": "text/html",
         "Accept-Language": "de-DE,de;q=0.9,en;q=0.5",
         "Cookie": "localization=DE; cart_currency=EUR",
       },
+      signal: controller.signal,
     });
-    if (!res.ok) return { price: null, currency: "EUR", inStock: null, source: "failed" };
 
-    const html = await res.text();
-    const domain = new URL(url).hostname.toLowerCase();
+    clearTimeout(timeoutId);
+
+    if (!res.ok) {
+      return {
+        price: null,
+        currency: "EUR",
+        inStock: null,
+        source: "failed",
+        error: `HTTP ${res.status}`
+      };
+    }
+
+    // Response size protection: check Content-Length header
+    const contentLength = res.headers.get("content-length");
+    if (contentLength && parseInt(contentLength) > MAX_RESPONSE_SIZE) {
+      return {
+        price: null,
+        currency: "EUR",
+        inStock: null,
+        source: "failed",
+        error: `Response too large (${contentLength} bytes)`
+      };
+    }
+
+    // Read response with size limit (in case Content-Length is missing)
+    const reader = res.body?.getReader();
+    if (!reader) {
+      return { price: null, currency: "EUR", inStock: null, source: "failed", error: "No response body" };
+    }
+
+    const chunks: Uint8Array[] = [];
+    let totalSize = 0;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      totalSize += value.length;
+      if (totalSize > MAX_RESPONSE_SIZE) {
+        reader.cancel();
+        return {
+          price: null,
+          currency: "EUR",
+          inStock: null,
+          source: "failed",
+          error: `Response exceeded ${MAX_RESPONSE_SIZE} bytes`
+        };
+      }
+
+      chunks.push(value);
+    }
+
+    const html = new TextDecoder().decode(Buffer.concat(chunks));
+    const domain = new URL(sanitizedUrl).hostname.toLowerCase();
 
     // Try shop-specific parser first
     if (domain.includes("bambulab.com")) return parseBambuLab(html);
@@ -33,8 +113,24 @@ export async function fetchProductPrice(url: string): Promise<PriceResult> {
 
     // Fallback: try generic price extraction
     return parseGeneric(html);
-  } catch {
-    return { price: null, currency: "EUR", inStock: null, source: "failed" };
+  } catch (error) {
+    // Handle timeout errors specifically
+    if (error instanceof Error && error.name === "AbortError") {
+      return {
+        price: null,
+        currency: "EUR",
+        inStock: null,
+        source: "failed",
+        error: "Request timeout"
+      };
+    }
+    return {
+      price: null,
+      currency: "EUR",
+      inStock: null,
+      source: "failed",
+      error: error instanceof Error ? error.message : "Unknown error"
+    };
   }
 }
 

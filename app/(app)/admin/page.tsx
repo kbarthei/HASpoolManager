@@ -16,6 +16,7 @@ import { ImportOrdersCard } from "./import-orders-card";
 import { AdminTools } from "./admin-tools";
 import { BackupsCard } from "./backups-card";
 import { PrinterMappings } from "./printer-mappings";
+import { AccessCodeCard } from "./access-code-card";
 import { EnergySettings } from "./energy-settings";
 import { DataQualityCard } from "./data-quality-card";
 import { AuditLogsCard } from "./audit-logs-card";
@@ -246,6 +247,17 @@ export default async function AdminPage() {
       <div className="lg:col-span-2">
         <PrinterMappings />
       </div>
+
+      {/* ── Bambu Access Code (FTPS auto-pull of 3MFs) ──────────────────── */}
+      <AccessCodeCard
+        printers={allPrinters.map((p) => ({
+          id: p.id,
+          name: p.name,
+          ipAddress: p.ipAddress,
+          accessCode: p.accessCode,
+        }))}
+      />
+
 
       {/* ── AMS Units ───────────────────────────────────────────────────── */}
       <Card className="p-4 space-y-3 lg:col-span-2">

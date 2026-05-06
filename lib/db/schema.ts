@@ -104,6 +104,10 @@ export const printers = sqliteTable("printers", {
   mqttTopic: text("mqtt_topic"),
   haDeviceId: text("ha_device_id"),
   ipAddress: text("ip_address"),
+  // Local LAN credentials for direct FTPS/MQTT access. Optional — set only when
+  // 3MF-pull-from-printer is enabled. Cloud connectivity is unaffected by setting
+  // these (printer's "LAN Only Mode" toggle is what disables cloud, not this).
+  accessCode: text("access_code"),
   isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
   createdAt: tsCol("created_at").notNull().default(sql`(datetime('now'))`),
   updatedAt: tsCol("updated_at").notNull().default(sql`(datetime('now'))`),
@@ -433,6 +437,7 @@ export const apiKeys = sqliteTable("api_keys", {
   keyPrefix: text("key_prefix").notNull(),
   permissions: text("permissions", { mode: "json" }).$type<string[]>().default([]),
   isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+  expiresAt: tsCol("expires_at"), // null = never expires
   lastUsedAt: tsCol("last_used_at"),
   createdAt: tsCol("created_at").notNull().default(sql`(datetime('now'))`),
 });
@@ -767,9 +772,10 @@ export const modelFiles = sqliteTable(
     id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
     filename: text("filename").notNull(),
     sha256: text("sha256").notNull().unique(),
+    md5: text("md5"), // Bambu-emitted MD5 from MQTT project_file command — enables fast pre-FTP dedup
     format: text("format").notNull(), // 'old' | 'new' | 'geometry-only'
     uploadedAt: tsCol("uploaded_at").notNull().default(sql`(datetime('now'))`),
-    uploadedVia: text("uploaded_via").notNull().default("upload"), // 'upload' | 'sync'
+    uploadedVia: text("uploaded_via").notNull().default("upload"), // 'upload' | 'sync' | 'ftp'
     printerModel: text("printer_model"),
     layerHeightMm: real("layer_height_mm"),
     nozzleDiameterMm: real("nozzle_diameter_mm"),

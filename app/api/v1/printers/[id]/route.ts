@@ -60,20 +60,24 @@ export async function PUT(
       haDeviceId,
       ipAddress,
       isActive,
+      accessCode,
     } = body;
+
+    // Build update set conditionally so an absent field doesn't null-out an existing value.
+    // Fields that ARE present (including null) are written through.
+    const updateSet: Record<string, unknown> = { updatedAt: new Date() };
+    if (name !== undefined) updateSet.name = name;
+    if (model !== undefined) updateSet.model = model;
+    if (serial !== undefined) updateSet.serial = serial;
+    if (mqttTopic !== undefined) updateSet.mqttTopic = mqttTopic;
+    if (haDeviceId !== undefined) updateSet.haDeviceId = haDeviceId;
+    if (ipAddress !== undefined) updateSet.ipAddress = ipAddress;
+    if (isActive !== undefined) updateSet.isActive = isActive;
+    if (accessCode !== undefined) updateSet.accessCode = accessCode;
 
     const [updated] = await db
       .update(printers)
-      .set({
-        name,
-        model,
-        serial,
-        mqttTopic,
-        haDeviceId,
-        ipAddress,
-        isActive,
-        updatedAt: new Date(),
-      })
+      .set(updateSet)
       .where(eq(printers.id, id))
       .returning();
 

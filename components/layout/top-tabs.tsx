@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { LayoutDashboard, Circle, Package, ShoppingCart, Printer, Clock, Plus, Settings, BarChart3 } from "lucide-react";
+import { LayoutDashboard, Circle, Package, ShoppingCart, Printer, Clock, Plus, Settings, BarChart3, Box } from "lucide-react";
 import { AddOrderDialog } from "@/components/orders/add-order-dialog";
 
 // Inlined by next.config.ts at build time from ha-addon/haspoolmanager/config.yaml.
@@ -58,6 +58,13 @@ const tabs = [
     icon: Circle,
     testId: "nav-spools",
     isActive: (path: string) => path.startsWith("/spools"),
+  },
+  {
+    label: "Models",
+    href: "/models",
+    icon: Box,
+    testId: "nav-models",
+    isActive: (path: string) => path.startsWith("/models"),
   },
   {
     label: "Admin",

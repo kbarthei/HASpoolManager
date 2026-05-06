@@ -113,6 +113,20 @@
       "when": 1778057203711,
       "tag": "0015_cold_thundra",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "6",
+      "when": 1778060286138,
+      "tag": "0016_serious_marvel_apes",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "6",
+      "when": 1778065266053,
+      "tag": "0017_cooing_nova",
+      "breakpoints": true
     }
   ]
 }

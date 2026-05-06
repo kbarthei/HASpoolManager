@@ -285,10 +285,81 @@ you can tap a spool sticker and jump straight to its detail view.
 | Set monthly budget | Orders → Monthly Budget card |
 | Import orders from CSV/email | Admin → Import Orders, or Orders → Paste Email |
 | Scan an NFC/RFID tag manually | Scan |
+| Upload a 3MF for compatibility check | Models → drag-drop |
 
 ---
 
-## 9. When something is wrong
+## 9. Models (3MF metadata)
+
+The **Models** tab parses Bambu Studio / OrcaSlicer 3MF exports and tells you,
+before you start a print, **which spools you have available** for it.
+
+### Workflow
+
+1. **Drag-drop** a `.3mf` onto the Models page (or click "Datei wählen").
+2. The parser extracts cover image + filaments + plate-info. **No raw `.3mf` is stored** — only the cover PNG and metadata.
+3. Open the model card. You see one row per filament needed, with a list of currently-active spools that match (RFID exact match preferred, otherwise material+color).
+4. When the actual print starts, the sync worker auto-links the print row to the 3MF (substring match on `print_name`, ≥0.9 confidence). The link shows up under "Drucke mit diesem Modell" on the model detail page.
+
+### What you get per format
+
+3MFs come in three flavours; the format-badge on each card tells you which:
+
+- **Full** (FW ≤ 01.10 Bambu Studio export): Cover + filaments + **Druckzeit + Gewicht + Kosten**. Best detail.
+- **Material-Plan** (FW ≥ 02.06 default project export): Cover + filaments only. **No time / weight** — that data is in the embedded G-code, which Bambu Studio's modern default doesn't include.
+- **Geometry-Only**: Raw mesh, no slicer info. "Bitte erst slicen" banner.
+
+> To force Full mode in modern Bambu Studio: **File → Export → Export Sliced 3MF**. That includes G-code with `;TIME:` and `;Filament used (g):` headers. The default "Save Project" doesn't.
+
+### Limits
+
+- 150 MB per upload.
+- Same file (sha256-identical) re-uploaded just returns the existing entry (deduped).
+- **No archive of old uploads** — the original `.3mf` is your responsibility (Bambu Studio workspace, MakerWorld, Git, etc.).
+
+### Auto-pull from printer (FTPS, optional)
+
+The seamless path: enter your printer's **Access Code** once on `/admin`, then the addon fetches the 3MF directly from the printer's cache every time you click "Send to Printer" in Bambu Studio. Cover, filament list, and (for sliced exports) print-time + weight + cost appear automatically on the running print's row — no manual upload step.
+
+**Setup (once):**
+
+1. On the printer's touchscreen: **Settings → WLAN → Access Code** (8-digit number)
+2. In the addon: **Admin → Bambu Access Code (3MF Auto-Pull)** card
+3. Enter the code, click **Save**, then **Test connection** → green "✓ verbunden, N 3MF-Files"
+4. Done — next print fires the auto-pull 30 seconds after start
+
+**Important:** The access code does **not** disable Bambu Cloud, MakerWorld, or the mobile app. Those keep working. Only the separate "LAN Only Mode" toggle (which we don't touch) would do that.
+
+**What happens under the hood:**
+
+| When | What |
+|---|---|
+| Print starts | Sync-worker schedules a 30s-delayed FTP-pull |
+| 30s later | List `cache/` on printer (FTPS port 990, user `bblp`, pass = access code) |
+| | Match file by print name (substring) or fallback to newest |
+| | Download into memory, parse, dedup by sha256, persist metadata + cover |
+| | Link 3MF to the running print → app shows compatibility card |
+
+If the access code is wrong, missing, or the printer is unreachable, the pull is silently skipped — your print isn't blocked, you just don't get the auto-link.
+
+### Local validation (no real printer needed)
+
+To validate the FTP-pull code path on a Mac/Laptop without the printer in reach, the repo ships a mock Bambu printer that speaks the same FTPS protocol on a high port:
+
+```bash
+# Terminal 1: start the mock (uses tests/fixtures/3mf/ as cache contents)
+npx tsx scripts/mock-bambu-printer.ts
+
+# Terminal 2: probe + download via the addon's lib code
+PRINTER_IP=127.0.0.1 PRINTER_PORT=9990 PRINTER_ACCESS_CODE=12345678 \
+  npx tsx scripts/test-printer-ftp.ts
+```
+
+The mock uses a self-signed cert (just like real printers), implicit TLS, and the `bblp` username — same protocol surface. If the local round-trip is green, the addon will work against a real printer too.
+
+---
+
+## 10. When something is wrong
 
 - **Data looks weird?** → Diagnostics first, then
   [`operations-runbook.md`](operations-runbook.md)

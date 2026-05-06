@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Circle, Package, MoreHorizontal, Printer, Clock, ShoppingCart, X, Settings, BarChart3 } from "lucide-react";
+import { LayoutDashboard, Circle, Package, MoreHorizontal, Printer, Clock, ShoppingCart, X, Settings, BarChart3, Box } from "lucide-react";
 import { useState, useCallback, useEffect, useRef } from "react";
 
 const primaryTabs = [
@@ -41,6 +41,7 @@ const primaryTabs = [
 const moreItems = [
   { label: "History", href: "/history", icon: Clock, isActive: (path: string) => path.startsWith("/history") },
   { label: "Spools", href: "/spools", icon: Circle, isActive: (path: string) => path.startsWith("/spools") },
+  { label: "Models", href: "/models", icon: Box, isActive: (path: string) => path.startsWith("/models") },
   { label: "Admin", href: "/admin", icon: Settings, isActive: (path: string) => path.startsWith("/admin") },
 ];
 

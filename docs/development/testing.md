@@ -6,13 +6,15 @@
 ┌──────────────────────────────────────────────┐
 │ E2e (Playwright + Docker nginx + ingress)    │  ~50 tests (18 specs)
 ├──────────────────────────────────────────────┤
-│ Integration (Vitest + SQLite file DB)        │ 186 tests (22 files)
+│ Integration (Vitest + SQLite file DB)        │ 210 tests (25 files)
 ├──────────────────────────────────────────────┤
-│ Unit (Vitest, no DB)                         │ 537 tests (22 files)
+│ Unit (Vitest, no DB)                         │ 656 tests (27 files)
 └──────────────────────────────────────────────┘
-Total: ~773 tests — CI runs unit + integration on every push,
+Total: ~916 tests — CI runs unit + integration on every push,
 e2e only on `main` push (~2 min total).
 ```
+
+**Mock services for live-protocol tests:** `tests/integration/printer-ftp-pull.test.ts` spins up `ftp-srv` in-process with implicit TLS + a self-signed cert, drops fixtures into a temp `cache/` directory, and exercises the full pull pipeline (list → download → parse → DB-insert → link to print). No external network or printer required. The same mock is exposed standalone at `scripts/mock-bambu-printer.ts` for ad-hoc CLI testing.
 
 ### Layer responsibilities
 

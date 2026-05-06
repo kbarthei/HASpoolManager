@@ -568,6 +568,34 @@ export async function POST(request: NextRequest) {
       printTransition = "started";
       console.log(`[printer-sync] STARTED: "${printName}" id=${newPrint.id} event=${haEventId}`);
 
+      // Best-effort: auto-link this print to a previously-uploaded 3MF based on
+      // print_name → model_files.filename substring match (≥0.9). Failures are
+      // swallowed inside the helper.
+      void (async () => {
+        const { tryMatchModelFile } = await import("@/lib/model-file-match");
+        await tryMatchModelFile(newPrint.id, printName);
+      })();
+
+      // Also try to FTP-pull the source 3MF from the printer's cache.
+      // Gated on printers.access_code being set; skipped silently otherwise.
+      // Deferred 30s so the printer isn't fighting concurrent FTP reads while
+      // it's spinning up the print job.
+      if (printName) {
+        void (async () => {
+          const { schedulePullFromPrinter, pullByPrintName } = await import("@/lib/printer-ftp-pull");
+          // Use the by-name variant so we don't have to know the exact cache filename.
+          // The internal scheduler waits 30s before contacting the printer.
+          setTimeout(() => {
+            pullByPrintName(printer_id, newPrint.id, printName, null).catch((err) => {
+              console.error(`[ftp-pull] pullByPrintName error: ${(err as Error).message}`);
+            });
+          }, 30_000);
+          // ESLint: schedulePullFromPrinter is referenced via dynamic import + type-check;
+          // include it here so unused-var lint doesn't strip the import.
+          void schedulePullFromPrinter;
+        })();
+      }
+
       // Warn when a print starts without any matched spool — filament usage
       // won't be deducted until a swap event brings in a match.
       if (startIds.length === 0) {

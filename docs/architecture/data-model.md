@@ -425,3 +425,65 @@ Physical filament storage racks. Multiple racks per install supported (e.g. "Mai
 Migration from legacy `rack:R-C` runs once per DB at addon start.
 
 > **Why two formats existed:** in v1.x there was an implicit single rack with dimensions in `settings.rack_rows` / `settings.rack_columns`. The 1.x Multi-AMS migration created a default rack named "Main", rewrote every spool's location to include the new rack UUID, and dropped the legacy settings rows.
+
+### Model files (3MF metadata)
+
+#### `model_files`
+
+Captured metadata from uploaded 3MF files (Bambu Studio / OrcaSlicer). The raw `.3mf` archive is **never** stored on disk — only the cover PNG and parsed metadata. Re-slicing is the slicer's responsibility.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | uuid PK | |
+| `filename` | text NOT NULL | Original 3MF filename at upload time |
+| `sha256` | text NOT NULL UNIQUE | Content hash → idempotent dedup |
+| `format` | text NOT NULL | `'old'` \| `'new'` \| `'geometry-only'` (auto-detected) |
+| `uploaded_at` | timestamptz NOT NULL | |
+| `uploaded_via` | text NOT NULL | `'upload'` (manual) \| `'sync'` (future SMB watcher) |
+| `printer_model` | text | e.g. `'Bambu Lab H2S'` |
+| `layer_height_mm` | real | from `project_settings.config` |
+| `nozzle_diameter_mm` | real | |
+| `plater_name` | text | User-set plate label (Bambu Studio) |
+| `plate_count` | integer NOT NULL | Multi-plate 3MFs supported |
+| `total_prediction_seconds` | integer | NULL in `'new'` format (no embedded gcode) |
+| `total_weight_grams` | real | NULL in `'new'` format |
+| `cover_path` | text | Relative path under `MODEL_FILE_DIR` (`<id>/plate_1.png`) |
+| `parse_warnings` | text | JSON array of strings |
+
+**Indexes:**
+- `idx_model_files_uploaded` on `uploaded_at` (sorts the list page)
+- `idx_model_files_filename` on `filename` (substring match for sync-worker auto-link)
+
+#### `model_file_filaments`
+
+One row per filament slot per plate. Multi-color prints have one row per AMS slot used.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | uuid PK | |
+| `model_file_id` | uuid FK → `model_files.id` ON DELETE CASCADE | |
+| `plate_index` | integer NOT NULL | 1-based plate number |
+| `sequence_id` | integer NOT NULL | 1-based filament slot |
+| `tray_info_idx` | text | Bambu code (`'GFA00'`) — matches `filaments.bambu_idx` |
+| `filament_type` | text | `'PLA'`, `'ASA'`, `'PETG'`, etc. |
+| `color_hex` | text | `#RRGGBB` uppercase |
+| `used_grams` | real | NULL in `'new'` format |
+| `used_meters` | real | NULL in `'new'` format |
+
+**Indexes:**
+- `idx_mff_model` on `model_file_id`
+- `idx_mff_tray` on `tray_info_idx` (compatibility-match join)
+
+**Cardinality:**
+- `model_files` 1:N `model_file_filaments`
+- `model_files` 1:N `prints` (via `prints.model_file_id` — nullable, ON DELETE SET NULL)
+
+> **Why no raw archive:** the user already keeps `.3mf` files elsewhere (Bambu Studio project workspaces, MakerWorld downloads, Git repos). Storing them again would duplicate ~50–700 MB per file with no added value, and 3MF re-creation isn't our job. Only the cover PNG and parsed metadata persist.
+
+#### `printers.access_code` (added 2026-05-06)
+
+Optional 8-digit access code from the printer's LCD (Settings → WLAN → Access Code). Enables the FTPS auto-pull of 3MFs from the printer cache when a print starts. **Does not affect cloud connectivity** — the printer's separate "LAN Only Mode" toggle is what disables cloud, not the presence of this code. Setting it just enables our addon to authenticate against the printer's local FTPS port 990.
+
+#### `model_files.md5` (added 2026-05-06)
+
+MD5 hash from the MQTT `project_file` command Bambu Studio sends when starting a print. Lets the sync-worker short-circuit FTP-pulls: if `md5` is known, the existing `model_files` row is reused without contacting the printer. Distinct from `sha256` (which is computed by us over the raw 3MF bytes after download); MD5 is what Bambu emits.

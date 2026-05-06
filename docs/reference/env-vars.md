@@ -186,3 +186,17 @@ required — tests run against a per-worker SQLite file created from
   in a staging non-addon environment would make the sync worker POST
   to `/ingress/api/...` which doesn't exist locally, and all state
   sync would fail silently.
+
+## Model-file storage
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `MODEL_FILE_DIR` | `/config/haspoolmanager/models` | Where uploaded 3MF cover PNGs are stored. Layout: `<modelFileId>/plate_1.png`. Raw 3MF archives are never written to disk — only the cover. |
+
+## Printer FTPS auto-pull
+
+The 8-digit access code that authenticates the addon's FTPS connection to the
+Bambu printer is **not** an environment variable — it's stored per-printer in
+the `printers.access_code` column, configured via the admin UI. This is
+intentional: the code is per-device, not per-deployment. There is no env-var
+override.
