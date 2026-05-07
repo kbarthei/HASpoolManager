@@ -1,6 +1,8 @@
 # HASpoolManager
 
-> 3D Printing Filament Lifecycle Manager — from purchase to print, every gram tracked.
+> **Track every gram of filament from order confirmation to finished print.**
+> Native Home Assistant addon for Bambu Lab printers — no rest-commands, no YAML,
+> no cloud account. Your data stays on your HA host.
 
 [![CI](https://github.com/kbarthei/HASpoolManager/actions/workflows/ci.yml/badge.svg)](https://github.com/kbarthei/HASpoolManager/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -10,171 +12,195 @@
 [repository-badge]: https://img.shields.io/badge/Add%20repository%20to%20my-Home%20Assistant-41BDF5?logo=home-assistant&style=for-the-badge
 [repository-url]: https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Fkbarthei%2Fhaspoolmanager-addon
 
+![Dashboard](screenshots/light/desktop/01-dashboard.png)
+
+🎬 **[30-second walkthrough video](screenshots/walkthrough.webm)** · 📸 **[Full screenshot tour](screenshots/)** (light + dark, desktop + mobile)
+
+---
+
+## What you get
+
+You order a spool → email confirms it → addon parses the email and adds the
+spool to your inventory. You insert it into your AMS → RFID auto-recognises
+it. You start a print → 3MF metadata is pulled from the printer cache, the
+slicer's cover image becomes your thumbnail, and remaining weight is
+deducted live. The print finishes → cost is calculated from filament + power
+consumption.
+
+**No spreadsheet. No "Spool Manager" tab in OctoPrint that you forgot to
+update three months ago. No cloud account.**
+
+| | |
+|---|---|
+| 🎯 **Zero-config Bambu** | Auto-discovers your printer via HA websocket. RFID exact-match for Bambu spools, CIE Delta-E fuzzy match for everything else. Multi-AMS + AMS HT supported. |
+| 📥 **AI order parsing** | Paste a Bambu / Polymaker / Amazon order email. Claude extracts line items, quantities, unit prices, and shop. Auto-creates pending spools. |
+| 🔍 **3MF metadata pull** | When you click "Send to Printer" in Bambu Studio, the addon FTPs the sliced 3MF from the printer cache, parses cover + filament list + weight estimate, and links it to the running print. |
+| 📊 **Per-print cost analytics** | Filament cost (per gram, with tare-weight calibration) + electricity (HA smart-plug integration) per print. Per-vendor reliability score from HMS errors. |
+| 🏗️ **Multi-rack inventory** | Digital twin of your physical storage — racks, AMS slots, workbench, surplus. Drag-and-drop placement, filter chips by brand/material/color. |
+| 🛒 **Smart reorder** | Threshold-based supply rules → shopping list with live price crawling across Bambu Lab DE, Polymaker, etc. "Optimised cart" minimises shipping cost. |
+| 🩺 **Diagnostics dashboard** | 8 live detectors (RFID drift, stale spools, stuck prints, missing weights, sync errors, orphan photos…) with one-click deep links to fix. |
+| 🔐 **SQL audit log** | Every admin SQL operation logged with user, timing, rows affected. Browser-based SQL runner with read/write modes + dry-run. |
+| 📱 **PWA at the printer** | Mobile-first responsive UI. Add to home screen for a native app feel — bottom tab bar, large touch targets, dense data layout. |
+
+---
+
+## See it in action
+
+**Live printer hero on the dashboard** — RFID-resolved names, remaining %, idle/printing state, all from one HA websocket subscription:
+
+![Printer hero](screenshots/light/desktop/sections/01-dashboard--printer-live.png)
+
+**Inventory page** — physical layout: AMS slots on top, rack grid in the middle, workbench + surplus as flat lists. Filter chips + drag-drop:
+
+![Inventory](screenshots/light/desktop/02-inventory.png)
+
+**Spool Inspector** — full lifecycle for any spool: remaining, cost-per-gram, usage history, location, vendor links, calibration data:
+
+![Spool Inspector](screenshots/light/desktop/04-spool-inspector.png)
+
+**Diagnostics dashboard** — eight detectors that find data drift before you do:
+
+![Diagnostics](screenshots/light/desktop/11-admin-diagnostics.png)
+
+**Mobile PWA** — at the printer in your hand:
+
+<img src="screenshots/light/mobile/01-dashboard.png" width="280" /> <img src="screenshots/light/mobile/02-inventory.png" width="280" /> <img src="screenshots/light/mobile/04-spool-inspector.png" width="280" />
+
+---
+
+## Why not Spoolman / SimplyPrint / your own spreadsheet?
+
+| | HASpoolManager | Spoolman | SimplyPrint | DIY spreadsheet |
+|---|:-:|:-:|:-:|:-:|
+| Native HA integration | ✅ Addon, zero-config | ❌ Separate Docker container | ❌ Cloud SaaS | ❌ |
+| Bambu RFID auto-match | ✅ Out of the box | ⚠️ Manual link | ⚠️ Beta | ❌ |
+| AI order parsing | ✅ Claude-powered | ❌ | ❌ | ❌ |
+| Per-tray weight tracking | ✅ from 3MF + MQTT | ❌ | ✅ | ❌ |
+| AMS humidity tracking | ✅ via MQTT | ❌ | ⚠️ | ❌ |
+| Cost analytics (€ per print) | ✅ Filament + electricity | ⚠️ Filament only | ✅ | DIY |
+| HMS error → vendor reliability | ✅ Auto-correlated | ❌ | ❌ | ❌ |
+| Cloud account required | ❌ Self-hosted | ❌ | ✅ | ❌ |
+| Your data privacy | 💯 SQLite on your HA | 💯 Self-hosted | ⚠️ Cloud | 💯 |
+
+If you already have a Bambu Lab printer + Home Assistant + frustration with
+"why don't my filament records match reality" → this is built for you.
+
 ---
 
 ## Installation
 
-1. Click the **"Add repository"** button above, or manually add this URL in your HA Add-on Store:
-   ```
-   https://github.com/kbarthei/haspoolmanager-addon
-   ```
-2. Find **HASpoolManager** in the store and click **Install**
-3. Start the addon — it auto-discovers your Bambu Lab printer, no configuration needed
-4. Optional: Open `http://homeassistant:3001` in Safari → Share → **Add to Home Screen** for a native PWA experience
+> **Prerequisites:** Home Assistant OS or Supervised, Bambu Lab printer
+> already paired with HA (via the official `ha-bambulab` integration).
 
----
+**1.** Click below to add the addon repository to your HA:
 
-## Overview
+[![Add repository on my Home Assistant][repository-badge]][repository-url]
 
-HASpoolManager is a self-hosted Home Assistant addon for Bambu Lab printer setups. It manages the complete filament lifecycle — from ordering new spools to tracking per-print costs — across 30+ spools with RFID exact matching for Bambu filaments and CIE Delta-E color-distance fuzzy matching for third-party brands. The mobile-first UI is designed for use at the printer, with direct PWA access on port 3001.
-
-**Purchase → Inventory → Storage → AMS Loading → Print Tracking → Usage Deduction → Cost Analytics**
-
-![Dashboard](screenshots/light/desktop/01-dashboard.png)
-
-The printer hero on the dashboard shows live AMS slot state — RFID-matched names, remaining percentages, idle vs. printing, all from one HA websocket subscription:
-
-![Printer hero](screenshots/light/desktop/sections/01-dashboard--printer-live.png)
-
-The Inventory page mirrors your physical setup — AMS slots on top, rack grid below, workbench + surplus as flat lists:
-
-![Inventory](screenshots/light/desktop/02-inventory.png)
-
-Click any spool to drill into its full lifecycle — remaining weight, cost-per-gram, usage history, location:
-
-![Spool Inspector](screenshots/light/desktop/04-spool-inspector.png)
-
-Screenshots are captured from the live addon and committed after redaction — see [`screenshots/`](screenshots/) for the full set (dark + light × desktop + mobile + social-square, card-level section clips, and a 30 s walkthrough video).
-
----
-
-## Key Features
-
-| Feature | Description |
-|---|---|
-| **Zero-Config Sync** | Auto-discovers printers via HA websocket — no YAML, no rest_command, no automations needed |
-| **AI Order Parsing** | Paste an order confirmation email — Claude extracts filament line items, quantities, unit prices, and shops automatically |
-| **Smart Inventory** | Multi-rack + multi-AMS support with drag-and-drop placement, brand/material chips, and a digital twin of every shelf |
-| **AMS Integration** | Real-time slot status for AMS (4-slot) and AMS HT (1-slot); RFID exact match plus CIE Delta-E fuzzy matching |
-| **AMS Drying Status** | Track drying state per AMS unit with automatic status updates |
-| **Per-Tray Weight Tracking** | 3MF-based per-tray weight consumption for accurate usage tracking |
-| **Mid-Print Spool Swap Detection** | Automatically detects and handles spool swaps during active prints; oscillation guard prevents duplicate-draft spawns from non-RFID color drift |
-| **Cover-Image + Camera Snapshot** | Captures the slicer's cover preview at print start (event-driven, race-resistant) and a camera snapshot at end |
-| **Cost Analytics** | Per-print filament + energy costs, per-gram price history, shopping list with live price crawling |
-| **Live Watchdog Polling** | Active prints poll every 30 s for progress + remaining-time so the dashboard never goes stale |
-| **Diagnostics + Self-Heal** | `/admin/diagnostics` surfaces 8 live detectors plus orphan-photo cleanup, all one click away from the affected records |
-| **Full Lifecycle** | Order, receive, store, load, print, track, archive — with confidence-scored spool matching at every step |
-| **Home Assistant Addon** | Native HA websocket sync worker with auto-discovered entities (German + English `original_name` mapping) |
-| **Apple Health Design** | Clean light/dark UI with teal accent, Geist fonts, dense mobile-first layout optimized for use at the printer |
-
----
-
-## Architecture
-
-```mermaid
-graph TB
-    subgraph "Home Assistant"
-        HA[HA Core]
-        ADDON[HASpoolManager Addon]
-        NGINX[nginx reverse proxy]
-    end
-
-    subgraph "Addon Container"
-        NEXT[Next.js 16 Standalone]
-        API[REST API Endpoints]
-        SA[Server Actions]
-        ME[Spool Matching Engine]
-        AI[AI Order Parser]
-        PC[Price Crawler]
-    end
-
-    subgraph "Data"
-        DB[(SQLite · /config/haspoolmanager.db)]
-    end
-
-    subgraph "External"
-        CLAUDE[Anthropic Claude]
-        SHOPS[Shop Websites]
-        PWA[PWA on port 3001]
-    end
-
-    HA -->|Ingress| NGINX
-    NGINX --> NEXT
-    NEXT --> API
-    NEXT --> SA
-    API --> DB
-    SA --> DB
-    ME --> DB
-    AI --> CLAUDE
-    PC --> SHOPS
-    HA -->|Websocket Sync| API
-    PWA --> NGINX
+Or paste manually in **Settings → Add-ons → Add-on Store → ⋮ → Repositories**:
+```
+https://github.com/kbarthei/haspoolmanager-addon
 ```
 
----
+**2.** Find **HASpoolManager** in the store → **Install** → **Start**.
 
-## Tech Stack
+**3.** Open the **Web UI** button. The addon auto-discovers your printer
+   from HA's device registry — no configuration files to write.
 
-| Layer | Technology |
-|-------|-----------|
-| Frontend | Next.js 16 (App Router, Server Components, Turbopack) |
-| UI | shadcn/ui, Tailwind CSS v4, Geist fonts, Recharts |
-| Backend | Next.js API Routes, Server Actions, Zod validation |
-| Database | SQLite (better-sqlite3), Drizzle ORM |
-| AI | Anthropic Claude (order parsing, price extraction) |
-| Hosting | Home Assistant addon (Docker: Alpine + nginx + Next.js standalone) |
-| Auth | Bearer API key (HA integration), web UI via HA ingress, direct PWA on port 3001 |
-| Testing | Vitest (unit + integration with SQLite harness), Playwright (e2e) |
-| CI/CD | GitHub Actions, `./ha-addon/deploy.sh` for addon deploys |
+**4.** *(Optional, recommended)* On your phone, open `http://homeassistant.local:3001`
+   in Safari → Share → **Add to Home Screen**. Now you have a native PWA at
+   the printer with one tap.
 
 ---
 
-## Quick Start
+## Your first hour
 
-### Prerequisites
+Install takes ~5 minutes. The next ~55 minutes are the most important — that's
+where the addon learns about your inventory and starts being useful.
 
-- Node.js 22+
-- Home Assistant instance with SSH access (for addon deployment)
-- Anthropic API key (for AI order parsing)
+### Hour 0–10 min — Verify the printer connection
 
-### Local Development
+- Open the Dashboard. The **Printer hero card** should show your printer's
+  current state: idle, AMS slots populated with the Bambu names from RFID.
+- If it shows `entity_picture: null` for the cover — that's fine, Bambu only
+  pushes covers when a print is actively running. Try sending a test print.
 
-```bash
-git clone https://github.com/kbarthei/HASpoolManager.git
-cd HASpoolManager
-npm install
-cp .env.example .env.local
-# Edit .env.local — set API_SECRET_KEY and ANTHROPIC_API_KEY
-npm run db:push
-npm run dev
-```
+### Hour 10–30 min — Seed your inventory
 
-Open [http://localhost:3000](http://localhost:3000).
+Three ways to get spools into the database:
 
-### Deploy to Home Assistant
+1. **Already have spools loaded in AMS?** They auto-appear within 30s of
+   addon start. Check Dashboard → Printer hero. Each AMS-loaded spool gets a
+   `draft` row that you confirm/edit on the Spool Inspector.
+2. **Have order confirmation emails?** Go to **Orders → Paste Email**.
+   Drop in any Bambu Lab / Polymaker / Amazon Marketplace order email →
+   Claude extracts the line items → click "Receive Order" to materialise spools.
+3. **Manual entry?** Use **Spools → Add Spool** with the catalogue picker —
+   300+ vendors with pre-filled density, temps, and color hex.
 
-```bash
-./ha-addon/deploy.sh     # bumps version, builds tar, scp + install on HA
-```
+For third-party (non-Bambu) spools, scan the NFC sticker (we recommend
+NTAG213/215 — see [`docs/operator/configuration.md`](docs/operator/configuration.md))
+and the addon will associate the tag UID with the spool record. Next time
+you load that spool in AMS, the addon recognises it via the cached tag.
 
-Requires SSH key auth to `root@homeassistant` and a writable `/addons/` directory on the HA host.
+### Hour 30–45 min — Trigger your first print
 
-### PWA Install
+Send any small print from Bambu Studio. Within 30s you should see:
+- Dashboard shows the print in **Currently Printing** with cover image, layer
+  progress, and remaining-time
+- After 30s the addon auto-pulls the source 3MF from the printer cache via
+  FTPS (set the printer's Access Code in **Admin → Bambu Access Code** first)
+- When the print finishes, **Prints** page shows weight used per spool, cost,
+  and the camera snapshot
 
-After deploying the addon, open `http://<ha-host>:3001` on your phone and add to home screen for a native app experience at the printer.
+### Hour 45–60 min — Set supply rules
 
-### Commands
+Go to **Orders → Supply Rules**. Set "minimum 1 spool active" for each
+Material × Color you regularly use. The Shopping List card now shows what
+to reorder, the Optimised Cart suggests the cheapest combination across
+your configured shops.
 
-```bash
-npm run dev                # Dev server (Turbopack)
-npm run build              # Production build
-npm run test:unit          # Unit tests (no DB needed)
-npm run test:integration   # Integration tests (per-worker SQLite)
-npm run test:e2e           # E2e tests (Docker nginx + ingress simulator)
-npm run db:push            # Push schema to local SQLite
-npm run db:studio          # Drizzle Studio
-./ha-addon/deploy.sh       # Build + deploy to HA
-```
+If you have an HA smart plug on your printer, configure it under
+**Admin → Energy Tracking** so per-print electricity cost shows alongside
+filament cost.
+
+---
+
+## FAQ
+
+**Does this work without internet?**
+Yes. Once installed, all features except AI order parsing and price crawling
+work fully offline. The sync worker talks to your local HA instance; nothing
+leaves your network.
+
+**Does this work with non-Bambu printers?**
+The HA integration is Bambu-specific (uses `ha-bambulab` events). For other
+printers you can manually create spools, track prints, and use cost
+analytics — but you lose the AMS auto-sync magic.
+
+**What happens to my data if I uninstall the addon?**
+The SQLite database stays at `/config/haspoolmanager.db` on your HA host.
+Backups (gzipped daily) live at `/config/haspoolmanager/backups/`. Reinstall
+restores everything.
+
+**Is there a cloud version?**
+No, by design. Everything runs in your HA addon container. Even the AI order
+parsing makes a single outbound HTTPS call to Anthropic with the email text
+only — no spool data leaves your host.
+
+**Can I run this without Home Assistant?**
+The addon expects HA's environment (Supervisor token, ingress proxy). For a
+non-HA self-host you'd need to extract the Next.js app and recreate the
+sync worker's HA-websocket connection — possible but unsupported.
+
+**Where do I file bugs / feature requests?**
+[GitHub Issues](https://github.com/kbarthei/HASpoolManager/issues). Include
+your addon version (visible in the top-left header) and any relevant
+`/admin` diagnostics card output.
+
+**How is this maintained?**
+By one person (the maintainer's own H2S setup is the reference deployment).
+Releases happen when features are ready, not on a schedule. CI is green on
+every push to `main`. ~880 tests, ~50 e2e specs.
 
 ---
 
@@ -182,35 +208,52 @@ npm run db:studio          # Drizzle Studio
 
 | Document | Description |
 |----------|-------------|
-| [Docs index](docs/README.md) | Entry point for all documentation |
-| [Architecture](docs/architecture/overview.md) | System design, data flow, tech decisions |
-| [Installation](docs/operator/installation.md) | Installation and setup guide |
-| [Configuration](docs/operator/configuration.md) | Configuration reference |
-| [API Reference](docs/reference/api.md) | All API endpoints with request/response examples |
-| [Testing](docs/development/testing.md) | Test pyramid, CI pipeline, spec catalogue |
-| [User Stories](docs/user-stories/) | Procurement, printing, and spool management workflows |
+| [Docs index](docs/README.md) | Full documentation tree |
+| [User Guide](docs/operator/user-guide.md) | Day-to-day workflows |
+| [Operations Runbook](docs/operator/operations-runbook.md) | Break-fix recipes |
+| [Configuration](docs/operator/configuration.md) | All config options |
+| [Architecture](docs/architecture/overview.md) | System design + data flow |
+| [API Reference](docs/reference/api.md) | Every `/api/v1/*` endpoint |
 
 ---
 
-## Testing
+## For developers
 
-| Level | Tests | Files |
+**Tech stack** — Next.js 16 (App Router, Turbopack) · shadcn/ui + Tailwind v4 ·
+SQLite + Drizzle ORM · Vitest + Playwright · Anthropic Claude (AI parser).
+
+**Local dev:**
+```bash
+git clone https://github.com/kbarthei/HASpoolManager.git
+cd HASpoolManager
+npm install
+cp .env.example .env.local                  # set API_SECRET_KEY etc
+# Restore a real-data snapshot (see docs/development/getting-started.md §3)
+cp testdata/db-snapshots/prod-*.db data/haspoolmanager.db
+node scripts/migrate-db.js
+npm run dev                                 # http://localhost:3000
+```
+
+**Test suite — currently green at 936 tests:**
+| Layer | Tests | Files |
 |-------|------:|------:|
-| Unit | 537 | 22 |
-| Integration | 186 | 22 |
-| E2e | ~50 | 18 |
-| **Total** | **~773** | **62** |
+| Unit (Vitest, no DB) | 660 | 28 |
+| Integration (per-worker SQLite) | 226 | 26 |
+| E2e (Docker nginx + Playwright) | ~50 | 18 |
 
-Unit tests cover the spool matching engine (RFID, CIE Delta-E, fuzzy), API route validation (Zod schemas), cost calculation, and data transformation utilities. Integration tests call route handlers directly against a per-worker SQLite harness — including a **browser auth contract** test that asserts every browser-callable route accepts no-Bearer requests. E2e tests run against the full addon stack: Next.js standalone, Docker nginx with production config, and a Node.js ingress simulator.
+The integration tier includes an auto-discovered **browser-auth-contract**
+scanner that fails CI if any new browser-called endpoint uses `requireAuth`
+without a Bearer-wrapping client.
 
-**CI pipeline:** lint + typecheck + unit + integration on every PR; e2e on main push. Screenshots are regenerated on demand via `npm run screenshots` against the live addon and committed after redaction — no CI side-task.
+Full setup, conventions, and PR workflow in [CONTRIBUTING.md](CONTRIBUTING.md)
+and [docs/development/getting-started.md](docs/development/getting-started.md).
+
+**For AI agents:**
+- [CLAUDE.md](CLAUDE.md) — feature development conventions
+- [BOB.md](BOB.md) — architecture/security review standards
 
 ---
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
-
----
-
-Built with [Claude Code](https://claude.ai/code) by [@kbarthei](https://github.com/kbarthei)
+MIT — see [LICENSE](LICENSE). Use it, fork it, ship your own version.
