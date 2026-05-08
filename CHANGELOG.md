@@ -6,6 +6,9 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## May 2026
 
+- **chore:** track v1.1.24 version bump from prior deploy (`f146fdf`)
+- **fix:** persist sync-worker state to disk so /api/v1/health doesn't lie (`995d745`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`fec5a4f`)
 - **test:** update sql-execute test for optionalAuth behavior (`76e2405`)
 - **docs:** update for SQL Runner + cross-agent coordination (`eb8219f`)
 - **feat:** add SQL Query Runner UI to admin panel (`9c779d4`)
