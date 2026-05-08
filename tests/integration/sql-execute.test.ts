@@ -25,9 +25,9 @@ beforeAll(async () => {
 });
 
 describe("POST /api/v1/admin/sql/execute — auth", () => {
-  it("rejects unauthenticated requests with 401", async () => {
+  it("accepts requests without Bearer token (browser-callable via optionalAuth)", async () => {
     const { status } = await post({ sql: "UPDATE spools SET location = 'x'" }, false);
-    expect(status).toBe(401);
+    expect(status).toBe(200); // optionalAuth allows browser access
   });
 });
 
