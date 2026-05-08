@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## May 2026
 
+- **fix:** newest-recent-upload fallback when print_name has no token signal (`4895556`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`9f5f0e9`)
 - **fix:** token-overlap matching + manual re-pull endpoint (`c9499a2`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`d4f992c`)
 - **fix:** H2S keeps 3MFs in / (root), not /cache/ — search both paths (`f9c1b21`)
