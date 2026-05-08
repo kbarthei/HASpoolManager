@@ -144,8 +144,11 @@ function PrinterRow({ printer }: { printer: PrinterRow }) {
           inputMode="numeric"
           autoComplete="off"
           value={code}
-          onChange={(e) => setCode(e.target.value.replace(/[^0-9]/g, "").slice(0, 12))}
-          placeholder="6–8 digit Access Code"
+          // Bambu access codes are alphanumeric (e.g. H2S: "27bc0073").
+          // Keep only [A-Za-z0-9], preserve original case (printer LCD
+          // is case-sensitive). Cap at 12 chars defensively.
+          onChange={(e) => setCode(e.target.value.replace(/[^A-Za-z0-9]/g, "").slice(0, 12))}
+          placeholder="Access Code (alphanumeric)"
           className="font-mono w-44"
           aria-label={`Access code for ${printer.name}`}
           data-testid={`access-code-input-${printer.id}`}
@@ -157,10 +160,6 @@ function PrinterRow({ printer }: { printer: PrinterRow }) {
           size="sm"
           variant="outline"
           onClick={onTest}
-          // Bambu printers historically issued 8-digit access codes; H2 / H2D
-          // firmware sometimes shows 6-digit codes (leading zeros stripped).
-          // Don't gate on a fixed length — let the FTPS server reject if
-          // wrong, and surface the error in the test result.
           disabled={testing || !printer.ipAddress || code.trim().length < 4}
         >
           {testing ? <Loader2 className="h-3 w-3 animate-spin" /> : "Test connection"}
