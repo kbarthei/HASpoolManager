@@ -6,6 +6,10 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## May 2026
 
+- **test:** update sql-execute test for optionalAuth behavior (`76e2405`)
+- **docs:** update for SQL Runner + cross-agent coordination (`eb8219f`)
+- **feat:** add SQL Query Runner UI to admin panel (`9c779d4`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`f428217`)
 - **docs:** rewrite for public release — onboarding journey + value prop (`9a04279`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`50b3bdf`)
 - **fix:** revert sql-execute auth assertion — main still has requireAuth (`a500a62`)
