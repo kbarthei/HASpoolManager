@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## May 2026
 
+- **fix:** assert href on print-detail link instead of click (hydration flake) (`0c37112`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`1b35b8e`)
 - **fix:** use testid not href for cross-link nav (basePath rewrites href at render) (`fdc0e9f`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`e4f0ff2`)
 - - test+docs: print ↔ model cross-link e2e + user-guide entries (`41f702c`)
