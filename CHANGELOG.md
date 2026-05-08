@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## May 2026
 
+- **fix:** token-overlap matching + manual re-pull endpoint (`c9499a2`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`d4f992c`)
 - **fix:** H2S keeps 3MFs in / (root), not /cache/ — search both paths (`f9c1b21`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`ebc4f82`)
 - **feat:** editable printer IP in Access Code card (`1021e81`)
