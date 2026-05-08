@@ -4,13 +4,13 @@
 
 ```
 ┌──────────────────────────────────────────────┐
-│ E2e (Playwright + Docker nginx + ingress)    │  ~50 tests (18 specs)
+│ E2e (Playwright + Docker nginx + ingress)    │  ~53 tests (19 specs)
 ├──────────────────────────────────────────────┤
-│ Integration (Vitest + SQLite file DB)        │ 210 tests (25 files)
+│ Integration (Vitest + SQLite file DB)        │ 216 tests (26 files)
 ├──────────────────────────────────────────────┤
-│ Unit (Vitest, no DB)                         │ 656 tests (27 files)
+│ Unit (Vitest, no DB)                         │ 670 tests (30 files)
 └──────────────────────────────────────────────┘
-Total: ~916 tests — CI runs unit + integration on every push,
+Total: ~939 tests — CI runs unit + integration on every push,
 e2e only on `main` push (~2 min total).
 ```
 
@@ -65,6 +65,7 @@ e2e only on `main` push (~2 min total).
 | `13-mobile-viewport.spec.ts` | All key pages render correctly at 375×667 |
 | `14-analytics-page.spec.ts` | /analytics renders + reachable via top-tabs nav |
 | `15-diagnostics.spec.ts` | Diagnostics dashboard renders sections + admin links to it |
+| `16-print-model-cross-link.spec.ts` | Bidirectional nav print ↔ model: history → model link, print detail → model, model detail → print detail |
 
 > **Pages anchored:** dashboard, spools, inventory, orders, prints, history, admin, scan (8 total, 7 navigable + root). Each has `data-testid="page-<name>"` on the root.
 >

@@ -299,7 +299,13 @@ before you start a print, **which spools you have available** for it.
 1. **Drag-drop** a `.3mf` onto the Models page (or click "Datei wählen").
 2. The parser extracts cover image + filaments + plate-info. **No raw `.3mf` is stored** — only the cover PNG and metadata.
 3. Open the model card. You see one row per filament needed, with a list of currently-active spools that match (RFID exact match preferred, otherwise material+color).
-4. When the actual print starts, the sync worker auto-links the print row to the 3MF (substring match on `print_name`, ≥0.9 confidence). The link shows up under "Drucke mit diesem Modell" on the model detail page.
+4. When the actual print starts, the sync worker auto-links the print row to the 3MF (token-overlap on `print_name` against cached filenames, with a "newest-recent-upload" fallback for unnamed prints). The link appears under "Drucke mit diesem Modell" on the model detail page.
+
+### Navigating between prints and models
+
+- **From a print to its model:** every print card in `/prints` shows a small `📁 Model` link when a 3MF is attached. The print title itself opens the print detail page, which shows the linked model with cover thumbnail.
+- **From a model to its prints:** the model detail page lists every print that used this 3MF — click any row to jump to the print detail.
+- **Wrong file linked?** Open the print detail page and click **Re-pull 3MF**. If the auto-match keeps picking wrong, expand "Override match" and paste the project filename you want to match against (token-overlap will then score it directly).
 
 ### What you get per format
 
@@ -335,12 +341,16 @@ The seamless path: enter your printer's **Access Code** once on `/admin`, then t
 | When | What |
 |---|---|
 | Print starts | Sync-worker schedules a 30s-delayed FTP-pull |
-| 30s later | List `cache/` on printer (FTPS port 990, user `bblp`, pass = access code) |
-| | Match file by print name (substring) or fallback to newest |
+| 30s later | List `cache/` (P1S/X1C/A1) **and** `/` root (H2S) on printer (FTPS port 990, user `bblp`, pass = access code) |
+| | Token-overlap match `print_name` ↔ cached filenames |
+| | If no token signal AND a `.3mf` was uploaded < 5 min ago → fall back to that file (Bambu Studio uploads right before "Print") |
+| | Otherwise leave `prints.model_file_id` null — never link a wrong file |
 | | Download into memory, parse, dedup by sha256, persist metadata + cover |
 | | Link 3MF to the running print → app shows compatibility card |
 
 If the access code is wrong, missing, or the printer is unreachable, the pull is silently skipped — your print isn't blocked, you just don't get the auto-link.
+
+If the auto-pull picked a wrong file or didn't fire at all (e.g. the print started from the printer's LCD history, not from Studio), open the print detail page and click **Re-pull 3MF**.
 
 ### Local validation (no real printer needed)
 
