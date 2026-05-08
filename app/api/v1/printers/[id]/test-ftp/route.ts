@@ -14,18 +14,22 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
 
   const { id } = await ctx.params;
 
-  let body: { accessCode?: string } = {};
+  // Body lets the admin UI test unsaved IP/code edits without persisting them
+  // first. Both fields fall back to the stored printer row if absent.
+  let body: { accessCode?: string; ipAddress?: string } = {};
   try {
     body = await request.json();
   } catch {
-    // empty body is fine — fall back to stored access code
+    // empty body is fine — fall back to stored values
   }
 
   const printer = await db.query.printers.findFirst({ where: eq(printers.id, id) });
   if (!printer) {
     return NextResponse.json({ error: "Printer not found" }, { status: 404 });
   }
-  if (!printer.ipAddress) {
+
+  const host = (body.ipAddress?.trim() || printer.ipAddress) ?? null;
+  if (!host) {
     return NextResponse.json({ error: "Printer has no IP address configured" }, { status: 400 });
   }
 
@@ -35,7 +39,7 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
   }
 
   const result = await testFtpConnection({
-    host: printer.ipAddress,
+    host,
     accessCode,
   });
 

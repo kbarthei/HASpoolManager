@@ -64,8 +64,13 @@ export function AccessCodeCard({ printers }: Props) {
   );
 }
 
+// Match IPv4 like 10.10.35.53 — also accept ongoing input (allow trailing
+// dot) for a forgiving onChange. Strict validation happens at save-time.
+const IPV4_REGEX = /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/;
+
 function PrinterRow({ printer }: { printer: PrinterRow }) {
   const [code, setCode] = useState(printer.accessCode ?? "");
+  const [ip, setIp] = useState(printer.ipAddress ?? "");
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<TestResult | null>(null);
@@ -74,24 +79,37 @@ function PrinterRow({ printer }: { printer: PrinterRow }) {
   useEffect(() => {
     setCode(printer.accessCode ?? "");
   }, [printer.accessCode]);
+  useEffect(() => {
+    setIp(printer.ipAddress ?? "");
+  }, [printer.ipAddress]);
 
-  const dirty = code.trim() !== (printer.accessCode ?? "");
+  const codeDirty = code.trim() !== (printer.accessCode ?? "");
+  const ipDirty = ip.trim() !== (printer.ipAddress ?? "");
+  const dirty = codeDirty || ipDirty;
+  const ipValid = ip.trim() === "" || IPV4_REGEX.test(ip.trim());
 
   async function onSave() {
     if (!dirty) return;
+    if (!ipValid) {
+      toast.error("Ungültige IP-Adresse");
+      return;
+    }
     setSaving(true);
     try {
+      const body: { accessCode?: string | null; ipAddress?: string | null } = {};
+      if (codeDirty) body.accessCode = code.trim() || null;
+      if (ipDirty) body.ipAddress = ip.trim() || null;
       const res = await fetch(`${getApiBase()}/api/v1/printers/${printer.id}`, {
         method: "PUT",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ accessCode: code.trim() || null }),
+        body: JSON.stringify(body),
       });
       if (!res.ok) {
-        const body = (await res.json().catch(() => null)) as { error?: string } | null;
-        toast.error(body?.error ?? `${res.status} ${res.statusText}`);
+        const errBody = (await res.json().catch(() => null)) as { error?: string } | null;
+        toast.error(errBody?.error ?? `${res.status} ${res.statusText}`);
         return;
       }
-      toast.success("Access Code gespeichert");
+      toast.success("Gespeichert");
       startTransition(() => location.reload());
     } finally {
       setSaving(false);
@@ -102,10 +120,12 @@ function PrinterRow({ printer }: { printer: PrinterRow }) {
     setTesting(true);
     setTestResult(null);
     try {
+      // Send BOTH the in-memory IP + code so the test reflects unsaved
+      // edits. The endpoint falls back to stored values if either is missing.
       const res = await fetch(`${getApiBase()}/api/v1/printers/${printer.id}/test-ftp`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ accessCode: code.trim() }),
+        body: JSON.stringify({ accessCode: code.trim(), ipAddress: ip.trim() }),
       });
       const body = (await res.json()) as TestResult;
       setTestResult(body);
@@ -123,8 +143,7 @@ function PrinterRow({ printer }: { printer: PrinterRow }) {
       <div className="flex items-center justify-between text-xs">
         <div className="flex items-center gap-2">
           <strong>{printer.name}</strong>
-          <span className="text-muted-foreground">{printer.ipAddress ?? "(no IP)"}</span>
-          {printer.accessCode ? (
+          {printer.accessCode && printer.ipAddress ? (
             <Badge variant="default" className="bg-emerald-600 text-white">
               <Wifi className="h-3 w-3 mr-1" />
               configured
@@ -132,35 +151,53 @@ function PrinterRow({ printer }: { printer: PrinterRow }) {
           ) : (
             <Badge variant="secondary">
               <WifiOff className="h-3 w-3 mr-1" />
-              not set
+              {!printer.ipAddress ? "no IP" : "no code"}
             </Badge>
           )}
         </div>
       </div>
 
-      <div className="flex items-center gap-2">
-        <Input
-          type="text"
-          inputMode="numeric"
-          autoComplete="off"
-          value={code}
-          // Bambu access codes are alphanumeric (e.g. H2S: "27bc0073").
-          // Keep only [A-Za-z0-9], preserve original case (printer LCD
-          // is case-sensitive). Cap at 12 chars defensively.
-          onChange={(e) => setCode(e.target.value.replace(/[^A-Za-z0-9]/g, "").slice(0, 12))}
-          placeholder="Access Code (alphanumeric)"
-          className="font-mono w-44"
-          aria-label={`Access code for ${printer.name}`}
-          data-testid={`access-code-input-${printer.id}`}
-        />
-        <Button size="sm" onClick={onSave} disabled={!dirty || saving}>
+      <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto_auto] gap-2 items-start">
+        <div className="space-y-1">
+          <label className="text-2xs uppercase tracking-wider text-muted-foreground">IP Address</label>
+          <Input
+            type="text"
+            inputMode="decimal"
+            autoComplete="off"
+            value={ip}
+            onChange={(e) => setIp(e.target.value.replace(/[^0-9.]/g, "").slice(0, 15))}
+            placeholder="10.10.35.53"
+            className={`font-mono ${!ipValid ? "border-destructive" : ""}`}
+            aria-label={`IP address for ${printer.name}`}
+            data-testid={`ip-input-${printer.id}`}
+          />
+        </div>
+        <div className="space-y-1">
+          <label className="text-2xs uppercase tracking-wider text-muted-foreground">Access Code</label>
+          <Input
+            type="text"
+            inputMode="numeric"
+            autoComplete="off"
+            value={code}
+            // Bambu access codes are alphanumeric (e.g. H2S: "27bc0073").
+            // Keep only [A-Za-z0-9], preserve original case (printer LCD
+            // is case-sensitive). Cap at 12 chars defensively.
+            onChange={(e) => setCode(e.target.value.replace(/[^A-Za-z0-9]/g, "").slice(0, 12))}
+            placeholder="27bc0073"
+            className="font-mono"
+            aria-label={`Access code for ${printer.name}`}
+            data-testid={`access-code-input-${printer.id}`}
+          />
+        </div>
+        <Button size="sm" onClick={onSave} disabled={!dirty || saving || !ipValid} className="self-end">
           {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save"}
         </Button>
         <Button
           size="sm"
           variant="outline"
           onClick={onTest}
-          disabled={testing || !printer.ipAddress || code.trim().length < 4}
+          disabled={testing || !ip.trim() || !ipValid || code.trim().length < 4}
+          className="self-end"
         >
           {testing ? <Loader2 className="h-3 w-3 animate-spin" /> : "Test connection"}
         </Button>
