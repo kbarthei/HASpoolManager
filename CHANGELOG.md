@@ -6,6 +6,9 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## May 2026
 
+- **chore:** bump version to 1.1.26 (`3820798`)
+- **fix:** remove incorrect auth check from audit-logs route (`6c5530f`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`66faca3`)
 - **chore:** track v1.1.24 version bump from prior deploy (`f146fdf`)
 - **fix:** persist sync-worker state to disk so /api/v1/health doesn't lie (`995d745`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`fec5a4f`)
