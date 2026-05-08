@@ -210,23 +210,40 @@ export async function pullByPrintName(
   }
 
   if (entries.length === 0) {
-    console.log(`[ftp-pull] cache/ empty on ${printer.name}`);
+    console.log(`[ftp-pull] no .3mf files on ${printer.name}`);
     return;
   }
 
-  // Match by substring on normalized form. Cache filenames are like
-  // "<name>.gcode.3mf" — strip suffix, lower-case, then substring-compare.
-  const printNameNorm = normalize(printName);
-  const matches = entries.filter((e) => {
-    const fnNorm = normalize(e.name);
-    return fnNorm.includes(printNameNorm) || printNameNorm.includes(fnNorm);
+  // Token-overlap match. "Plant Clip - PLA version" prints from a file
+  // called "Plant_Clip_Plant_Support.gcode.3mf"; substring-match misses
+  // because neither string contains the other, but {plant, clip} are
+  // shared tokens. Fall back to filename-substring only as a tiebreaker.
+  const printTokens = tokenize(printName);
+  const scored = entries.map((e) => {
+    const fileTokens = tokenize(e.name);
+    const shared = countShared(printTokens, fileTokens);
+    // Bonus when filename strictly contains the print name (or vice versa)
+    // — this catches cases where the user's print name IS the filename.
+    const fileNorm = collapse(e.name);
+    const printNorm = collapse(printName);
+    const substringBonus = printNorm && (fileNorm.includes(printNorm) || printNorm.includes(fileNorm)) ? 100 : 0;
+    return { entry: e, score: shared + substringBonus };
   });
+  scored.sort((a, b) => b.score - a.score);
 
-  // Prefer a substring match; if none, fall back to the most-recently-modified
-  // file (heuristic: BBS just uploaded it, so it's the freshest).
-  const target = matches[0] ?? entries[0];
+  const best = scored[0];
+  // No real signal at all → don't link. Linking the alphabetically-first
+  // file produces wrong covers and confuses the user worse than no link.
+  if (best.score === 0) {
+    console.log(
+      `[ftp-pull] no token match for "${printName}" against ${entries.length} candidate(s) — leaving prints.model_file_id null`,
+    );
+    return;
+  }
+
+  const target = best.entry;
   const displayPath = target.dir ? `${target.dir}/${target.name}` : `/${target.name}`;
-  console.log(`[ftp-pull] selected "${displayPath}" for print "${printName}" (${matches.length === 0 ? "fallback-newest" : "substring-match"})`);
+  console.log(`[ftp-pull] selected "${displayPath}" for print "${printName}" (score=${best.score})`);
 
   await pullFromPrinterAndLink({
     printerId,
@@ -237,11 +254,33 @@ export async function pullByPrintName(
   });
 }
 
-function normalize(s: string): string {
+// Strip the `.gcode.3mf` / `.3mf` suffix, lowercase, collapse whitespace.
+// "Plant Clip - PLA version" → "plantclipplaversion".
+function collapse(s: string): string {
   return s
     .toLowerCase()
     .replace(/\.gcode\.3mf$/i, "")
     .replace(/\.3mf$/i, "")
     .replace(/[\s\-_]+/g, "")
-    .replace(/sliced$/i, "");
+    .replace(/sliced$/i, "")
+    .replace(/[^a-z0-9]/g, "");
+}
+
+// Split into lowercase alphanumeric tokens of length ≥ 2.
+// Drops uninformative single chars and noise.
+function tokenize(s: string): Set<string> {
+  return new Set(
+    s
+      .toLowerCase()
+      .replace(/\.gcode\.3mf$/i, "")
+      .replace(/\.3mf$/i, "")
+      .split(/[^a-z0-9]+/)
+      .filter((t) => t.length >= 2),
+  );
+}
+
+function countShared(a: Set<string>, b: Set<string>): number {
+  let n = 0;
+  for (const t of a) if (b.has(t)) n++;
+  return n;
 }
