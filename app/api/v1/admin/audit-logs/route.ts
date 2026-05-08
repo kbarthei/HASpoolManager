@@ -20,7 +20,8 @@ const VALID_OPS = new Set(["SELECT", "INSERT", "UPDATE", "DELETE", "PRAGMA", "DD
 // token (HA ingress / LAN-only PWA gates access at the addon layer).
 // See docs/architecture/security-model.md for the auth-tier convention.
 export async function GET(request: NextRequest) {
-  await optionalAuth(request); // Verify format but don't require Bearer token
+  const auth = await optionalAuth(request);
+  if (!auth.authenticated) return auth.response;
 
   try {
     const { searchParams } = new URL(request.url);

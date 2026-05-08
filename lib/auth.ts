@@ -224,7 +224,14 @@ export type AuthResult =
  */
 export async function optionalAuth(request: NextRequest): Promise<AuthResult> {
   const authHeader = request.headers.get("authorization");
-  if (!authHeader) {
+  // Treat missing header AND non-Bearer headers as "anonymous web UI".
+  // HA ingress sometimes injects its own Authorization (Basic / session
+  // tokens) which is NOT a Bearer claim against our API. We must not
+  // route those through requireAuth() — that would 401 every browser
+  // request via ingress with "Missing Authorization header".
+  // Only when the caller explicitly passes a `Bearer ...` prefix do
+  // we validate it (and reject invalid tokens, no silent bypass).
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return { authenticated: true, keyId: "web-ui", name: "web-ui" };
   }
   return requireAuth(request);
