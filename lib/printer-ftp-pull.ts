@@ -26,7 +26,10 @@ const PRINT_START_DELAY_MS = 30_000; // give printer 30s to settle before compet
 export interface PullParams {
   printerId: string;
   printId: string;
-  filename: string; // e.g. "cache/X.gcode.3mf" or just "X.gcode.3mf"
+  filename: string; // bare filename, e.g. "Foo.gcode.3mf"
+  /** Directory the file lives in. P1S/X1C/A1 use "cache"; H2S uses ""
+   *  (root). Optional — defaults to "cache" for legacy callers. */
+  dir?: string;
   md5?: string | null; // from MQTT project_file command
 }
 
@@ -61,9 +64,9 @@ export async function pullFromPrinterAndLink(params: PullParams): Promise<void> 
 
   let buffer: Buffer;
   try {
-    buffer = await downloadCacheFile(config, filename);
+    buffer = await downloadCacheFile(config, filename, { dir: params.dir ?? "cache" });
   } catch (err) {
-    console.error(`[ftp-pull] download failed for cache/${filename}: ${(err as Error).message}`);
+    console.error(`[ftp-pull] download failed for ${params.dir ?? "cache"}/${filename}: ${(err as Error).message}`);
     return;
   }
 
@@ -222,12 +225,14 @@ export async function pullByPrintName(
   // Prefer a substring match; if none, fall back to the most-recently-modified
   // file (heuristic: BBS just uploaded it, so it's the freshest).
   const target = matches[0] ?? entries[0];
-  console.log(`[ftp-pull] selected "${target.name}" for print "${printName}" (${matches.length === 0 ? "fallback-newest" : "substring-match"})`);
+  const displayPath = target.dir ? `${target.dir}/${target.name}` : `/${target.name}`;
+  console.log(`[ftp-pull] selected "${displayPath}" for print "${printName}" (${matches.length === 0 ? "fallback-newest" : "substring-match"})`);
 
   await pullFromPrinterAndLink({
     printerId,
     printId,
     filename: target.name,
+    dir: target.dir,
     md5,
   });
 }

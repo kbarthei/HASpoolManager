@@ -31,6 +31,9 @@ export interface FtpConfig {
 
 export interface CacheEntry {
   name: string;
+  /** Directory the file lives in on the printer's FTPS server. P1S/X1C/A1 use
+   *  `cache/`; H2S keeps them in `/` (root). Empty string == root. */
+  dir: string;
   size: number;
   modifiedAt?: Date;
 }
@@ -95,38 +98,59 @@ export async function withFtpSession<T>(
 }
 
 /**
- * List `.3mf` files in the printer's `cache/` directory. Newest first.
+ * List `.3mf` files on the printer. Searches both `cache/` (P1S/X1C/A1
+ * convention) and `/` (H2S convention) so the caller doesn't need to know
+ * which firmware family we're talking to.
  *
- * Sub-directories are skipped (Bambu firmware places .gcode.3mf files at the
- * root of `cache/` only).
+ * Each entry carries its `dir` so subsequent `downloadCacheFile()` calls
+ * know which path to RETR from.
  */
 export async function listCache3mfs(config: FtpConfig): Promise<CacheEntry[]> {
   return withFtpSession(config, async (client) => {
-    const list = await client.list("cache");
-    const entries: CacheEntry[] = list
-      .filter((f) => f.isFile && f.name.toLowerCase().endsWith(".3mf"))
-      .map((f) => ({ name: f.name, size: f.size, modifiedAt: f.modifiedAt }));
-    entries.sort((a, b) => (b.modifiedAt?.getTime() ?? 0) - (a.modifiedAt?.getTime() ?? 0));
-    return entries;
+    const out: CacheEntry[] = [];
+    for (const dir of ["cache", ""]) {
+      try {
+        const list = await client.list(dir || ".");
+        for (const f of list) {
+          if (!f.isFile) continue;
+          if (!f.name.toLowerCase().endsWith(".3mf")) continue;
+          out.push({ name: f.name, dir, size: f.size, modifiedAt: f.modifiedAt });
+        }
+      } catch {
+        // Directory doesn't exist or no permission — try the next one.
+      }
+    }
+    // Sort newest first when mtime is available; fall back to name.
+    out.sort((a, b) => {
+      const aT = a.modifiedAt?.getTime() ?? 0;
+      const bT = b.modifiedAt?.getTime() ?? 0;
+      if (aT !== bT) return bT - aT;
+      return a.name.localeCompare(b.name);
+    });
+    return out;
   });
 }
 
 /**
- * Download a single `cache/<name>` file into a memory Buffer. Caller decides
- * whether to keep the buffer, parse it, or discard.
+ * Download a single 3MF into a memory Buffer. Pass the same `dir` that
+ * `listCache3mfs` returned for this entry — empty string means root.
  *
- * Risk: 3MFs are 10–150 MB. Caller should validate the entry's `size` field
- * before calling this — silently buffering 200 MB on a memory-constrained
+ * Risk: 3MFs can be 100+ MB. Caller should validate the entry's `size`
+ * before calling — silently buffering large files on a memory-constrained
  * HA host is bad citizen behavior.
  */
 export async function downloadCacheFile(
   config: FtpConfig,
   filename: string,
-  maxBytes = 200 * 1024 * 1024,
+  options: { dir?: string; maxBytes?: number } = {},
 ): Promise<Buffer> {
   if (!isSafeFilename(filename)) {
     throw new Error(`Refusing unsafe filename: ${filename}`);
   }
+  const dir = options.dir ?? "cache";
+  const maxBytes = options.maxBytes ?? 200 * 1024 * 1024;
+  const remotePath = dir ? `${dir}/${filename}` : filename;
+
   return withFtpSession(config, async (client) => {
     const chunks: Buffer[] = [];
     let totalBytes = 0;
@@ -142,7 +166,7 @@ export async function downloadCacheFile(
         cb();
       },
     });
-    await client.downloadTo(collector, `cache/${filename}`);
+    await client.downloadTo(collector, remotePath);
     return Buffer.concat(chunks);
   });
 }
@@ -171,11 +195,20 @@ export async function testFtpConnection(config: FtpConfig): Promise<FtpTestResul
   }
 
   try {
+    // Try `cache/` (P1S/X1C/A1) AND root (`/`, H2S). Sum the .3mf counts
+    // from both so the user sees total reachable files regardless of
+    // which firmware family this printer runs.
     const result = await withFtpSession(config, async (client) => {
-      const list = await client.list("cache").catch((err) => {
-        throw new Error(`list cache/ failed: ${(err as Error).message}`);
-      });
-      return list.filter((f) => f.isFile && f.name.endsWith(".3mf")).length;
+      let count = 0;
+      for (const dir of ["cache", "."]) {
+        try {
+          const list = await client.list(dir);
+          count += list.filter((f) => f.isFile && f.name.endsWith(".3mf")).length;
+        } catch {
+          // dir missing — that's fine, try the next
+        }
+      }
+      return count;
     });
     return { ok: true, step: "done", fileCount: result };
   } catch (err) {
