@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## May 2026
 
+- **feat:** editable printer IP in Access Code card (`1021e81`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`8d908e4`)
 - **fix:** Bambu access codes are alphanumeric, not numeric-only (`95020fe`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`7131938`)
 - **fix:** allow shorter Bambu access codes (H2/H2D show 6-digit) (`ce20001`)
