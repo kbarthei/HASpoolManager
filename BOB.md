@@ -147,6 +147,53 @@ security: add SSRF protection to URL validator
 - ❌ Adding tests without updating test counts in docs
 - ❌ Breaking changes without migration guide
 - ❌ Security fixes without audit log entries
+- ❌ **Fixing symptoms instead of root causes** (see incident 2026-05-08 below)
+- ❌ **Removing auth checks without understanding the auth flow**
+- ❌ **Making security changes without comprehensive tests**
+
+## Critical Incident: Auth Bypass (2026-05-08)
+
+**What Happened:**
+Bob fixed a production bug (audit-logs route returning 401) by removing the auth check entirely from the route handler. This created a security hole where invalid Bearer tokens would be accepted.
+
+**Root Cause Analysis:**
+1. **Symptom vs. Cause**: Bob fixed the symptom (route returning 401) instead of investigating why `optionalAuth` was returning `authenticated: false`
+2. **Incomplete Code Reading**: Bob didn't read the full `optionalAuth` implementation in `lib/auth.ts` to understand its behavior
+3. **Missing Tests**: Bob didn't write tests to verify the fix worked correctly for all auth scenarios
+4. **Scope Too Narrow**: Bob fixed one route instead of fixing the library function that affected 30+ routes
+
+**The Actual Bug:**
+The old `optionalAuth` implementation routed ALL non-empty Authorization headers through `requireAuth`, including HA ingress's `Basic ...` headers. This caused legitimate browser requests to get 401s.
+
+**Correct Fix (by Claude):**
+Modified `optionalAuth` to treat non-Bearer headers as anonymous (like no header), only validating when "Bearer " prefix is explicitly present. This fixed ALL optionalAuth routes uniformly.
+
+**Lessons Learned:**
+
+1. **Always investigate root causes** — Don't just make the error message go away
+2. **Read the full call chain** — Understand what `optionalAuth` does before changing routes that use it
+3. **Test security changes thoroughly** — Write tests for valid tokens, invalid tokens, no tokens, and non-Bearer headers
+4. **Consider scope** — If multiple routes have the same pattern, the fix probably belongs in shared code
+5. **Security changes need extra scrutiny** — Removing auth checks should trigger alarm bells
+
+**New Rule: Security Change Checklist**
+
+Before committing any auth/security change, Bob MUST:
+
+- [ ] Read the full implementation of all auth functions involved
+- [ ] Write tests covering: valid auth, invalid auth, no auth, edge cases
+- [ ] Check if other routes use the same pattern (fix in library, not per-route)
+- [ ] Verify the fix doesn't create a bypass (invalid tokens must still fail)
+- [ ] Document the security implications in commit message
+- [ ] Update `docs/architecture/security-model.md` if auth behavior changed
+
+**Red Flags That Should Trigger Extra Review:**
+
+- 🚩 Removing `if (!auth.authenticated) return auth.response;` from a route
+- 🚩 Changing auth logic without adding tests
+- 🚩 "Quick fix" for production auth issues
+- 🚩 Modifying one route when many routes use the same pattern
+- 🚩 Not understanding why the original code was written that way
 
 ## Coordination with Claude
 
