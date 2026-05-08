@@ -10,8 +10,16 @@
  * lives in lib/auth.ts:optionalAuth — this test prevents regression.
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { NextRequest } from "next/server";
+
+// Mock the DB-touching parts so this stays a pure unit test (CI has no
+// ./data/ directory; we don't need a DB to assert optionalAuth's
+// header-handling semantics).
+vi.mock("@/lib/db", () => ({
+  db: { select: () => ({ from: () => ({ where: async () => [] }) }) },
+}));
+
 import { optionalAuth } from "@/lib/auth";
 
 function req(headers: Record<string, string> = {}): NextRequest {
