@@ -15,6 +15,7 @@ Day-to-day reference:
 - [`operator/configuration.md`](operator/configuration.md) — every config option explained
 - [`operator/user-guide.md`](operator/user-guide.md) — typical workflows
 - [`operator/ios-pwa-setup.md`](operator/ios-pwa-setup.md) — iOS home-screen PWA
+- [`operator/nginx-configuration.md`](operator/nginx-configuration.md) — reverse proxy setup with SSL/TLS and security headers
 - [`operator/operations-runbook.md`](operator/operations-runbook.md) — investigate stuck prints, roll back, recover
 - [`operator/troubleshooting.md`](operator/troubleshooting.md) — common breakages
 
@@ -25,12 +26,15 @@ Deep dives:
 - [`architecture/data-model.md`](architecture/data-model.md) — every DB table + ER diagram
 - [`architecture/state-machine.md`](architecture/state-machine.md) — print-lifecycle state machine
 - [`architecture/sync-worker.md`](architecture/sync-worker.md) — how HA events become DB writes
+- [`architecture/sync-worker-health.md`](architecture/sync-worker-health.md) — health monitoring and watchdog
 - [`architecture/matching-engine.md`](architecture/matching-engine.md) — RFID, Bambu-idx, fuzzy spool matching
 - [`architecture/supply-engine.md`](architecture/supply-engine.md) — reorder rules, alerts, order optimizer
 - [`architecture/color-system.md`](architecture/color-system.md) — CIE ΔE color matching and vendor palettes
 - [`architecture/security-model.md`](architecture/security-model.md) — auth tiers, SSRF, port 3001 model
+- [`architecture/error-handling.md`](architecture/error-handling.md) — standardized error codes and patterns
 - [`architecture/audit-logging.md`](architecture/audit-logging.md) — SQL audit logs for admin operations
 - [`architecture/ssrf-protection.md`](architecture/ssrf-protection.md) — URL validation and price crawler security
+- [`architecture/file-upload-security.md`](architecture/file-upload-security.md) — file validation and magic bytes
 - [`architecture/api-key-management.md`](architecture/api-key-management.md) — API key expiration, rotation, and lifecycle
 
 ### …look something up

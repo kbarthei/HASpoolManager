@@ -359,6 +359,55 @@ The mock uses a self-signed cert (just like real printers), implicit TLS, and th
 
 ---
 
+## 9. Admin Operations
+
+### SQL Query Runner
+
+The admin panel includes a SQL Query Runner for ad-hoc database operations:
+
+**Location:** Admin page → Operations section → SQL Query Runner card
+
+**Read Mode (SELECT):**
+1. Enter your SELECT query
+2. Click "Run Query"
+3. View results in formatted table
+4. All queries logged to audit log
+
+**Example queries:**
+- `SELECT COUNT(*) FROM spools WHERE status = 'active'`
+- `SELECT vendor, COUNT(*) as count FROM filaments f JOIN vendors v ON f.vendor_id = v.id GROUP BY vendor ORDER BY count DESC LIMIT 5`
+- `SELECT name, status, started_at FROM prints WHERE status = 'running' ORDER BY started_at DESC LIMIT 10`
+
+**Write Mode (INSERT/UPDATE/DELETE):**
+1. Enter your SQL statement with `?` placeholders
+2. Add parameters as JSON array (e.g., `["value1", "value2"]`)
+3. Enable "Dry run" to preview changes without committing
+4. Click "Preview Changes" or "Execute"
+5. View operation summary (rows affected, execution time)
+
+**Example operations:**
+- `UPDATE spools SET notes = ? WHERE id = ?` with params `["Updated note", "spool-id-123"]`
+- `INSERT INTO tags (uid, spool_id) VALUES (?, ?)` with params `["tag-uid", "spool-id"]`
+- `DELETE FROM tags WHERE uid = ?` with params `["tag-uid-to-remove"]`
+
+**Security:**
+- All operations logged with user, IP, timestamp
+- Parameter binding prevents SQL injection
+- DDL operations (CREATE, DROP, ALTER) blocked
+- Dry-run mode for safe testing
+- Read mode uses readonly database connection
+
+**Audit Trail:**
+All SQL operations are visible in the Audit Logs tab with:
+- SQL statement and parameters
+- Execution time and row count
+- Success/failure status
+- User and IP address
+- Timestamp
+
+
+---
+
 ## 10. When something is wrong
 
 - **Data looks weird?** → Diagnostics first, then

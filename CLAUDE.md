@@ -157,6 +157,27 @@ E2e tests run against the real HA addon stack: `npm run build` with `HA_ADDON=tr
 
 **Every feature, fix, or refactor lands as code AND documentation in the same PR.** The `docs/` tree is the single source of truth for how the app works; if the code and docs disagree, the change is incomplete.
 
+### Cross-Agent Documentation Rules
+
+When working with multiple AI agents (Bob for architecture/security, Claude for features):
+
+1. **Every code change MUST include doc updates in the same commit** — no exceptions, no "will do later"
+2. **Check cross-references after every doc change:**
+   - If you update `docs/architecture/security-model.md`, verify `docs/README.md` links to it
+   - If you add an API endpoint, update both `docs/reference/api.md` AND the relevant architecture doc
+   - If you change test counts, update `docs/development/testing.md` AND `README.md`
+3. **Before completing any task, run a documentation consistency check:**
+   - Read `docs/README.md` to verify all new docs are indexed
+   - Search for references to changed features across all docs
+   - Update outdated examples, test counts, or API shapes
+4. **Document the "why" in architecture docs, the "how" in operator docs:**
+   - Architecture docs explain design decisions and trade-offs
+   - Operator docs provide step-by-step procedures
+   - Reference docs are exhaustive tables/catalogs
+5. **When switching between agents, include doc status in handoff:**
+   - "Updated security-model.md but did not update api.md yet"
+   - "Added SQL Runner to user-guide.md, cross-references complete"
+
 ### What to update where
 
 | Change type | Required doc update |

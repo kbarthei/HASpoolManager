@@ -1478,4 +1478,156 @@ Aggregates over the same filter set as the list endpoint. Used to power the four
 }
 ```
 
+
+---
+
+## 8. Admin SQL Operations
+
+### `POST /api/v1/admin/query`
+
+Execute read-only SQL queries against the database.
+
+- **Auth:** `optionalAuth` (browser-callable)
+- **Request body:**
+  ```json
+  {
+    "sql": "SELECT COUNT(*) FROM spools WHERE status = 'active'"
+  }
+  ```
+- **Response:**
+  ```json
+  {
+    "rows": [{"COUNT(*)": 42}],
+    "count": 1
+  }
+  ```
+- **Security:** Readonly connection, blocks all write operations, logs to audit_logs
+
+**curl**
+```bash
+curl -X POST http://homeassistant:3001/api/v1/admin/query \
+  -H "Content-Type: application/json" \
+  -d '{"sql":"SELECT COUNT(*) FROM spools"}'
+```
+
+---
+
+### `POST /api/v1/admin/sql/execute`
+
+Execute write operations (INSERT/UPDATE/DELETE) with parameter binding.
+
+- **Auth:** `optionalAuth` (browser-callable)
+- **Request body:**
+  ```json
+  {
+    "sql": "UPDATE spools SET notes = ? WHERE id = ?",
+    "params": ["Updated note", "spool-id-123"],
+    "dryRun": true
+  }
+  ```
+- **Response:**
+  ```json
+  {
+    "operation": "UPDATE",
+    "changes": 1,
+    "lastInsertRowid": "0",
+    "dryRun": true
+  }
+  ```
+- **Security:** Parameter binding, blocks DDL, dry-run mode, logs to audit_logs
+
+**curl**
+```bash
+curl -X POST http://homeassistant:3001/api/v1/admin/sql/execute \
+  -H "Content-Type: application/json" \
+  -d '{"sql":"UPDATE spools SET notes = ? WHERE id = ?","params":["New note","spool-123"],"dryRun":true}'
+```
+
+---
+
+### `GET /api/v1/admin/audit-logs`
+
+List SQL audit log entries with filtering and pagination.
+
+- **Auth:** `optionalAuth` (browser-callable)
+- **Query params:**
+  - `op` — filter by operation (SELECT, INSERT, UPDATE, DELETE)
+  - `success` — filter by success status (true/false)
+  - `user` — filter by user ID (substring match)
+  - `q` — search SQL statements (substring match)
+  - `from` — filter by date (ISO 8601)
+  - `to` — filter by date (ISO 8601)
+  - `sort` — sort field (createdAt, userId, operation, executionTimeMs, rowsAffected)
+  - `dir` — sort direction (asc, desc)
+  - `page` — page number (1-based)
+  - `pageSize` — items per page (25, 50, 100, 200)
+
+- **Response:**
+  ```json
+  {
+    "rows": [
+      {
+        "id": "log-uuid",
+        "action": "sql_query",
+        "userId": "web-ui",
+        "userKeyId": "web-ui",
+        "sqlStatement": "SELECT COUNT(*) FROM spools",
+        "sqlParams": null,
+        "operation": "SELECT",
+        "dryRun": false,
+        "success": true,
+        "rowsAffected": 1,
+        "errorMessage": null,
+        "executionTimeMs": 2,
+        "ipAddress": "192.168.1.100",
+        "userAgent": "Mozilla/5.0...",
+        "createdAt": "2026-05-06T21:00:00.000Z"
+      }
+    ],
+    "total": 150,
+    "page": 1,
+    "pageSize": 50,
+    "pageCount": 3
+  }
+  ```
+
+**curl**
+```bash
+curl "http://homeassistant:3001/api/v1/admin/audit-logs?op=SELECT&page=1&pageSize=50"
+```
+
+---
+
+### `GET /api/v1/admin/audit-logs/stats`
+
+Get audit log statistics (success rate, avg execution time, top users).
+
+- **Auth:** `optionalAuth` (browser-callable)
+- **Query params:** Same filtering options as `/audit-logs`
+
+- **Response:**
+  ```json
+  {
+    "total": 150,
+    "successes": 148,
+    "failures": 2,
+    "successRate": 0.9867,
+    "avgMs": 3.5,
+    "maxMs": 45,
+    "operations": [
+      { "op": "SELECT", "count": 120 },
+      { "op": "UPDATE", "count": 25 },
+      { "op": "INSERT", "count": 5 }
+    ],
+    "topUsers": [
+      { "userId": "web-ui", "count": 140 },
+      { "userId": "admin-key", "count": 10 }
+    ]
+  }
+  ```
+
+**curl**
+```bash
+curl "http://homeassistant:3001/api/v1/admin/audit-logs/stats"
+```
 `successRate`, `avgMs`, `maxMs` are `null` when the filtered set is empty. `topUsers` is capped at 5.

@@ -95,24 +95,22 @@ When in doubt about a route the UI calls: `optionalAuth`.
 
 ## 3. Raw-SQL endpoint guardrails
 
-`/api/v1/admin/query` and `/api/v1/admin/sql/execute` are the most
-sensitive endpoints. They exist because the diagnostics page needs
-ad-hoc DB access, but they're wrapped in layers:
+`/api/v1/admin/query` and `/api/v1/admin/sql/execute` provide ad-hoc database access for the admin SQL Query Runner UI. Both use `optionalAuth` (browser-callable) with multiple security layers:
 
 ### `/admin/query` (readonly)
 
-- `requireAuth` — Bearer token
+- `optionalAuth` — browser-callable from /admin page
 - Opens DB in `readonly` mode via better-sqlite3
 - **Rejects writes** at the SQL parser level: any `UPDATE`, `INSERT`,
-  `DELETE`, `CREATE`, `DROP`, `ALTER`, `PRAGMA`, `VACUUM` → 400
+  `DELETE`, `CREATE`, `DROP`, `ALTER`, `PRAGMA`, `VACUUM` → 403
 - Blocks semicolons and multi-statements
 - Caps SQL at 10KB
-- Sanitizes SQLite error messages — no table/column names leaked in the
-  error response
+- Sanitizes SQLite error messages — no table/column names leaked
+- All queries logged to audit_logs table
 
 ### `/admin/sql/execute` (write)
 
-- `requireAuth` — Bearer token
+- `optionalAuth` — browser-callable from /admin page
 - Accepts only `UPDATE`, `INSERT`, `DELETE` with positional parameter
   binding (SQL injection hardened)
 - Blocks all DDL (CREATE / DROP / ALTER / PRAGMA / VACUUM / REINDEX /
@@ -121,14 +119,24 @@ ad-hoc DB access, but they're wrapped in layers:
 - Caps SQL at 10KB
 - `dryRun: true` wraps the statement in a transaction that always rolls
   back; reports `changes` and `lastInsertRowid` without committing
-- Logs every call to `sync_log` (audit trail)
+- All operations logged to audit_logs table with user, IP, timestamp, execution time
 
-### Why not expose via UI
+### SQL Query Runner UI
 
-Both endpoints require the API key, so they're not discoverable from
-the web UI. The diagnostics page's SQL runner is a UI wrapper that uses
-the user's bearer token, but never types raw SQL into the prod DB
-without a `dryRun: true` preview first.
+The `/admin` page includes a SQL Query Runner card with:
+- **Read Mode**: SELECT queries with results table
+- **Write Mode**: INSERT/UPDATE/DELETE with parameter binding and dry-run preview
+- **Example Queries**: Quick-load buttons for common operations
+- **Real-time Feedback**: Execution time, row counts, success/error status
+- **Audit Trail**: All operations visible in Audit Logs tab
+
+Security is enforced at multiple layers:
+1. HA Ingress authentication (port 3000)
+2. LAN-only access (port 3001)
+3. SQL parser guards (operation whitelist/blacklist)
+4. Parameter binding (prevents SQL injection)
+5. Readonly mode for SELECT queries
+6. Comprehensive audit logging
 
 ---
 
