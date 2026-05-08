@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## May 2026
 
+- **fix:** MDTM enrichment + sync_log persistence — H2S firmware quirk (`63d9b48`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`d5c2ee4`)
 - **fix:** assert href on print-detail link instead of click (hydration flake) (`0c37112`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`1b35b8e`)
 - **fix:** use testid not href for cross-link nav (basePath rewrites href at render) (`fdc0e9f`)
