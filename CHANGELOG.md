@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## May 2026
 
+- **fix:** allow shorter Bambu access codes (H2/H2D show 6-digit) (`ce20001`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`6f2047f`)
 - **fix:** mock @/lib/db so auth-optional unit test doesn't need ./data/ (`940aeb6`)
 - **docs:** add critical incident analysis and security change checklist (`578fd4e`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`20bd1f4`)
