@@ -195,7 +195,11 @@ export function ModelDetailClient({ model, warnings, filaments, compatibility, l
               {linkedPrints.map((p) => (
                 <li key={p.id} className="flex items-center justify-between py-2">
                   <div className="min-w-0 flex-1">
-                    <Link href={`/prints/${p.id}`} className="block truncate text-sm font-medium hover:underline">
+                    <Link
+                      href={`/prints/${p.id}`}
+                      className="block truncate text-sm font-medium hover:underline"
+                      data-testid="linked-print-link"
+                    >
                       {p.name ?? p.id.slice(0, 8)}
                     </Link>
                     <div className="text-xs text-muted-foreground">
