@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## May 2026
 
+- **fix:** Bambu access codes are alphanumeric, not numeric-only (`95020fe`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`7131938`)
 - **fix:** allow shorter Bambu access codes (H2/H2D show 6-digit) (`ce20001`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`6f2047f`)
 - **fix:** mock @/lib/db so auth-optional unit test doesn't need ./data/ (`940aeb6`)
