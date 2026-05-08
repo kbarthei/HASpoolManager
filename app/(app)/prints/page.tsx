@@ -6,7 +6,7 @@ import { SpoolMaterialBadge } from "@/components/spool/spool-material-badge";
 import { Card } from "@/components/ui/card";
 import { SpoolColorDot } from "@/components/spool/spool-color-dot";
 import { UsageWeightAdjuster } from "@/components/prints/usage-weight-adjuster";
-import { CheckCircle2, XCircle, Zap } from "lucide-react";
+import { CheckCircle2, XCircle, Zap, FileBox } from "lucide-react";
 import { formatDateTime, formatDateLong, formatDateShort } from "@/lib/date";
 import { costTooltip } from "@/lib/format-cost";
 import { CostTooltip } from "@/components/prints/cost-tooltip";
@@ -246,12 +246,29 @@ export default async function PrintHistoryPage({
                   <div className="min-w-0 flex-1">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
-                        <div className="text-sm font-semibold truncate">
+                        <Link
+                          href={`/prints/${print.id}`}
+                          className="text-sm font-semibold truncate hover:underline block"
+                          data-testid="print-title-link"
+                        >
                           {print.name ?? print.gcodeFile ?? "Unnamed print"}
-                        </div>
-                        <div className="text-xs text-muted-foreground mt-0.5">
-                          Started {formatDateShort(print.startedAt!)}
-                          {print.printer && ` · ${print.printer.name}`}
+                        </Link>
+                        <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-2">
+                          <span>
+                            Started {formatDateShort(print.startedAt!)}
+                            {print.printer && ` · ${print.printer.name}`}
+                          </span>
+                          {print.modelFileId && (
+                            <Link
+                              href={`/models/${print.modelFileId}`}
+                              className="inline-flex items-center gap-1 text-primary hover:underline"
+                              data-testid="model-link"
+                              title="Open linked 3MF model"
+                            >
+                              <FileBox className="h-3 w-3" />
+                              Model
+                            </Link>
+                          )}
                         </div>
                       </div>
                       <span className="inline-flex items-center h-5 px-2 rounded-full text-2xs font-bold uppercase tracking-wide bg-primary/15 text-primary border border-primary/30 shrink-0">
@@ -363,14 +380,16 @@ export default async function PrintHistoryPage({
                     {/* Body */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-baseline justify-between gap-2">
-                        <span
+                        <Link
+                          href={`/prints/${print.id}`}
                           className={cn(
-                            "text-sm font-semibold truncate",
+                            "text-sm font-semibold truncate hover:underline",
                             failed && "text-muted-foreground",
                           )}
+                          data-testid="print-title-link"
                         >
                           {print.name ?? print.gcodeFile ?? "Unnamed print"}
-                        </span>
+                        </Link>
                         <div className="flex items-center gap-2 shrink-0 font-[family-name:var(--font-geist-mono)] tabular-nums text-xs text-muted-foreground">
                           <span>{printWeight.toFixed(1)}g</span>
                           {printCost > 0 && print.energyCost ? (
@@ -390,13 +409,27 @@ export default async function PrintHistoryPage({
                         </div>
                       </div>
 
-                      {/* Date + duration */}
+                      {/* Date + duration + model link */}
                       <div className="flex items-center gap-1.5 mt-0.5 text-2xs text-muted-foreground">
                         <span>{formatDateTime(print.startedAt)}</span>
                         {print.durationSeconds != null && (
                           <>
                             <span className="opacity-50">·</span>
                             <span>{formatDuration(print.durationSeconds)}</span>
+                          </>
+                        )}
+                        {print.modelFileId && (
+                          <>
+                            <span className="opacity-50">·</span>
+                            <Link
+                              href={`/models/${print.modelFileId}`}
+                              className="inline-flex items-center gap-0.5 text-primary hover:underline"
+                              data-testid="model-link"
+                              title="Open linked 3MF model"
+                            >
+                              <FileBox className="h-3 w-3" />
+                              Model
+                            </Link>
                           </>
                         )}
                       </div>
