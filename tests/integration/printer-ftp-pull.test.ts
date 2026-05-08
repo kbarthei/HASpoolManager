@@ -101,11 +101,18 @@ describe("printer FTP pull (live mock)", () => {
 
   beforeEach(async () => {
     const { db } = await import("@/lib/db");
-    const { modelFiles, modelFileFilaments, prints, printers } = await import("@/lib/db/schema");
+    const { modelFiles, modelFileFilaments, prints, printers, syncLog } = await import("@/lib/db/schema");
+    const { sql } = await import("drizzle-orm");
+    // Toggle foreign keys off for cleanup — multiple tables reference
+    // printers (amsSlots, printerAmsUnits, hmsEvents, syncLog) and the
+    // ftp-pull pipeline now writes diagnostic rows that linger across tests.
+    await db.run(sql`PRAGMA foreign_keys = OFF`);
     await db.delete(modelFileFilaments);
     await db.delete(modelFiles);
     await db.delete(prints);
+    await db.delete(syncLog);
     await db.delete(printers);
+    await db.run(sql`PRAGMA foreign_keys = ON`);
 
     const { makePrinter } = await import("../fixtures/seed");
     printerId = await makePrinter({ name: "MockPrinter" });
@@ -146,6 +153,41 @@ describe("printer FTP pull (live mock)", () => {
     expect(buffer.byteLength).toBeGreaterThan(500_000);
     // ZIP magic bytes — confirms it's a valid 3MF
     expect(buffer.slice(0, 4).toString("hex")).toBe("504b0304");
+  });
+
+  it("pullByPrintName falls back to newest cache file when print_name has no token signal", async () => {
+    // Reproduces the live-bug case: Bambu Studio sends the slicer-process
+    // preset (e.g. "0.2mm layer, 2 walls, 15% infill") as MQTT print_name
+    // when the user prints without a saved project. Token-overlap then
+    // scores 0 against every cached filename. The fallback should pull
+    // the newest file (mtime within 5 min) and link it to the print.
+    const prevPort = process.env.PRINTER_FTP_PORT_OVERRIDE;
+    process.env.PRINTER_FTP_PORT_OVERRIDE = String(ftpPort);
+    try {
+      const { db } = await import("@/lib/db");
+      const { prints, syncLog } = await import("@/lib/db/schema");
+      const printId = crypto.randomUUID();
+      await db.insert(prints).values({ id: printId, printerId, status: "running" });
+
+      const { pullByPrintName } = await import("@/lib/printer-ftp-pull");
+      await pullByPrintName(printerId, printId, "0.2mm layer, 2 walls, 15% infill", null);
+
+      const updated = await db.query.prints.findFirst({ where: eq(prints.id, printId) });
+      expect(updated?.modelFileId).toBeTruthy();
+
+      // sync_log should contain the structured fallback-newest event
+      const events = await db.query.syncLog.findMany({
+        where: eq(syncLog.printTransition, "ftp-pull"),
+      });
+      const eventNames = events
+        .map((e) => (e.responseJson ? JSON.parse(e.responseJson).event : null))
+        .filter(Boolean);
+      expect(eventNames).toContain("fallback-newest");
+      expect(eventNames).toContain("post-pull");
+    } finally {
+      if (prevPort === undefined) delete process.env.PRINTER_FTP_PORT_OVERRIDE;
+      else process.env.PRINTER_FTP_PORT_OVERRIDE = prevPort;
+    }
   });
 
   it("pullByPrintName performs full pipeline: list → download → parse → DB insert → link to print", async () => {

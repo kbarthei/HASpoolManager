@@ -16,7 +16,7 @@
 import { eq } from "drizzle-orm";
 import { createHash } from "crypto";
 import { db } from "./db";
-import { modelFiles, modelFileFilaments, printers, prints } from "./db/schema";
+import { modelFiles, modelFileFilaments, printers, prints, syncLog } from "./db/schema";
 import { downloadCacheFile, listCache3mfs, type FtpConfig } from "./printer-ftp";
 import { parseModelFile, summarize } from "./3mf-parser";
 import { saveCover } from "./model-file-store";
@@ -26,6 +26,33 @@ const PRINT_START_DELAY_MS = 30_000; // give printer 30s to settle before compet
 // token signal. 5 min covers Bambu Studio's slice-then-upload-then-start
 // flow plus PRINT_START_DELAY_MS without ever picking a stale file.
 const RECENT_UPLOAD_WINDOW_MS = 5 * 60_000;
+
+/**
+ * Persist an [ftp-pull] event to sync_log so it shows up in /admin/sync-log
+ * even when docker stdout isn't accessible. Best-effort; never throw —
+ * pull pipeline must keep working even if the diagnostic write fails.
+ */
+async function logFtpPull(
+  printerId: string | null,
+  printName: string | null,
+  event: string,
+  details: Record<string, unknown>,
+): Promise<void> {
+  try {
+    await db.insert(syncLog).values({
+      printerId,
+      rawState: null,
+      normalizedState: null,
+      printTransition: "ftp-pull",
+      printName,
+      printError: false,
+      slotsUpdated: 0,
+      responseJson: JSON.stringify({ event, ...details }),
+    });
+  } catch {
+    // Diagnostic write failed — swallow. Don't block the actual pull.
+  }
+}
 
 export interface PullParams {
   printerId: string;
@@ -70,9 +97,17 @@ export async function pullFromPrinterAndLink(params: PullParams): Promise<void> 
   try {
     buffer = await downloadCacheFile(config, filename, { dir: params.dir ?? "cache" });
   } catch (err) {
-    console.error(`[ftp-pull] download failed for ${params.dir ?? "cache"}/${filename}: ${(err as Error).message}`);
+    const msg = (err as Error).message;
+    const path = `${params.dir ?? "cache"}/${filename}`;
+    console.error(`[ftp-pull] download failed for ${path}: ${msg}`);
+    await logFtpPull(printerId, null, "download-failed", { path, error: msg });
     return;
   }
+  await logFtpPull(printerId, null, "download-ok", {
+    filename,
+    dir: params.dir ?? "cache",
+    bytes: buffer.byteLength,
+  });
 
   const computedMd5 = createHash("md5").update(buffer).digest("hex");
 
@@ -173,6 +208,8 @@ export async function pullByPrintName(
   printName: string,
   md5?: string | null,
 ): Promise<void> {
+  await logFtpPull(printerId, printName, "start", { printId, hasMd5: Boolean(md5) });
+
   // MD5 short-circuit before we even open FTP
   if (md5) {
     const existing = await db.query.modelFiles.findFirst({
@@ -188,6 +225,7 @@ export async function pullByPrintName(
         })
         .where(eq(prints.id, printId));
       console.log(`[ftp-pull] MD5 hit before FTP — skipped pull for "${printName}"`);
+      await logFtpPull(printerId, printName, "md5-hit", { modelFileId: existing.id });
       return;
     }
   }
@@ -195,6 +233,7 @@ export async function pullByPrintName(
   const printer = await db.query.printers.findFirst({ where: eq(printers.id, printerId) });
   if (!printer?.accessCode || !printer.ipAddress) {
     console.log(`[ftp-pull] skipped "${printName}" — printer has no accessCode or ipAddress`);
+    await logFtpPull(printerId, printName, "skip-no-credentials", {});
     return;
   }
 
@@ -209,14 +248,24 @@ export async function pullByPrintName(
   try {
     entries = await listCache3mfs(config);
   } catch (err) {
-    console.error(`[ftp-pull] list cache/ failed for ${printer.name}: ${(err as Error).message}`);
+    const msg = (err as Error).message;
+    console.error(`[ftp-pull] list cache/ failed for ${printer.name}: ${msg}`);
+    await logFtpPull(printerId, printName, "list-failed", { error: msg });
     return;
   }
 
   if (entries.length === 0) {
     console.log(`[ftp-pull] no .3mf files on ${printer.name}`);
+    await logFtpPull(printerId, printName, "list-empty", {});
     return;
   }
+  await logFtpPull(printerId, printName, "list-ok", {
+    count: entries.length,
+    newestName: entries[0].name,
+    newestDir: entries[0].dir,
+    newestSize: entries[0].size,
+    newestMtime: entries[0].modifiedAt?.toISOString() ?? null,
+  });
 
   // Token-overlap match. "Plant Clip - PLA version" prints from a file
   // called "Plant_Clip_Plant_Support.gcode.3mf"; substring-match misses
@@ -238,24 +287,56 @@ export async function pullByPrintName(
   const best = scored[0];
   // No token signal at all (e.g. print_name = slicer-process preset
   // "0.2mm layer, 2 walls, 15% infill" when user prints from Bambu
-  // Studio without a saved project name). Fall back to the newest .3mf
-  // *only* if it was uploaded within the last few minutes — Studio
-  // always re-uploads the file right before "Print" sends start.
-  // entries[] is already sorted newest-first by mtime in listCache3mfs().
+  // Studio without a saved project name). Fall back to the newest .3mf.
+  // entries[] is sorted newest-first when mtime is available; when mtime
+  // is missing (Bambu firmware doesn't always return MDTM), the order
+  // collapses to alphabetical, which is unreliable — but we still take
+  // the listing's first entry as a last resort because the alternative
+  // (returning null) leaves the print permanently unlinked.
   if (best.score === 0) {
     const newest = entries[0];
-    const ageMs = newest.modifiedAt ? Date.now() - newest.modifiedAt.getTime() : Infinity;
+    const hasMtime = Boolean(newest.modifiedAt);
+    const ageMs = newest.modifiedAt ? Date.now() - newest.modifiedAt.getTime() : null;
+
+    // Without a real mtime we can't tell which file is "the one Studio
+    // just uploaded for this print" — the listing's first entry without
+    // mtime is an alphabetical artifact, not the freshest file. Give up
+    // rather than link the wrong file. listCache3mfs() now backfills via
+    // per-file MDTM, so this branch only triggers when the printer's
+    // firmware supports neither MLSD nor MDTM (rare).
+    if (ageMs === null) {
+      console.log(
+        `[ftp-pull] no token match for "${printName}" and no usable mtime on cache files — leaving prints.model_file_id null`,
+      );
+      await logFtpPull(printerId, printName, "give-up-no-mtime", {
+        newestName: newest.name,
+        candidates: entries.length,
+      });
+      return;
+    }
+
     if (ageMs > RECENT_UPLOAD_WINDOW_MS) {
-      const ageMin = Number.isFinite(ageMs) ? Math.round(ageMs / 60_000) : "unknown";
+      const ageMin = Math.round(ageMs / 60_000);
       console.log(
         `[ftp-pull] no token match for "${printName}" and newest .3mf is ${ageMin}m old — leaving prints.model_file_id null`,
       );
+      await logFtpPull(printerId, printName, "give-up-stale-newest", {
+        newestName: newest.name,
+        ageMin,
+      });
       return;
     }
-    const ageSec = Math.round(ageMs / 1000);
+
+    const ageDesc = `${Math.round(ageMs / 1000)}s old`;
     console.log(
-      `[ftp-pull] no token match for "${printName}" — falling back to newest cached .3mf "${newest.name}" (${ageSec}s old)`,
+      `[ftp-pull] no token match for "${printName}" — falling back to newest cached .3mf "${newest.name}" (${ageDesc})`,
     );
+    await logFtpPull(printerId, printName, "fallback-newest", {
+      newestName: newest.name,
+      newestDir: newest.dir,
+      hasMtime,
+      ageMs,
+    });
     await pullFromPrinterAndLink({
       printerId,
       printId,
@@ -263,12 +344,29 @@ export async function pullByPrintName(
       dir: newest.dir,
       md5,
     });
+
+    // Surface link state after pull (the helper logs its own internal
+    // steps but doesn't update prints.model_file_id from this caller's
+    // perspective). Re-read the print row.
+    const refreshed = await db.query.prints.findFirst({
+      where: eq(prints.id, printId),
+      columns: { modelFileId: true, plannedWeightG: true },
+    });
+    await logFtpPull(printerId, printName, "post-pull", {
+      modelFileId: refreshed?.modelFileId ?? null,
+      plannedWeightG: refreshed?.plannedWeightG ?? null,
+    });
     return;
   }
 
   const target = best.entry;
   const displayPath = target.dir ? `${target.dir}/${target.name}` : `/${target.name}`;
   console.log(`[ftp-pull] selected "${displayPath}" for print "${printName}" (score=${best.score})`);
+  await logFtpPull(printerId, printName, "match-token", {
+    targetName: target.name,
+    targetDir: target.dir,
+    score: best.score,
+  });
 
   await pullFromPrinterAndLink({
     printerId,
@@ -276,6 +374,14 @@ export async function pullByPrintName(
     filename: target.name,
     dir: target.dir,
     md5,
+  });
+  const refreshed = await db.query.prints.findFirst({
+    where: eq(prints.id, printId),
+    columns: { modelFileId: true, plannedWeightG: true },
+  });
+  await logFtpPull(printerId, printName, "post-pull", {
+    modelFileId: refreshed?.modelFileId ?? null,
+    plannedWeightG: refreshed?.plannedWeightG ?? null,
   });
 }
 

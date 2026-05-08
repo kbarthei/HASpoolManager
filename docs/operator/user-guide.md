@@ -352,6 +352,11 @@ If the access code is wrong, missing, or the printer is unreachable, the pull is
 
 If the auto-pull picked a wrong file or didn't fire at all (e.g. the print started from the printer's LCD history, not from Studio), open the print detail page and click **Re-pull 3MF**.
 
+**Debugging an unexpected miss:** every step of the pull is logged to
+the **Sync Log** (Admin tab) with `transition = ftp-pull`. Filter on it
+to see exactly which path fired (token-match, fallback, give-up) and
+why — no need to read addon container logs.
+
 ### Local validation (no real printer needed)
 
 To validate the FTP-pull code path on a Mac/Laptop without the printer in reach, the repo ships a mock Bambu printer that speaks the same FTPS protocol on a high port:

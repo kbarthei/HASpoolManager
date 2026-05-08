@@ -269,6 +269,14 @@ Dedup ladder (each step short-circuits the rest):
    modified within `RECENT_UPLOAD_WINDOW_MS` (5 min). Studio uploads
    the file to the printer immediately before sending start, so the
    newest file in the window is virtually always the right one.
+
+   **H2S firmware quirk:** Bambu's H2S firmware does NOT include modify
+   time in its FTP `LIST` output (no MLSD support, sparse `LIST`).
+   `lib/printer-ftp.ts → listCache3mfs()` enriches missing mtimes by
+   issuing per-file `MDTM` commands (which H2S supports). Without this,
+   the listing falls through to alphabetical order and `entries[0]` is
+   wrong. If `MDTM` also fails (firmware older than the H2S series), the
+   fallback gives up rather than guess.
 4. **Give up** — log `no token match … leaving prints.model_file_id null`
    and return. `prints.model_file_id` stays null; the operator can
    manually re-trigger via `POST /api/v1/prints/[id]/pull-3mf` (with
@@ -276,6 +284,14 @@ Dedup ladder (each step short-circuits the rest):
 
 After download, a second dedup by sha256 covers concurrent prints of the
 same file racing each other through the pipeline.
+
+**Observability:** every step of `pullByPrintName` writes a structured
+row to `sync_log` (`print_transition = "ftp-pull"`, `response_json` with
+`event` ∈ `start`/`md5-hit`/`list-ok`/`list-failed`/`list-empty`/
+`fallback-newest`/`give-up-no-mtime`/`give-up-stale-newest`/
+`match-token`/`download-ok`/`download-failed`/`post-pull`). View live
+in admin → sync log; replaces the need to tail container stdout for
+debugging missed pulls.
 
 ### Initial sync on reconnect
 

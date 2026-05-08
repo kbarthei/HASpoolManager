@@ -120,6 +120,28 @@ export async function listCache3mfs(config: FtpConfig): Promise<CacheEntry[]> {
         // Directory doesn't exist or no permission — try the next one.
       }
     }
+
+    // Bambu's H2S firmware does NOT include modify-time in the LIST response.
+    // We need it to find the file Studio just uploaded for the current print.
+    // Fall back to per-file MDTM (a separate FTP command); H2S supports it.
+    // Skip entries that already have a mtime (P1S/X1C may include it in LIST).
+    const missingMtime = out.filter((e) => !e.modifiedAt);
+    if (missingMtime.length > 0) {
+      // Cap concurrency at 1 (basic-ftp client is single-channel) but bound
+      // total work — a typical printer has < 100 files; if there are
+      // hundreds, accept slightly slower listing rather than skip MDTM.
+      for (const entry of missingMtime) {
+        const path = entry.dir ? `${entry.dir}/${entry.name}` : entry.name;
+        try {
+          const mtime = await client.lastMod(path);
+          if (mtime instanceof Date) entry.modifiedAt = mtime;
+        } catch {
+          // MDTM failed for this file — leave undefined; the caller
+          // handles missing mtimes gracefully.
+        }
+      }
+    }
+
     // Sort newest first when mtime is available; fall back to name.
     out.sort((a, b) => {
       const aT = a.modifiedAt?.getTime() ?? 0;
