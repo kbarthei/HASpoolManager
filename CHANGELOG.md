@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## May 2026
 
+- **fix:** narrow AuthResult union before accessing keyId/response (`75ee86f`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`32d3966`)
 - **fix:** non-Bearer Authorization headers are anonymous, not failed claims (`8731a19`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`e5ee4ce`)
 - **chore:** bump version to 1.1.26 (`3820798`)
