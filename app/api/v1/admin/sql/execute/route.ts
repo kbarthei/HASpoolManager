@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth } from "@/lib/auth";
+import { optionalAuth } from "@/lib/auth";
 import Database from "better-sqlite3";
 import { db } from "@/lib/db";
 import { auditLogs } from "@/lib/db/schema";
@@ -8,7 +8,7 @@ import { auditLogs } from "@/lib/db/schema";
  * POST /api/v1/admin/sql/execute
  *
  * Run a single write statement (UPDATE/INSERT/DELETE) against the production
- * database with parameter binding. REQUIRES Bearer token authentication.
+ * database with parameter binding. Browser-callable from /admin (HA ingress gates access).
  *
  * Body:
  *   sql:     string        — single SQL statement, no trailing semicolon
@@ -95,7 +95,7 @@ async function logAudit(data: {
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
-  const auth = await requireAuth(request);
+  const auth = await optionalAuth(request);
   if (!auth.authenticated) return auth.response;
 
   // Extract request metadata for audit logging

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth } from "@/lib/auth";
+import { optionalAuth } from "@/lib/auth";
 import Database from "better-sqlite3";
 import { db } from "@/lib/db";
 import { auditLogs } from "@/lib/db/schema";
@@ -8,7 +8,7 @@ import { auditLogs } from "@/lib/db/schema";
  * POST /api/v1/admin/query
  *
  * Execute a read-only SQL query against the production database.
- * REQUIRES Bearer token authentication.
+ * Browser-callable from /admin without Bearer token (HA ingress gates access).
  * Uses better-sqlite3 readonly mode for defense-in-depth.
  */
 
@@ -46,7 +46,7 @@ async function logAudit(data: {
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
-  const auth = await requireAuth(request);
+  const auth = await optionalAuth(request);
   if (!auth.authenticated) return auth.response;
 
   // Extract request metadata for audit logging

@@ -20,6 +20,7 @@ import { AccessCodeCard } from "./access-code-card";
 import { EnergySettings } from "./energy-settings";
 import { DataQualityCard } from "./data-quality-card";
 import { AuditLogsCard } from "./audit-logs-card";
+import { SqlRunnerCard } from "./sql-runner-card";
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -224,6 +225,11 @@ export default async function AdminPage() {
       {/* ── Import Historical Orders ──────────────────────────────────── */}
       <div className="lg:col-span-2">
         <ImportOrdersCard allSpools={JSON.parse(JSON.stringify(allSpools))} />
+      </div>
+
+      {/* ── SQL Query Runner ──────────────────────────────────────────────── */}
+      <div className="lg:col-span-2">
+        <SqlRunnerCard />
       </div>
 
       {/* ── Audit Log ─────────────────────────────────────────────────────── */}
