@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## May 2026
 
+- **fix:** use testid not href for cross-link nav (basePath rewrites href at render) (`fdc0e9f`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`e4f0ff2`)
 - - test+docs: print ↔ model cross-link e2e + user-guide entries (`41f702c`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`f1370db`)
 - **feat:** cross-link print ↔ model + manual re-pull UI (`bb4703c`)
