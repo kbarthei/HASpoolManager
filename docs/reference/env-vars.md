@@ -192,6 +192,7 @@ required — tests run against a per-worker SQLite file created from
 | Variable | Default | Purpose |
 |---|---|---|
 | `MODEL_FILE_DIR` | `/config/haspoolmanager/models` | Where uploaded 3MF cover PNGs are stored. Layout: `<modelFileId>/plate_1.png`. Raw 3MF archives are never written to disk — only the cover. |
+| `HEALTH_FILE` | `/config/haspoolmanager/health.json` | Snapshot file the sync-worker process flushes its health state to. Next.js reads it for `/api/v1/health?detailed=true`. Cross-process IPC because worker + Next.js are separate Node bundles. |
 
 ## Printer FTPS auto-pull
 

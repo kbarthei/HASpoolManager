@@ -3,9 +3,27 @@
  *
  * Provides health status, metrics, and diagnostics for the sync worker.
  * Used by the /api/v1/health endpoint and admin dashboard.
+ *
+ * ── Why the disk snapshot ──────────────────────────────────────────────
+ * The sync worker (esbuild-bundled, runs as its own Node process —
+ * see ha-addon/run.sh:58) and the Next.js standalone server import
+ * this module SEPARATELY. Module-level state is per-process. So if
+ * the worker writes `wsConnectedAt = Date.now()`, Next.js's copy of
+ * the same `let wsConnectedAt` stays null and `/api/v1/health` lies.
+ *
+ * Fix: the worker periodically serialises its state to a JSON
+ * snapshot on disk (`flushHealth()`); the Next.js side reloads it
+ * at the start of `getHealth()` when the snapshot is newer than the
+ * in-memory copy. One-way IPC, no DB pressure, atomic-rename writes.
  */
 
+import { mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from "fs";
+import path from "path";
 import { listBackups } from "./backup-manager";
+
+function getHealthFilePath(): string {
+  return process.env.HEALTH_FILE ?? "/config/haspoolmanager/health.json";
+}
 
 export interface PrinterHealth {
   printerId: string;
@@ -82,6 +100,115 @@ const printerHealthCache = new Map<string, {
   entityCount: number;
   pendingSwaps: number;
 }>();
+
+// Track the last snapshot file mtime we read — used by getHealth() to
+// avoid re-parsing the JSON on every request when nothing changed.
+let lastSnapshotMtime = 0;
+
+interface HealthSnapshot {
+  workerStartTime: number | null;
+  wsConnectedAt: number | null;
+  wsReconnectCount: number;
+  wsLastDisconnectAt: number | null;
+  stateChangedEventCount: number;
+  bambuEventCount: number;
+  lastEventTimestamp: number | null;
+  watchdogLastRunAt: number | null;
+  watchdogRunning: boolean;
+  backupSchedulerRunning: boolean;
+  lastBackupTimestamp: number | null;
+  printers: Array<{
+    printerId: string;
+    deviceId: string;
+    name: string;
+    isActive: boolean;
+    lastEventAt: number;
+    lastSyncAt: number;
+    entityCount: number;
+    pendingSwaps: number;
+  }>;
+  flushedAt: number;
+}
+
+/**
+ * Worker-side: serialise current state to a JSON file. Atomic via
+ * write-to-tmp + rename. Called by the sync worker after meaningful
+ * state changes (ws connect/disconnect, watchdog tick, etc.).
+ */
+export function flushHealth(): void {
+  const snapshot: HealthSnapshot = {
+    workerStartTime,
+    wsConnectedAt,
+    wsReconnectCount,
+    wsLastDisconnectAt,
+    stateChangedEventCount,
+    bambuEventCount,
+    lastEventTimestamp,
+    watchdogLastRunAt,
+    watchdogRunning,
+    backupSchedulerRunning,
+    lastBackupTimestamp,
+    printers: Array.from(printerHealthCache.values()),
+    flushedAt: Date.now(),
+  };
+  const target = getHealthFilePath();
+  try {
+    mkdirSync(path.dirname(target), { recursive: true });
+    const tmp = target + ".tmp";
+    writeFileSync(tmp, JSON.stringify(snapshot));
+    renameSync(tmp, target);
+  } catch (err) {
+    // Best-effort — if the filesystem isn't writable (read-only mount,
+    // permission denied), the worker's in-memory state is still
+    // functioning, just not visible from Next.js.
+    console.error("[health] flushHealth failed:", (err as Error).message);
+  }
+}
+
+/**
+ * Reader-side: pull the latest snapshot into our in-memory state if the
+ * file is newer than what we last loaded. Idempotent and cheap when
+ * the snapshot hasn't changed (single stat() call, no JSON parse).
+ *
+ * Called automatically at the top of getHealth() / getSimpleHealth().
+ */
+function loadHealthSnapshot(): void {
+  const target = getHealthFilePath();
+  let mtimeMs: number;
+  try {
+    mtimeMs = statSync(target).mtimeMs;
+  } catch {
+    // File doesn't exist yet (fresh install / dev / worker not running).
+    return;
+  }
+  if (mtimeMs <= lastSnapshotMtime) return;
+
+  try {
+    const raw = readFileSync(target, "utf8");
+    const snap = JSON.parse(raw) as HealthSnapshot;
+    workerStartTime = snap.workerStartTime;
+    wsConnectedAt = snap.wsConnectedAt;
+    wsReconnectCount = snap.wsReconnectCount;
+    wsLastDisconnectAt = snap.wsLastDisconnectAt;
+    stateChangedEventCount = snap.stateChangedEventCount;
+    bambuEventCount = snap.bambuEventCount;
+    lastEventTimestamp = snap.lastEventTimestamp;
+    watchdogLastRunAt = snap.watchdogLastRunAt;
+    watchdogRunning = snap.watchdogRunning;
+    backupSchedulerRunning = snap.backupSchedulerRunning;
+    lastBackupTimestamp = snap.lastBackupTimestamp;
+    printerHealthCache.clear();
+    for (const p of snap.printers) {
+      printerHealthCache.set(p.deviceId, p);
+    }
+    lastSnapshotMtime = mtimeMs;
+  } catch (err) {
+    // Corrupt JSON → keep current state, log once.
+    if (lastSnapshotMtime === 0) {
+      console.error("[health] loadHealthSnapshot failed:", (err as Error).message);
+    }
+  }
+}
 
 // ── Public API ──────────────────────────────────────────────────────────────
 
@@ -161,8 +288,13 @@ export function resetEventCounters(): void {
 
 /**
  * Get comprehensive health status for the sync worker.
+ *
+ * On the Next.js side this auto-loads the latest snapshot from disk so
+ * we report the actual sync-worker process's state rather than our own
+ * (uninitialised) module-level vars.
  */
 export function getHealth(): SyncWorkerHealth {
+  loadHealthSnapshot();
   const now = Date.now();
   const issues: string[] = [];
 

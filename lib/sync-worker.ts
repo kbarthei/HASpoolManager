@@ -792,7 +792,11 @@ function startWatchdog() {
 
   watchdogTimer = setInterval(async () => {
     health.recordWatchdogRun();
-    
+    // Persist state so the Next.js process's /api/v1/health reflects
+    // the live worker view. Watchdog ticks every 15s — that's our flush
+    // cadence for non-event-driven freshness.
+    health.flushHealth();
+
     for (const printer of printers.values()) {
       const sinceLastSync = Date.now() - printer.lastSyncAt;
       const interval = printer.isActive ? ACTIVE_INTERVAL : IDLE_INTERVAL;
@@ -880,10 +884,12 @@ function startBackupScheduler(): void {
 export async function startSyncWorker(): Promise<void> {
   console.log("[sync-worker] starting...");
   health.initializeHealth();
+  health.flushHealth();
 
   wsClient = new HAWebSocketClient({
     onConnected: async () => {
       health.recordWebSocketConnected();
+      health.flushHealth();
       console.log("[sync-worker] subscribing to events...");
       try {
         // Subscribe to bambu_lab custom events (print lifecycle)
@@ -919,6 +925,7 @@ export async function startSyncWorker(): Promise<void> {
     },
     onDisconnected: () => {
       health.recordWebSocketDisconnected();
+      health.flushHealth();
       console.log("[sync-worker] lost HA connection — will reconnect");
     },
   });
