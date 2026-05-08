@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## May 2026
 
+- **fix:** H2S keeps 3MFs in / (root), not /cache/ — search both paths (`f9c1b21`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`ebc4f82`)
 - **feat:** editable printer IP in Access Code card (`1021e81`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`8d908e4`)
 - **fix:** Bambu access codes are alphanumeric, not numeric-only (`95020fe`)
