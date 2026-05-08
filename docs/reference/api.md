@@ -442,6 +442,32 @@ Common `warnings` entries: `"No sync data yet for this printer"`,
 `"Active spools have no purchase price — cost cannot be estimated"`,
 `"Print weight not yet known"`, `"No active spools matched"`.
 
+#### `POST /api/v1/prints/:id/pull-3mf`
+
+Manually re-trigger the FTPS auto-pull for one print. Use cases:
+auto-pull at print-start linked the wrong file, the access code was
+fixed after print start, or the print was started from the printer's
+LCD history (no MQTT `print_started` fired).
+
+- **Auth:** `optionalAuth` (browser-callable from the print detail UI)
+- **Body** (optional): `{ "printName": "override string" }` — if set,
+  used in place of `prints.name` for the token-overlap match. Lets the
+  user force a different file when the auto-match keeps picking wrong.
+- **Response:**
+```json
+{
+  "ok": true,
+  "printId": "uuid",
+  "matchedAgainst": "Plant Clip - PLA version",
+  "modelFileId": "uuid-or-null",
+  "plannedWeightG": 1.56
+}
+```
+- **Errors:** `404` (print not found), `400` (print has no `printer_id`
+  or `name` and no override). The pull itself fails *silently* (logged,
+  not surfaced) — `modelFileId: null` means the printer was offline,
+  the file was missing, or token-overlap scored 0 with no recent upload.
+
 ---
 
 ### Orders

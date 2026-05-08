@@ -22,6 +22,10 @@ import { parseModelFile, summarize } from "./3mf-parser";
 import { saveCover } from "./model-file-store";
 
 const PRINT_START_DELAY_MS = 30_000; // give printer 30s to settle before competing for FTP bandwidth
+// Window for the "newest-cached-3mf" fallback when print_name has no
+// token signal. 5 min covers Bambu Studio's slice-then-upload-then-start
+// flow plus PRINT_START_DELAY_MS without ever picking a stale file.
+const RECENT_UPLOAD_WINDOW_MS = 5 * 60_000;
 
 export interface PullParams {
   printerId: string;
@@ -232,12 +236,33 @@ export async function pullByPrintName(
   scored.sort((a, b) => b.score - a.score);
 
   const best = scored[0];
-  // No real signal at all → don't link. Linking the alphabetically-first
-  // file produces wrong covers and confuses the user worse than no link.
+  // No token signal at all (e.g. print_name = slicer-process preset
+  // "0.2mm layer, 2 walls, 15% infill" when user prints from Bambu
+  // Studio without a saved project name). Fall back to the newest .3mf
+  // *only* if it was uploaded within the last few minutes — Studio
+  // always re-uploads the file right before "Print" sends start.
+  // entries[] is already sorted newest-first by mtime in listCache3mfs().
   if (best.score === 0) {
+    const newest = entries[0];
+    const ageMs = newest.modifiedAt ? Date.now() - newest.modifiedAt.getTime() : Infinity;
+    if (ageMs > RECENT_UPLOAD_WINDOW_MS) {
+      const ageMin = Number.isFinite(ageMs) ? Math.round(ageMs / 60_000) : "unknown";
+      console.log(
+        `[ftp-pull] no token match for "${printName}" and newest .3mf is ${ageMin}m old — leaving prints.model_file_id null`,
+      );
+      return;
+    }
+    const ageSec = Math.round(ageMs / 1000);
     console.log(
-      `[ftp-pull] no token match for "${printName}" against ${entries.length} candidate(s) — leaving prints.model_file_id null`,
+      `[ftp-pull] no token match for "${printName}" — falling back to newest cached .3mf "${newest.name}" (${ageSec}s old)`,
     );
+    await pullFromPrinterAndLink({
+      printerId,
+      printId,
+      filename: newest.name,
+      dir: newest.dir,
+      md5,
+    });
     return;
   }
 
@@ -256,7 +281,7 @@ export async function pullByPrintName(
 
 // Strip the `.gcode.3mf` / `.3mf` suffix, lowercase, collapse whitespace.
 // "Plant Clip - PLA version" → "plantclipplaversion".
-function collapse(s: string): string {
+export function collapse(s: string): string {
   return s
     .toLowerCase()
     .replace(/\.gcode\.3mf$/i, "")
@@ -268,7 +293,7 @@ function collapse(s: string): string {
 
 // Split into lowercase alphanumeric tokens of length ≥ 2.
 // Drops uninformative single chars and noise.
-function tokenize(s: string): Set<string> {
+export function tokenize(s: string): Set<string> {
   return new Set(
     s
       .toLowerCase()
@@ -279,7 +304,7 @@ function tokenize(s: string): Set<string> {
   );
 }
 
-function countShared(a: Set<string>, b: Set<string>): number {
+export function countShared(a: Set<string>, b: Set<string>): number {
   let n = 0;
   for (const t of a) if (b.has(t)) n++;
   return n;

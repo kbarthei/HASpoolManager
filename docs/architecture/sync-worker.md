@@ -247,6 +247,36 @@ Solution: **event-driven capture from `state_changed`**.
 (HA core auth) are BOTH required for `image_proxy` requests — only one
 yields 401.
 
+### FTPS 3MF auto-pull (`lib/printer-ftp-pull.ts`)
+
+`event_print_started` schedules a fire-and-forget pull from the printer's
+FTPS server (port 990, user `bblp`, password = access code) after a 30s
+delay. Failures are logged + swallowed so a missing access code, an offline
+printer, or a parse error never blocks the print row.
+
+Dedup ladder (each step short-circuits the rest):
+
+1. **MD5 hit** — if MQTT's `project_file` command exposed an MD5 and a
+   `model_files.md5` matches, reuse the existing row. No FTP needed.
+2. **Token-overlap match** — list `cache/` and `/` (P1S/X1C/A1 vs H2S
+   firmware-family difference) for `.3mf` candidates, tokenize each
+   filename + the MQTT `print_name`, score by shared tokens (length ≥ 2)
+   plus a +100 substring bonus. Highest score wins.
+3. **Newest-recent-upload fallback** — if best score is 0 (the print_name
+   is a slicer-process preset like `0.2mm layer, 2 walls, 15% infill`,
+   which Bambu Studio sends when the user hits Print without a saved
+   project name), fall back to the newest `.3mf` *only if* it was
+   modified within `RECENT_UPLOAD_WINDOW_MS` (5 min). Studio uploads
+   the file to the printer immediately before sending start, so the
+   newest file in the window is virtually always the right one.
+4. **Give up** — log `no token match … leaving prints.model_file_id null`
+   and return. `prints.model_file_id` stays null; the operator can
+   manually re-trigger via `POST /api/v1/prints/[id]/pull-3mf` (with
+   optional `printName` body to force a different match string).
+
+After download, a second dedup by sha256 covers concurrent prints of the
+same file racing each other through the pipeline.
+
 ### Initial sync on reconnect
 
 Part of `registerPrinter`. After discovery, we call `buildSyncPayload`
