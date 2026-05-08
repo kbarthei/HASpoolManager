@@ -6,6 +6,9 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## May 2026
 
+- **fix:** mock @/lib/db so auth-optional unit test doesn't need ./data/ (`940aeb6`)
+- **docs:** add critical incident analysis and security change checklist (`578fd4e`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`20bd1f4`)
 - **fix:** narrow AuthResult union before accessing keyId/response (`75ee86f`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`32d3966`)
 - **fix:** non-Bearer Authorization headers are anonymous, not failed claims (`8731a19`)
