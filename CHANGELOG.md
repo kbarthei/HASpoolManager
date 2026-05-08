@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## May 2026
 
+- **fix:** non-Bearer Authorization headers are anonymous, not failed claims (`8731a19`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`e5ee4ce`)
 - **chore:** bump version to 1.1.26 (`3820798`)
 - **fix:** remove incorrect auth check from audit-logs route (`6c5530f`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`66faca3`)
