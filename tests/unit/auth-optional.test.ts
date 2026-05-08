@@ -22,25 +22,25 @@ describe("optionalAuth", () => {
   it("treats no Authorization header as anonymous web-ui", async () => {
     const res = await optionalAuth(req());
     expect(res.authenticated).toBe(true);
-    expect(res.keyId).toBe("web-ui");
+    if (res.authenticated) expect(res.keyId).toBe("web-ui");
   });
 
   it("treats Basic Authorization (e.g. HA ingress) as anonymous web-ui", async () => {
     const res = await optionalAuth(req({ authorization: "Basic dXNlcjpwYXNz" }));
     expect(res.authenticated).toBe(true);
-    expect(res.keyId).toBe("web-ui");
+    if (res.authenticated) expect(res.keyId).toBe("web-ui");
   });
 
   it("treats arbitrary non-Bearer scheme as anonymous web-ui", async () => {
     const res = await optionalAuth(req({ authorization: "X-HA-Session abc123" }));
     expect(res.authenticated).toBe(true);
-    expect(res.keyId).toBe("web-ui");
+    if (res.authenticated) expect(res.keyId).toBe("web-ui");
   });
 
   it("rejects an invalid Bearer token (no silent bypass)", async () => {
     const res = await optionalAuth(req({ authorization: "Bearer hspm_definitelynotvalid" }));
     expect(res.authenticated).toBe(false);
-    expect(res.response).toBeDefined();
+    if (!res.authenticated) expect(res.response).toBeDefined();
   });
 
   it("accepts a Bearer matching API_SECRET_KEY env", async () => {
@@ -49,7 +49,7 @@ describe("optionalAuth", () => {
     try {
       const res = await optionalAuth(req({ authorization: "Bearer test-secret-12345" }));
       expect(res.authenticated).toBe(true);
-      expect(res.keyId).toBe("env");
+      if (res.authenticated) expect(res.keyId).toBe("env");
     } finally {
       if (prev === undefined) delete process.env.API_SECRET_KEY;
       else process.env.API_SECRET_KEY = prev;
