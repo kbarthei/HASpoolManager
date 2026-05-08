@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## May 2026
 
+- - test+docs: print ↔ model cross-link e2e + user-guide entries (`41f702c`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`f1370db`)
 - **feat:** cross-link print ↔ model + manual re-pull UI (`bb4703c`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`6a6a5ed`)
 - **fix:** newest-recent-upload fallback when print_name has no token signal (`4895556`)
