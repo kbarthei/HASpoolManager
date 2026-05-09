@@ -294,6 +294,8 @@ you can tap a spool sticker and jump straight to its detail view.
 The **Models** tab parses Bambu Studio / OrcaSlicer 3MF exports and tells you,
 before you start a print, **which spools you have available** for it.
 
+![Models](../../screenshots/light/desktop/12-models.png)
+
 ### Workflow
 
 1. **Drag-drop** a `.3mf` onto the Models page (or click "Datei wählen").
@@ -301,11 +303,15 @@ before you start a print, **which spools you have available** for it.
 3. Open the model card. You see one row per filament needed, with a list of currently-active spools that match (RFID exact match preferred, otherwise material+color).
 4. When the actual print starts, the sync worker auto-links the print row to the 3MF (token-overlap on `print_name` against cached filenames, with a "newest-recent-upload" fallback for unnamed prints). The link appears under "Drucke mit diesem Modell" on the model detail page.
 
+![Model detail](../../screenshots/light/desktop/13-model-detail.png)
+
 ### Navigating between prints and models
 
 - **From a print to its model:** every print card in `/prints` shows a small `📁 Model` link when a 3MF is attached. The print title itself opens the print detail page, which shows the linked model with cover thumbnail.
-- **From a model to its prints:** the model detail page lists every print that used this 3MF — click any row to jump to the print detail.
+- **From a model to its prints:** the model detail page (above) lists every print that used this 3MF under "Drucke mit diesem Modell" — click any row to jump to the print detail.
 - **Wrong file linked?** Open the print detail page and click **Re-pull 3MF**. If the auto-match keeps picking wrong, expand "Override match" and paste the project filename you want to match against (token-overlap will then score it directly).
+
+![Print detail with linked 3MF model](../../screenshots/light/desktop/14-print-detail.png)
 
 ### What you get per format
 

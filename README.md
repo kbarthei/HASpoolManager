@@ -62,6 +62,14 @@ update three months ago. No cloud account.**
 
 ![Diagnostics](screenshots/light/desktop/11-admin-diagnostics.png)
 
+**3MF metadata pull** — Bambu Studio "Send to Printer" → addon FTPs the sliced project from the printer cache, parses cover + filament plan, and links it to the running print:
+
+![Print detail with linked 3MF model](screenshots/light/desktop/14-print-detail.png)
+
+The Models tab keeps a deduped library of every 3MF the addon has ever pulled (or you've drag-dropped). Each card cross-links to every print that used it — and back the other way:
+
+![Models](screenshots/light/desktop/12-models.png)
+
 **Mobile PWA** — at the printer in your hand:
 
 <img src="screenshots/light/mobile/01-dashboard.png" width="280" /> <img src="screenshots/light/mobile/02-inventory.png" width="280" /> <img src="screenshots/light/mobile/04-spool-inspector.png" width="280" />
