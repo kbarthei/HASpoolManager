@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## May 2026
 
+- **test:** enforce docs coverage via auto-discovery CI scanner (`7cc8299`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`c3d2ddc`)
 - **docs:** embed new screenshots — Models, model detail, print detail (`cfa8005`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`5575627`)
 - **chore:** refresh all + capture /models, /prints/[id] surfaces (`94a57b2`)
