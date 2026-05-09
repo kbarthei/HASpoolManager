@@ -53,8 +53,14 @@ type Section = {
 
 type PageDef = {
   slug: string;
-  /** Path relative to ADDON_BASE_URL — no leading slash */
+  /** Path relative to ADDON_BASE_URL — no leading slash. Static unless resolveAppPath is set. */
   appPath: string;
+  /**
+   * Optional: resolve the actual path at runtime by hitting the live API,
+   * e.g. to find a representative model id for the detail-page shot.
+   * Returns the resolved path (no leading slash), or null to skip the page.
+   */
+  resolveAppPath?: () => Promise<string | null>;
   ready: string;
   postLoadDelayMs?: number;
   /**
@@ -183,7 +189,59 @@ const PAGES: PageDef[] = [
       { slug: "orphan-photos", selector: "[data-testid='issue-orphan-photos']" },
     ],
   },
+  {
+    slug: "12-models",
+    appPath: "ingress/models",
+    ready: "[data-testid='page-models']",
+    postLoadDelayMs: 500,
+  },
+  {
+    slug: "13-model-detail",
+    // appPath is overwritten by resolveAppPath; the static value is a fallback
+    // for when the resolve helper can't reach the API.
+    appPath: "ingress/models",
+    ready: "[data-testid='page-model-detail']",
+    postLoadDelayMs: 500,
+    resolveAppPath: async () => {
+      // Pick the most recently uploaded model that has a cover image — the
+      // detail page is far less interesting when the cover slot is empty.
+      const res = await fetchAddonJson<{ id: string; coverPath: string | null }[]>(
+        `${ADDON_BASE_URL}/api/v1/models?limit=20`,
+      );
+      if (!res) return null;
+      const withCover = res.find((m) => m.coverPath);
+      const target = withCover ?? res[0];
+      return target ? `ingress/models/${target.id}` : null;
+    },
+  },
+  {
+    slug: "14-print-detail",
+    appPath: "ingress/prints",
+    ready: "[data-testid='page-print-detail']",
+    postLoadDelayMs: 500,
+    resolveAppPath: async () => {
+      // Prefer a finished print that's linked to a model file — the
+      // "Linked 3MF model" card is the new UI surface this shot exists for.
+      const res = await fetchAddonJson<
+        { id: string; status: string; modelFileId: string | null }[]
+      >(`${ADDON_BASE_URL}/api/v1/prints?limit=50`);
+      if (!res) return null;
+      const linked = res.find((p) => p.modelFileId);
+      const target = linked ?? res[0];
+      return target ? `ingress/prints/${target.id}` : null;
+    },
+  },
 ];
+
+async function fetchAddonJson<T>(url: string): Promise<T | null> {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    return (await res.json()) as T;
+  } catch {
+    return null;
+  }
+}
 
 // 30s walkthrough — pages in order, brief dwell between transitions.
 const WALKTHROUGH_PATH: Array<{ appPath: string; ready: string; dwellMs: number }> = [
@@ -191,6 +249,7 @@ const WALKTHROUGH_PATH: Array<{ appPath: string; ready: string; dwellMs: number 
   { appPath: "ingress/inventory", ready: "[data-testid='page-inventory']", dwellMs: 2500 },
   { appPath: "ingress/spools", ready: "[data-testid='page-spools']", dwellMs: 2500 },
   { appPath: "ingress/prints", ready: "[data-testid='page-prints']", dwellMs: 2500 },
+  { appPath: "ingress/models", ready: "[data-testid='page-models']", dwellMs: 2500 },
   { appPath: "ingress/orders", ready: "[data-testid='page-orders']", dwellMs: 2500 },
   { appPath: "ingress/analytics", ready: "main", dwellMs: 3500 },
   { appPath: "ingress/admin/diagnostics", ready: "main", dwellMs: 2500 },
@@ -320,6 +379,12 @@ async function navigateToPage(
       throw new Error("spool inspector requested but no spool found in addon");
     }
     appPath = `ingress/spools/${spoolInspectorId}`;
+  }
+  if (pageDef.resolveAppPath) {
+    const resolved = await pageDef.resolveAppPath();
+    if (resolved) appPath = resolved;
+    // else: fall back to the static appPath (e.g. /models list page when
+    // the API is unreachable or no models exist yet)
   }
   const url = appPath ? `${ADDON_BASE_URL}/${appPath}` : ADDON_BASE_URL;
   await page.goto(url, { waitUntil: "domcontentloaded", timeout: 25_000 });
