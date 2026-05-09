@@ -225,6 +225,23 @@ next sync. You can also manually archive a spool from its detail view.
 Werkstatt"). Disable an unused AMS — its loaded spools move to storage
 and stop syncing.
 
+### History timeline
+
+`/history` is a chronological feed of every observable state change —
+print starts and finishes, AMS swaps, spool RFID re-reads, supply-rule
+alerts. Use it when "what happened on Tuesday?" matters. Filter by date,
+event type, or spool.
+
+![History](../../screenshots/light/desktop/06-history.png)
+
+### Analytics
+
+`/analytics` is the long-range view: spend per month per vendor, weight
+used per material, average print duration, cost per gram trends. Same
+data the supply engine consumes for its EMA forecast.
+
+![Analytics](../../screenshots/light/desktop/08-analytics.png)
+
 ---
 
 ## 6. Diagnostics

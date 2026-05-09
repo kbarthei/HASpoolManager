@@ -196,6 +196,12 @@ const PAGES: PageDef[] = [
     postLoadDelayMs: 500,
   },
   {
+    slug: "15-supply",
+    appPath: "ingress/supply",
+    ready: "[data-testid='page-supply']",
+    postLoadDelayMs: 500,
+  },
+  {
     slug: "13-model-detail",
     // appPath is overwritten by resolveAppPath; the static value is a fallback
     // for when the resolve helper can't reach the API.

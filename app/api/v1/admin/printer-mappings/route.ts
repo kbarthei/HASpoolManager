@@ -1,3 +1,4 @@
+// docs-coverage: ignore — HA entity-mapping config, /admin UI only
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, optionalAuth } from "@/lib/auth";
 import { checkConnection } from "@/lib/ha-api";

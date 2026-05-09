@@ -1,3 +1,4 @@
+// docs-coverage: ignore — admin manual cover capture, internal helper
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth";
 import { captureCoverNowAction } from "@/lib/actions";

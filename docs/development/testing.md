@@ -6,12 +6,19 @@
 ┌──────────────────────────────────────────────┐
 │ E2e (Playwright + Docker nginx + ingress)    │  ~53 tests (19 specs)
 ├──────────────────────────────────────────────┤
-│ Integration (Vitest + SQLite file DB)        │ 217 tests (26 files)
+│ Integration (Vitest + SQLite file DB)        │ 331 tests (27 files)
 ├──────────────────────────────────────────────┤
 │ Unit (Vitest, no DB)                         │ 670 tests (30 files)
 └──────────────────────────────────────────────┘
-Total: ~940 tests — CI runs unit + integration on every push,
+Total: ~1054 tests — CI runs unit + integration on every push,
 e2e only on `main` push (~2 min total).
+
+Two of the integration test files are auto-discovery contract scanners
+that fail CI on missing coverage rather than checking specific behaviour:
+`browser-auth-contract.test.ts` (all browser fetches → optionalAuth routes)
+and `docs-coverage.test.ts` (every UI page + API route → docs reference).
+Opt-out via `// browser-auth-contract: ignore` and `// docs-coverage: ignore`
+line comments respectively.
 ```
 
 **Mock services for live-protocol tests:** `tests/integration/printer-ftp-pull.test.ts` spins up `ftp-srv` in-process with implicit TLS + a self-signed cert, drops fixtures into a temp `cache/` directory, and exercises the full pull pipeline (list → download → parse → DB-insert → link to print). No external network or printer required. The same mock is exposed standalone at `scripts/mock-bambu-printer.ts` for ad-hoc CLI testing.

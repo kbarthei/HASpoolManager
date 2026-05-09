@@ -1,3 +1,4 @@
+// docs-coverage: ignore — admin API-key cleanup, /admin UI only
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, getExpiredKeys, deactivateExpiredKeys } from "@/lib/auth";
 

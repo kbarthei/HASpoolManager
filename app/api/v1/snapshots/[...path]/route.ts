@@ -1,3 +1,4 @@
+// docs-coverage: ignore — static file server for stored snapshot images
 import { NextRequest, NextResponse } from "next/server";
 import { readFileSync, existsSync } from "fs";
 import path from "path";

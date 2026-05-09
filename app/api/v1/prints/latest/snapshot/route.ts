@@ -1,3 +1,4 @@
+// docs-coverage: ignore — admin manual snapshot trigger, internal helper
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth";
 import { db } from "@/lib/db";

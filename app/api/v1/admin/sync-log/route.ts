@@ -1,3 +1,4 @@
+// docs-coverage: ignore — admin sync-log viewer, /admin/diagnostics UI only
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { syncLog } from "@/lib/db/schema";

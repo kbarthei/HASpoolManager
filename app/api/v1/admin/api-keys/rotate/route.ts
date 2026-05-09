@@ -1,3 +1,4 @@
+// docs-coverage: ignore — admin API-key rotate, /admin UI only
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, rotateApiKey } from "@/lib/auth";
 

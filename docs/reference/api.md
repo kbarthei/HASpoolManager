@@ -266,6 +266,14 @@ Delete a spool. Fails if print_usage references it (RESTRICT).
 - **Auth:** `requireAuth`
 - **Response:** Deleted `Spool` or `404`
 
+#### `POST /api/v1/spools/scan`
+
+Look up (or auto-create) a spool from a scanned RFID tag. Used by the `/scan` page on the PWA. RFID-exact matches return the existing row; unknown tags create a draft spool the operator then fills in.
+
+- **Auth:** `optionalAuth`
+- **Body:** `{ uid: string, hint?: { vendorId?, filamentId?, colorHex? } }`
+- **Response:** `{ spool: Spool, kind: "matched" | "draft-created" }` or `400` for malformed UID
+
 ---
 
 ### Printers
@@ -406,6 +414,15 @@ Remove a single photo (file + JSON-array entry). Works for all kinds.
 
 - **Auth:** `requireAuth`
 - **Response:** `{ ok: true }` or `404`.
+
+#### `PATCH /api/v1/prints/:id/usage/:usageId`
+
+Adjust the recorded weight for a single filament-usage row on a print. Backs the inline weight edit in the print detail UI.
+
+- **Auth:** `optionalAuth`
+- **Body:** `{ weightUsed: number }` (grams; non-negative)
+- **Response:** `{ ok: true, usage: PrintUsage }` or `404` (print or usage not found)
+- **Side effects:** the spool's `remainingWeight` is recomputed from the delta; `prints.totalCost` and `prints.filamentCost` re-derived.
 
 #### `GET /api/v1/prints/:id/cost-estimate`
 
@@ -1450,6 +1467,79 @@ When `event_print_started` fires AND `printers.access_code` is set:
 If `printers.access_code` is empty, the pull is silently skipped — manual upload via `POST /api/v1/models` remains fully functional. Cloud connectivity (MakerWorld, mobile app) is unaffected by setting an access code; only the printer's "LAN Only Mode" toggle disables cloud, and we never touch that.
 
 MD5 short-circuit: if the model file has been pulled before (same `model_files.md5`), the FTP-fetch is skipped entirely and the existing row is reused.
+
+## 11b. Supply Engine
+
+Forecasts depletion, raises alerts before you run out, optimises cart suggestions across vendors. UI lives at `/supply` (alerts list) and the Supply Rules card on `/orders`. All endpoints are browser-callable from the operator UI.
+
+### `GET /api/v1/supply/status`
+
+Live supply-engine state for the dashboard widget — count of active alerts by severity + last analyse run.
+
+- **Auth:** `optionalAuth`
+- **Response:** `{ ok: true, alerts: { critical: number, warn: number, info: number }, lastAnalysedAt: ISO|null }`
+
+### `POST /api/v1/supply/analyze`
+
+Recompute alerts for all rules. Idempotent; safe to call from a manual "refresh" button. Skipped automatically by the watchdog if the last analyse ran within `SUPPLY_ANALYZE_DEBOUNCE_MS`.
+
+- **Auth:** `optionalAuth`
+- **Body:** `{}` (empty); reserved for future per-rule re-analysis
+- **Response:** `{ ok: true, alertsRaised: number, alertsResolved: number }`
+
+### `GET /api/v1/supply/optimize`
+
+Returns a suggested shopping cart: groups outstanding alerts by vendor, respects free-shipping thresholds, applies bulk-discount tiers, prefers in-stock SKUs from each vendor's price-crawl cache.
+
+- **Auth:** `optionalAuth`
+- **Response:** `{ optimized: Array<{ vendor, items: SuggestedItem[], shippingCost, totalCost }> }`
+
+### `GET /api/v1/supply/alerts`
+
+List of currently-open supply alerts.
+
+- **Auth:** `optionalAuth`
+- **Query params:** `severity=critical|warn|info`
+- **Response:** `Alert[]` ordered by `createdAt` desc
+
+### `PUT /api/v1/supply/alerts/[id]`
+
+Acknowledge or dismiss a single alert.
+
+- **Auth:** `optionalAuth`
+- **Body:** `{ status: "acknowledged" | "dismissed" | "resolved" }`
+- **Response:** `Alert` (updated row) or `404`
+
+### `GET /api/v1/supply/rules`
+
+List supply rules ("keep ≥ N spools of `<filament>`").
+
+- **Auth:** `optionalAuth`
+- **Response:** `Rule[]`
+
+### `POST /api/v1/supply/rules`
+
+Create a new supply rule.
+
+- **Auth:** `optionalAuth`
+- **Body:** `{ filamentId: uuid, minActiveSpools: number, leadTimeDays?: number, notes?: string }`
+- **Response:** `201 Rule`
+
+### `PATCH /api/v1/supply/rules/[id]`
+
+Update an existing rule. Any field optional; only the supplied keys are written.
+
+- **Auth:** `optionalAuth`
+- **Response:** `Rule` or `404`
+
+### `DELETE /api/v1/supply/rules/[id]`
+
+Remove a rule. Open alerts derived from this rule are auto-resolved on the next analyse pass.
+
+- **Auth:** `optionalAuth`
+- **Response:** `{ ok: true }` or `404`
+
+---
 
 ## 12. Audit Logs
 

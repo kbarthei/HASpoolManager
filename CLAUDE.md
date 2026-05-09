@@ -212,6 +212,31 @@ When working with multiple AI agents (Bob for architecture/security, Claude for 
 - Leaving stale doc sections describing the pre-refactor behavior ("TODO: update after migration")
 - Documenting implementation details that belong in code comments (the doc should explain *what* + *why*, not line-by-line *how*)
 
+### Definition of Done — pre-commit checklist
+
+Before declaring any feature/fix done, walk through this list. CI gates the doc-coverage and browser-auth checks; the rest is on you.
+
+**Always:**
+1. Code passes `npx tsc --noEmit` + `npm run test:unit` + (if backend touched) `npm run test:integration`.
+2. Conventional-commit message ready, no skipped pre-commit hooks.
+
+**If you touched `app/(app)/**` (UI pages or components):**
+3. New page has `data-testid="page-<name>"` on its root.
+4. New page is listed in `scripts/capture-screenshots.ts` PAGES (with `appPath` or `resolveAppPath` for detail pages).
+5. New page is referenced in `docs/operator/user-guide.md` (or `README.md` for flagship features).
+6. If the change is visible (new card, button, layout shift): refresh screenshots — `npm run screenshots` (Mac on LAN) — and verify the doc-embedded shots actually show the new UI. Stale shots are worse than no shots.
+7. If the page has interactive flows: e2e spec in `tests/e2e/` using `data-testid` selectors.
+
+**If you touched `app/api/v1/**`:**
+8. Route documented in `docs/reference/api.md` — URL with `{id}`/`:id`/`[id]` syntax + auth tier + body shape + response shape. Or add `// docs-coverage: ignore — <reason>` if genuinely internal (admin-only, sync-worker hooks).
+9. Auth tier matches the browser-auth contract (`optionalAuth` for browser-callable, `requireAuth` for API-key consumers). The `tests/integration/browser-auth-contract.test.ts` scanner enforces this.
+
+**If you touched `lib/db/schema.ts`:**
+10. Migration generated (`npx drizzle-kit generate`) AND added to `scripts/migrate-db.js` with idempotent guard.
+11. Schema change documented in `docs/architecture/data-model.md`.
+
+**Final gate:** `npm run test:integration -- tests/integration/docs-coverage.test.ts` is green. The scanner auto-discovers UI + API gaps; if it fails, fix the underlying gap, don't paper over with `ignore`.
+
 ## Conventions
 
 - Apple Health inspired design, light + dark mode (system preference), teal accent

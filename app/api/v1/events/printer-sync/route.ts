@@ -1,3 +1,4 @@
+// docs-coverage: ignore — internal sync-worker → Next.js webhook, conceptual flow in docs/architecture/sync-worker.md
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";

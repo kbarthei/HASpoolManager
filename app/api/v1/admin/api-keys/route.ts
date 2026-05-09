@@ -1,3 +1,4 @@
+// docs-coverage: ignore — admin API-key management, exposed only via /admin UI
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, generateApiKey, getExpiredKeys, deactivateExpiredKeys } from "@/lib/auth";
 import { db } from "@/lib/db";

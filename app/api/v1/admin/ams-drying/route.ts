@@ -1,3 +1,4 @@
+// docs-coverage: ignore — internal /admin diagnostics endpoint
 import { NextRequest, NextResponse } from "next/server";
 import { optionalAuth } from "@/lib/auth";
 
