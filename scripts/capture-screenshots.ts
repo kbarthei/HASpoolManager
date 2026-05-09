@@ -523,10 +523,14 @@ async function captureWalkthrough(): Promise<void> {
 
 async function main(): Promise<void> {
   await checkAddonReachable();
-  await ensureOutputDirs();
 
   const skipVideo = process.argv.includes("--no-video");
   const skipStills = process.argv.includes("--video-only");
+
+  // Only wipe stills when we're actually about to re-capture them. Doing
+  // this unconditionally (the previous behavior) made --video-only nuke
+  // a freshly-captured stills tree from the prior --no-video run.
+  if (!skipStills) await ensureOutputDirs();
 
   const spoolInspectorId = await resolveInspectorSpoolId();
   if (spoolInspectorId) {
