@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## May 2026
 
+- **feat:** capture /models, /models/[id], /prints/[id] (`41c5816`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`cc931f5`)
 - **fix:** MDTM enrichment + sync_log persistence — H2S firmware quirk (`63d9b48`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`d5c2ee4`)
 - **fix:** assert href on print-detail link instead of click (hydration flake) (`0c37112`)
