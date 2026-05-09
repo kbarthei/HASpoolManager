@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## May 2026
 
+- **docs:** embed new screenshots — Models, model detail, print detail (`cfa8005`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`5575627`)
 - **chore:** refresh all + capture /models, /prints/[id] surfaces (`94a57b2`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`8bf7b7a`)
 - **feat:** capture /models, /models/[id], /prints/[id] (`41c5816`)
