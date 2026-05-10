@@ -1,83 +1,78 @@
 # HASpoolManager
 
-## Overview
+3D-Print Filament Lifecycle Manager for Bambu Lab printers — tracks
+spools from purchase through print: weight deduction, cost analytics,
+RFID + fuzzy spool matching, AI order parsing, 3MF metadata pull,
+multi-rack inventory, supply forecasting.
 
-3D printing filament lifecycle manager for Bambu Lab printers with AMS. Tracks spools from purchase to print -- weight deduction, cost analytics, spool matching, order parsing via AI.
+> **📖 Full documentation lives on GitHub.** This page is just the
+> install + first-run reference; everything below the line points
+> back to the canonical docs that ship with each release.
 
-## Configuration
+## First-run setup
+
+1. Install the addon, click **Start**.
+2. Open it via the HA sidebar (**Spool Manager**) — the addon
+   auto-discovers your Bambu Lab printer through Home Assistant's
+   websocket API, no `rest_command`, no automations, no YAML.
+3. (Optional) Enter the printer's **8-digit Access Code**
+   (Drucker-LCD → Settings → WLAN → Access Code) on the addon's
+   **Admin** page → Bambu Access Code card. Enables the FTPS auto-pull
+   of the sliced 3MF on every print start (cover, filament plan,
+   weight + time prediction). Cloud / MakerWorld / mobile app keep
+   working — the access code does not flip the printer's "LAN Only
+   Mode" toggle.
+
+## Configuration options
 
 | Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| log_level | list | info | Log verbosity: debug, info, warning, error |
-| api_key | string | (empty) | Bearer token for webhook authentication. Set this to a random string and use the same value in your rest_command config |
-| anthropic_api_key | string | (empty) | Anthropic Claude API key for AI order parsing. Optional -- order parsing works without it but requires manual entry |
+|---|---|---|---|
+| `log_level` | enum | `info` | `debug` / `info` / `warning` / `error` |
+| `api_key` | string | empty | Bearer token for external HA webhooks. Leave empty when accessing via the HA sidebar (ingress) or LAN-only direct port. |
+| `anthropic_api_key` | string | empty | Claude API key for AI order parsing. Optional — manual entry works without it. |
 
-## Access Methods
+## Access methods
 
 | Method | URL | Auth | Use case |
-|--------|-----|------|----------|
-| HA Sidebar | Click "Spool Manager" in sidebar | HA login | Normal use within HA |
-| Direct/PWA | `http://homeassistant:3001` | None | iOS home screen app, use at the printer |
+|---|---|---|---|
+| HA sidebar | "Spool Manager" tab | HA login | Normal use within HA |
+| Direct / PWA | `http://homeassistant:3001` | none (LAN-only) | Add to iOS home screen, use at the printer |
 
-### Install as iOS App
+**Install as iOS PWA:** open `http://homeassistant:3001` in Safari →
+Share → *Add to Home Screen*. Opens standalone, no browser chrome,
+respects the bottom nav-bar layout.
 
-1. Open `http://homeassistant:3001` in Safari
-2. Tap Share > "Add to Home Screen"
-3. The app opens standalone without Safari bars
+## Data + backup
 
-## Printer Sync
+- Database: `/config/haspoolmanager.db` (SQLite, included in HA backups).
+- Manual backup: stop the addon, copy `*.db` + `*.db-wal` + `*.db-shm`.
+- All data lives in the HA config directory — uninstalling the addon
+  preserves your spools, prints, and orders.
 
-The addon syncs with your Bambu Lab printer automatically via Home Assistant's
-websocket API. No configuration needed — zero-config.
+---
 
-**How it works:**
-1. On startup, the addon discovers all Bambu Lab printers connected to HA
-2. It subscribes to state change events via websocket
-3. Print lifecycle events (start, finish, fail) trigger immediate sync
-4. A watchdog polls every 2 minutes during active prints, every 5 minutes when idle
+## Full documentation
 
-**No rest_command, no automations, no YAML editing required.**
+The current, authoritative docs ship in the GitHub repo and are
+updated in lock-step with every code change (a CI scanner enforces it):
 
-The addon requires `homeassistant_api` access (configured automatically in the addon manifest).
+- 🚀 [**README**](https://github.com/kbarthei/HASpoolManager#readme) — feature tour with screenshots
+- 📖 [**Operator user guide**](https://github.com/kbarthei/HASpoolManager/blob/main/docs/operator/user-guide.md) — every workflow, end-to-end (10 sections)
+- 🛠️ [**Operations runbook**](https://github.com/kbarthei/HASpoolManager/blob/main/docs/operator/operations-runbook.md) — break-fix recipes with admin SQL
+- ⚙️ [**Configuration reference**](https://github.com/kbarthei/HASpoolManager/blob/main/docs/operator/configuration.md) — all addon options + env vars
+- 🏗️ [**Architecture overview**](https://github.com/kbarthei/HASpoolManager/blob/main/docs/architecture/overview.md) — how the pieces fit together
+- 🔌 [**API reference**](https://github.com/kbarthei/HASpoolManager/blob/main/docs/reference/api.md) — every `/api/v1/*` endpoint
+- 🩺 [**Sync worker internals**](https://github.com/kbarthei/HASpoolManager/blob/main/docs/architecture/sync-worker.md) — printer sync, FTP pull, late-bind logic
+- 🔐 [**Security model**](https://github.com/kbarthei/HASpoolManager/blob/main/docs/architecture/security-model.md) — auth tiers, two-port model, SSRF guardrails
 
-## Network Ports
+The **Änderungsprotokoll** link (top of this addon page) shows the
+inline changelog, auto-generated from conventional commits.
 
-| Port | Purpose |
-|------|---------|
-| 3000 | HA ingress (internal, managed by HA) |
-| 3001 | Direct web access / PWA (exposed to network) |
+## When something breaks
 
-## Data and Backup
-
-- **Database:** `/config/haspoolmanager.db` (SQLite)
-- Included in standard HA backups automatically
-- Manual backup: copy the `.db` file while the addon is stopped
-- The database is stored in the HA config directory, not inside the addon container
-
-## Troubleshooting
-
-### Addon won't start
-
-Check the addon log in HA: Settings > Add-ons > HASpoolManager > Log tab.
-
-### Sync worker not starting
-Check the addon log for `[sync-worker]` messages. The worker requires `SUPERVISOR_TOKEN`
-which is loaded from `/run/s6/container_environment/`. If missing, verify that
-`homeassistant_api: true` is set in the addon config.
-
-### Events not being received
-The sync worker subscribes to `bambu_lab_event` and `state_changed`. Verify the
-bambu_lab integration is installed and your printer is connected. Check the addon
-log for `discovered 1 printer(s)` and entity mapping counts.
-
-### Server Actions fail on port 3001
-
-If mutations (order creation, spool editing) fail with 500 errors on the direct access port, check the addon log for "Invalid Server Actions request". This was fixed in v1.0.27.
-
-### Date/time shows in English format
-
-Ensure addon version is 1.0.25 or newer, which includes full ICU data for de-DE locale support.
-
-### PWA not updating after addon upgrade
-
-Force-close the PWA and reopen it. iOS caches the previous version aggressively.
+1. **Settings → Add-ons → HASpoolManager → Log tab** — addon logs.
+2. The app's own **Admin → Diagnostics** page surfaces 9 live data-quality
+   checks (RFID drift, stuck prints, missing weights, sync errors, …).
+3. **Admin → Sync Log** filtered to `transition = ftp-pull` shows
+   per-step diagnostics for the 3MF auto-pull pipeline.
+4. Issue tracker: <https://github.com/kbarthei/HASpoolManager/issues>
