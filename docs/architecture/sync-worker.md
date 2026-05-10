@@ -338,6 +338,36 @@ error is logged and the print still records normally — just without
 filament deduction until a swap event produces a match. See
 `sendHaPersistentNotification` in `lib/ha-notifications.ts`.
 
+### Active-spool resolution + late-bind
+
+Both at print start and on every subsequent `RUNNING` sync, the route
+resolves which spool is currently feeding the nozzle via the
+`resolveActiveSpoolFromSlots()` helper:
+
+1. **Tier-1a (RFID exact):** if `active_slot_tag` is non-zero, look it
+   up in `tag_mappings` directly — independent of which physical slot
+   it sits in.
+2. **Tier-1b (slot walk):** otherwise iterate the per-slot body fields
+   (`slot_ams_X_Y_*`, `slot_ht_X_*`) for the slot whose `type + color
+   + filament_id` matches `active_slot_*`. Use that slot's bound spool.
+3. Give up — no warning at this point because the next sync may resolve.
+
+**Why not the old `matchSpool({ams_index: 0, tray_index: 0})` call:**
+the previous implementation hardcoded AMS-0 / slot 0, which silently
+returned the wrong spool when filament was loaded from the HT slot or
+AMS slot 1-3. Production symptom: H2S prints from the AMS-HT (ASA,
+PETG, etc.) showed `Kein Spool zugeordnet` in HA and never recorded
+filament usage.
+
+**Why "late-bind":** Bambu's MQTT often emits `event_print_started`
+*before* `active_slot_*` is populated — the printer is still in
+PREPARE (bed leveling, nozzle clean, calibration) and `tray_now` only
+fires once filament actually loads, typically 1–3 minutes later. The
+running-print branch (`runningPrint && isActive`) re-runs the resolver
+on every `RUNNING` sync and appends new spool IDs to
+`prints.activeSpoolIds`, so any spool seen during the print is
+captured even if the start event missed it.
+
 ---
 
 ## 7. Graceful shutdown

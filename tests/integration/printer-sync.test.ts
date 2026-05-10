@@ -616,6 +616,150 @@ describe("printer-sync integration", () => {
     });
   });
 
+  // ── F'. Late-bind regression: active_slot empty at print start ────────────
+  //
+  // Bambu's MQTT sometimes reports active_slot_* empty at event_print_started
+  // (printer is in PREPARE — bed leveling, nozzle clean — and tray_now hasn't
+  // populated yet). Filament starts extruding 1-3 min later and active_slot_*
+  // populates THEN. The route must bind the spool to the running print at
+  // that point, otherwise prints from the HT slot or AMS slots 1-3 silently
+  // skip usage tracking. Pre-fix bug: matchSpool was called with hardcoded
+  // ams_index: 0 / tray_index: 0, which couldn't find HT-slot spools.
+
+  describe("F'. Late-bind active_slot for HT / non-AMS-0 slots", () => {
+    let asaSpoolId: string;
+    let asaTagUid: string;
+    let latePrintId: string;
+
+    beforeAll(async () => {
+      const { makeVendor, makeFilament, makeSpool, makeTagMapping } = await import("../fixtures/seed");
+      const { db } = await import("@/lib/db");
+      const { amsSlots, prints } = await import("@/lib/db/schema");
+      const { and, eq } = await import("drizzle-orm");
+
+      // Wipe any leftover prints from prior describes — F'2 needs the last
+      // sync's runningPrint lookup to find OUR print, not a leftover finished
+      // one. The harness DB is per-worker, not per-describe.
+      await db.delete(prints);
+
+      const polymakerId = await makeVendor("Polymaker_Late");
+      const asaFilId = await makeFilament(polymakerId, {
+        name: "ASA White",
+        material: "ASA",
+        colorHex: "FFFFFF",
+      });
+      asaSpoolId = await makeSpool(asaFilId, { remainingWeight: 800, initialWeight: 1000 });
+      // Give the spool an RFID tag so the Tier-1a path is deterministic
+      // regardless of fuzzy-match noise from other tests' spools.
+      asaTagUid = `LATEHT${Date.now().toString(16).toUpperCase()}`.slice(0, 16);
+      await makeTagMapping(asaSpoolId, asaTagUid);
+
+      // Bind the ASA spool into the HT slot so the per-slot sync loop
+      // doesn't unbind it via fuzzy-matching to some other test's spool.
+      await db
+        .update(amsSlots)
+        .set({ spoolId: asaSpoolId, bambuType: "ASA", bambuColor: "#FFFFFFFF", bambuTagUid: asaTagUid })
+        .where(
+          and(
+            eq(amsSlots.printerId, testPrinterId),
+            eq(amsSlots.slotType, "ams_ht"),
+            eq(amsSlots.amsIndex, 1),
+            eq(amsSlots.trayIndex, 0),
+          ),
+        );
+    });
+
+    it("F'1: PREPARE with empty active_slot_* still creates the print (no immediate match)", async () => {
+      const { db } = await import("@/lib/db");
+      const { prints } = await import("@/lib/db/schema");
+      const { eq } = await import("drizzle-orm");
+
+      const { body } = await sync({
+        gcode_state: "PREPARE",
+        print_state: "idle",
+        print_name: `late-bind-${Date.now()}`,
+        print_weight: 250,
+        active_slot_type: "",
+        active_slot_color: "#00000000",
+        active_slot_tag: "0000000000000000",
+        active_slot_filament_id: "",
+        slot_ht_1_type: "ASA",
+        slot_ht_1_color: "#FFFFFFFF",
+        slot_ht_1_tag: asaTagUid,
+        slot_ht_1_filament_id: "GFB01",
+      });
+      expect(body.print_transition).toBe("started");
+      latePrintId = body.print_id as string;
+
+      const print = await db.query.prints.findFirst({ where: eq(prints.id, latePrintId) });
+      const ids = JSON.parse(print!.activeSpoolIds!);
+      expect(ids).toEqual([]); // no spool bound yet — active_slot_* was empty
+    });
+
+    it("F'2: subsequent RUNNING with active_slot_tag → late-bind ASA HT spool + dismiss missing-spool warning", async () => {
+      const { db } = await import("@/lib/db");
+      const { prints } = await import("@/lib/db/schema");
+      const { eq } = await import("drizzle-orm");
+      const haNotifications = await import("@/lib/ha-notifications");
+      vi.mocked(haNotifications.dismissHaPersistentNotification).mockClear();
+
+      const { body } = await sync({
+        gcode_state: "RUNNING",
+        print_state: "running",
+        active_slot_type: "ASA",
+        active_slot_color: "#FFFFFFFF",
+        active_slot_tag: asaTagUid,
+        active_slot_filament_id: "GFB01",
+        slot_ht_1_type: "ASA",
+        slot_ht_1_color: "#FFFFFFFF",
+        slot_ht_1_tag: asaTagUid,
+        slot_ht_1_filament_id: "GFB01",
+      });
+      expect(body.print_transition).toBe("none");
+
+      const print = await db.query.prints.findFirst({ where: eq(prints.id, latePrintId) });
+      const ids = JSON.parse(print!.activeSpoolIds!);
+      expect(ids).toContain(asaSpoolId);
+
+      // Late-bind succeeded — the previously-emitted "Kein Spool zugeordnet"
+      // notification must be dismissed in the same flow so the operator sees
+      // the alert disappear once the printer reports its active filament.
+      expect(haNotifications.dismissHaPersistentNotification).toHaveBeenCalledWith(
+        `haspoolmanager_missing_spool_${latePrintId}`,
+      );
+    });
+
+    it("F'3: same RUNNING again — activeSpoolIds doesn't duplicate", async () => {
+      const { db } = await import("@/lib/db");
+      const { prints } = await import("@/lib/db/schema");
+      const { eq } = await import("drizzle-orm");
+
+      await sync({
+        gcode_state: "RUNNING",
+        print_state: "running",
+        active_slot_type: "ASA",
+        active_slot_color: "#FFFFFFFF",
+        active_slot_tag: asaTagUid,
+        active_slot_filament_id: "GFB01",
+        slot_ht_1_type: "ASA",
+        slot_ht_1_color: "#FFFFFFFF",
+        slot_ht_1_tag: asaTagUid,
+        slot_ht_1_filament_id: "GFB01",
+      });
+
+      const print = await db.query.prints.findFirst({ where: eq(prints.id, latePrintId) });
+      const ids = JSON.parse(print!.activeSpoolIds!);
+      expect(ids.filter((x: string) => x === asaSpoolId)).toHaveLength(1);
+    });
+
+    afterAll(async () => {
+      const { db } = await import("@/lib/db");
+      const { prints } = await import("@/lib/db/schema");
+      // Don't leak our running print into later describes (H. Idempotency etc.)
+      await db.delete(prints);
+    });
+  });
+
   // ── G. Edge Cases ─────────────────────────────────────────────────────────
 
   describe("G. Edge Cases", () => {

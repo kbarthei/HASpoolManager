@@ -15,7 +15,7 @@ import {
   buildSlotDefs, type SlotDef,
 } from "@/lib/printer-sync-helpers";
 import { sqlCount, sqlNowMinusHours } from "@/lib/db/sql-helpers";
-import { sendHaPersistentNotification } from "@/lib/ha-notifications";
+import { sendHaPersistentNotification, dismissHaPersistentNotification } from "@/lib/ha-notifications";
 
 /**
  * POST /api/v1/events/printer-sync
@@ -28,6 +28,77 @@ import { sendHaPersistentNotification } from "@/lib/ha-notifications";
  */
 
 type PrintTransition = "none" | "started" | "finished" | "failed";
+
+/**
+ * Resolve the spool currently loaded for the printer's `active_slot_*`
+ * (i.e. which tool is feeding the nozzle). Bambu's MQTT exposes type +
+ * color + tag + filament_id but NOT which physical AMS slot — so we
+ * search the per-slot body fields to find the slot whose state matches,
+ * then use that slot's coords to look up the bound spool.
+ *
+ * Returns null when no slot data was sent, or no slot matches the
+ * active filament, or the matching slot has no spool bound yet.
+ *
+ * Why this isn't `matchSpool({ams_index: 0, tray_index: 0})`: that call
+ * hardcodes AMS-0 slot 0, which silently picks the wrong spool when the
+ * active filament is actually loaded from the HT slot or AMS slot 2/3.
+ */
+async function resolveActiveSpoolFromSlots(
+  printerId: string,
+  body: Record<string, unknown>,
+  slotDefs: SlotDef[],
+  activeType: string,
+  activeColor: string,
+  activeTag: string,
+  activeFilamentId: string,
+): Promise<string | null> {
+  if (!activeType && (!activeTag || activeTag === "0000000000000000")) return null;
+
+  // Tier-1a: RFID exact match via tag_mappings (independent of slot).
+  // Catches the case where active_slot_tag is set but the per-slot
+  // tag fields haven't been populated in this sync payload yet.
+  if (activeTag && activeTag !== "0000000000000000") {
+    const rfid = await matchSpool({ tag_uid: activeTag });
+    if (rfid.match) return rfid.match.spool_id;
+  }
+
+  const wantTag = activeTag && activeTag !== "0000000000000000" ? activeTag : null;
+  const wantType = activeType || null;
+  const wantColor6 = activeColor.replace("#", "").slice(0, 6).toUpperCase() || null;
+  const wantFilId = activeFilamentId || null;
+
+  // Tier-1b: walk the SLOT_DEFS body fields to find the slot whose bambu
+  // state matches the active filament; use that slot's bound spool. This
+  // is the fix for the bug where matchSpool was called with hardcoded
+  // ams_index: 0 / tray_index: 0, silently picking the wrong spool when
+  // the active filament was loaded from the HT slot or AMS slot 1-3.
+  for (const def of slotDefs) {
+    const slotType = str(body[`${def.key}_type`]);
+    const slotColor = str(body[`${def.key}_color`]).replace("#", "").slice(0, 6).toUpperCase();
+    const slotTag = str(body[`${def.key}_tag`]);
+    const slotFilId = str(body[`${def.key}_filament_id`]);
+
+    let matched = false;
+    if (wantTag && slotTag === wantTag) matched = true;
+    else if (
+      wantType && slotType === wantType &&
+      wantColor6 && slotColor === wantColor6 &&
+      (!wantFilId || slotFilId === wantFilId)
+    ) matched = true;
+    if (!matched) continue;
+
+    const slot = await db.query.amsSlots.findFirst({
+      where: and(
+        eq(amsSlots.printerId, printerId),
+        eq(amsSlots.slotType, def.slotType),
+        eq(amsSlots.amsIndex, def.amsIndex),
+        eq(amsSlots.trayIndex, def.trayIndex),
+      ),
+    });
+    if (slot?.spoolId) return slot.spoolId;
+  }
+  return null;
+}
 
 /**
  * Auto-create a Bambu Lab spool for a known RFID tag that has no match.
@@ -516,25 +587,18 @@ export async function POST(request: NextRequest) {
         haEventId = `${haEventId}_${existingCount[0].count + 1}`;
       }
 
-      // Try to identify active spool at print start
-      // Use RFID tag if available, otherwise fall back to fuzzy matching (type+color+filament_id)
-      let startActiveSpoolId: string | null = null;
+      // Try to identify active spool at print start.
+      // Resolve via the slot whose bambu state matches active_slot_*; this
+      // correctly handles the HT slot and any AMS unit (the previous code
+      // hardcoded ams_index/tray_index = 0/0, which silently picked the
+      // wrong spool when the active filament wasn't in AMS-0 slot 0).
       const startTag = str(body.active_slot_tag);
       const startType = str(body.active_slot_type);
       const startColor = str(body.active_slot_color).replace("#", "").slice(0, 8);
       const startFilamentId = str(body.active_slot_filament_id);
-      if (startType || (startTag && startTag !== "0000000000000000")) {
-        const startMatch = await matchSpool({
-          tag_uid: startTag !== "0000000000000000" ? startTag : undefined,
-          tray_info_idx: startFilamentId || undefined,
-          tray_type: startType || undefined,
-          tray_color: startColor || undefined,
-          printer_id,
-          ams_index: 0,
-          tray_index: 0,
-        });
-        if (startMatch.match) startActiveSpoolId = startMatch.match.spool_id;
-      }
+      const startActiveSpoolId = await resolveActiveSpoolFromSlots(
+        printer_id, body, SLOT_DEFS, startType, startColor, startTag, startFilamentId,
+      );
 
       const startIds = startActiveSpoolId ? [startActiveSpoolId] : [];
 
@@ -720,31 +784,35 @@ export async function POST(request: NextRequest) {
       if (printWeight > 0) updates.printWeight = printWeight;
 
       // Store the active spool ID on the print while we still have the data
-      // (the printer clears active_slot when it goes idle)
-      // Use RFID tag if available, otherwise fall back to fuzzy matching
+      // (the printer clears active_slot when it goes idle).
+      // Late-bind catches the common case where active_slot_* is empty at
+      // print_started (Bambu's MQTT race) and only populates once filament
+      // actually starts extruding — e.g. 2-3 min into the print after
+      // bed-leveling and nozzle-cleaning. We accumulate every spool seen
+      // during the print so mid-print swaps are captured too.
       const activeTag = str(body.active_slot_tag);
       const activeType = str(body.active_slot_type);
       const activeColor = str(body.active_slot_color).replace("#", "").slice(0, 8);
       const activeFilamentId = str(body.active_slot_filament_id);
-      if (activeType || (activeTag && activeTag !== "0000000000000000")) {
-        const activeMatch = await matchSpool({
-          tag_uid: activeTag !== "0000000000000000" ? activeTag : undefined,
-          tray_info_idx: activeFilamentId || undefined,
-          tray_type: activeType || undefined,
-          tray_color: activeColor || undefined,
-          printer_id,
-          ams_index: 0,
-          tray_index: 0,
-        });
-        if (activeMatch.match) {
-          // Accumulate all spool IDs seen during this print
-          const existingIds: string[] = runningPrint.activeSpoolIds
-            ? (() => { try { return JSON.parse(runningPrint.activeSpoolIds); } catch { return []; } })()
-            : [];
-          if (!existingIds.includes(activeMatch.match.spool_id)) {
-            existingIds.push(activeMatch.match.spool_id);
-            updates.activeSpoolIds = JSON.stringify(existingIds);
-          }
+      const activeSpoolId = await resolveActiveSpoolFromSlots(
+        printer_id, body, SLOT_DEFS, activeType, activeColor, activeTag, activeFilamentId,
+      );
+      if (activeSpoolId) {
+        const existingIds: string[] = runningPrint.activeSpoolIds
+          ? (() => { try { return JSON.parse(runningPrint.activeSpoolIds); } catch { return []; } })()
+          : [];
+        const wasEmpty = existingIds.length === 0;
+        if (!existingIds.includes(activeSpoolId)) {
+          existingIds.push(activeSpoolId);
+          updates.activeSpoolIds = JSON.stringify(existingIds);
+        }
+        // If we just bound the FIRST spool to a print that started with an
+        // empty active_slot, dismiss the "Kein Spool zugeordnet" warning —
+        // late-bind succeeded, the operator doesn't need to act.
+        if (wasEmpty) {
+          dismissHaPersistentNotification(`haspoolmanager_missing_spool_${runningPrint.id}`).catch(
+            (err) => console.error(`[printer-sync] failed to dismiss missing-spool notification: ${(err as Error).message}`),
+          );
         }
       }
 
