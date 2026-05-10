@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## May 2026
 
+- **fix:** late-bind active spool for HT slot + non-AMS-0 prints (`2dda08c`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`50d4a19`)
 - **test:** enforce docs coverage via auto-discovery CI scanner (`7cc8299`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`c3d2ddc`)
 - **docs:** embed new screenshots — Models, model detail, print detail (`cfa8005`)
