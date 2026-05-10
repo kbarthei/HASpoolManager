@@ -157,9 +157,23 @@ describe("classifyFilament()", () => {
     expect(classifyFilament([])).toBe("occasional");
   });
 
+  // Generate dates ENDING TODAY rather than hardcoded 2026-03 — otherwise
+  // calculateConsumptionRate's 56-day window filters everything out once the
+  // calendar moves past mid-2026 and the test silently degrades from "core"
+  // to "regular" (insufficient weeks remaining within the window).
+  function recentDates(count: number): string[] {
+    const out: string[] = [];
+    for (let i = count - 1; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      out.push(d.toISOString().slice(0, 10));
+    }
+    return out;
+  }
+
   it("classifies core filament (high daily, every week)", () => {
-    const stats: DailyConsumption[] = Array.from({ length: 28 }, (_, i) => ({
-      date: `2026-03-${String(i + 1).padStart(2, "0")}`,
+    const stats: DailyConsumption[] = recentDates(28).map((date) => ({
+      date,
       weightGrams: 50,
       printCount: 2,
     }));
@@ -167,9 +181,10 @@ describe("classifyFilament()", () => {
   });
 
   it("classifies occasional filament (low usage)", () => {
+    const dates = recentDates(15);
     const stats: DailyConsumption[] = [
-      { date: "2026-03-01", weightGrams: 5, printCount: 1 },
-      { date: "2026-03-15", weightGrams: 3, printCount: 1 },
+      { date: dates[0], weightGrams: 5, printCount: 1 },
+      { date: dates[14], weightGrams: 3, printCount: 1 },
     ];
     expect(classifyFilament(stats)).toBe("occasional");
   });

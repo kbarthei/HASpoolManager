@@ -661,22 +661,16 @@ export async function POST(request: NextRequest) {
         })();
       }
 
-      // Warn when a print starts without any matched spool — filament usage
-      // won't be deducted until a swap event brings in a match.
+      // Note: we no longer fire the "Kein Spool zugeordnet" notification
+      // immediately on print_started. Bambu's MQTT race makes empty
+      // active_slot_* the COMMON case in PREPARE — the late-bind path
+      // (runningPrint && isActive branch below) populates the spool 1-3
+      // min later when filament actually loads, and the warning would
+      // appear+disappear in rapid succession, training the operator to
+      // ignore it. Instead, the warning is deferred until T+5min if
+      // still no bind — see MISSING_SPOOL_GRACE_MS below.
       if (startIds.length === 0) {
-        const hintHadSlotData = Boolean(startType || (startTag && startTag !== "0000000000000000"));
-        const detail = hintHadSlotData
-          ? `AMS reported active slot (type="${startType}", tag="${startTag}") but no spool in the inventory matched.`
-          : "No active slot data was reported at print start.";
-        const message = `Print "${printName || "unknown"}" started without a matched spool. ${detail} Filament usage will not be recorded until a match is established.`;
-
-        console.error(`[printer-sync] MISSING_SPOOL print_id=${newPrint.id} printer=${printer_id} type="${startType}" tag="${startTag}" color="${startColor}" filament_id="${startFilamentId}"`);
-
-        sendHaPersistentNotification(
-          "HASpoolManager: Kein Spool zugeordnet",
-          message,
-          `haspoolmanager_missing_spool_${newPrint.id}`,
-        ).catch((err) => console.error("[printer-sync] missing-spool notification failed:", err));
+        console.log(`[printer-sync] STARTED_NO_SPOOL print_id=${newPrint.id} type="${startType}" tag="${startTag}" — deferring notification until T+5min`);
       }
     } else if (runningPrint && (isFinished || (isIdle && !printError))) {
       // Print completed (or idle = missed finish)
@@ -797,22 +791,45 @@ export async function POST(request: NextRequest) {
       const activeSpoolId = await resolveActiveSpoolFromSlots(
         printer_id, body, SLOT_DEFS, activeType, activeColor, activeTag, activeFilamentId,
       );
+      const existingIds: string[] = runningPrint.activeSpoolIds
+        ? (() => { try { return JSON.parse(runningPrint.activeSpoolIds); } catch { return []; } })()
+        : [];
+      const wasEmpty = existingIds.length === 0;
+
       if (activeSpoolId) {
-        const existingIds: string[] = runningPrint.activeSpoolIds
-          ? (() => { try { return JSON.parse(runningPrint.activeSpoolIds); } catch { return []; } })()
-          : [];
-        const wasEmpty = existingIds.length === 0;
         if (!existingIds.includes(activeSpoolId)) {
           existingIds.push(activeSpoolId);
           updates.activeSpoolIds = JSON.stringify(existingIds);
         }
-        // If we just bound the FIRST spool to a print that started with an
-        // empty active_slot, dismiss the "Kein Spool zugeordnet" warning —
-        // late-bind succeeded, the operator doesn't need to act.
+        // Late-bind succeeded → dismiss any pending "Kein Spool zugeordnet"
+        // warning that was deferred-sent below.
         if (wasEmpty) {
           dismissHaPersistentNotification(`haspoolmanager_missing_spool_${runningPrint.id}`).catch(
             (err) => console.error(`[printer-sync] failed to dismiss missing-spool notification: ${(err as Error).message}`),
           );
+        }
+      } else if (wasEmpty && runningPrint.startedAt) {
+        // Deferred warning: only fire if 5+ min after print start AND still
+        // no spool bound. Until then, we trust the late-bind path to catch
+        // up. After 5 min the printer should have actually loaded filament,
+        // so a still-empty active_slot is a real problem worth alerting on.
+        const MISSING_SPOOL_GRACE_MS = 5 * 60_000;
+        const ageMs = Date.now() - new Date(runningPrint.startedAt).getTime();
+        if (ageMs >= MISSING_SPOOL_GRACE_MS) {
+          const hintHadSlotData = Boolean(activeType || (activeTag && activeTag !== "0000000000000000"));
+          const detail = hintHadSlotData
+            ? `AMS reported active slot (type="${activeType}", tag="${activeTag}") but no spool in the inventory matched.`
+            : "No active slot data has been reported in the first 5 minutes of the print.";
+          const message = `Print "${runningPrint.name || "unknown"}" has been running for ${Math.round(ageMs / 60_000)}m without a matched spool. ${detail} Filament usage will not be recorded until a match is established.`;
+
+          console.error(`[printer-sync] MISSING_SPOOL print_id=${runningPrint.id} printer=${printer_id} ageMs=${ageMs} type="${activeType}" tag="${activeTag}"`);
+          // Idempotent: HA overwrites the notification body when the same
+          // notification_id is sent again — safe to call on every sync.
+          sendHaPersistentNotification(
+            "HASpoolManager: Kein Spool zugeordnet",
+            message,
+            `haspoolmanager_missing_spool_${runningPrint.id}`,
+          ).catch((err) => console.error("[printer-sync] missing-spool notification failed:", err));
         }
       }
 

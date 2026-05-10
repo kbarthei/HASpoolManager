@@ -325,18 +325,31 @@ There is no process-level respawn. If the Node.js sync-worker process
 itself crashes (unhandled exception), it stays dead until the addon
 restarts — by design, to avoid masking real bugs in a restart loop.
 
-### Missing-spool warning on print start
+### Missing-spool warning (deferred 5 min)
 
-When the printer-sync route creates a new `prints` record and cannot
-match any spool to the active AMS slot, it:
+We do **not** fire the "Kein Spool zugeordnet" notification on
+`event_print_started`. Bambu's MQTT race makes empty `active_slot_*`
+the COMMON case in PREPARE — the late-bind path populates the spool
+1–3 min later when filament actually loads. Firing immediately would
+train the operator to ignore a notification that auto-dismisses.
 
-1. Logs `[printer-sync] MISSING_SPOOL print_id=… printer=… type=… tag=… color=… filament_id=…` (findable via `ha addons logs local_haspoolmanager | grep MISSING_SPOOL`)
-2. Sends a Home Assistant `persistent_notification` (titled "HASpoolManager: Kein Spool zugeordnet") with a unique `notification_id` of the form `haspoolmanager_missing_spool_<print-id>` — so duplicate notifications for the same print overwrite rather than stack
+Instead, on every `RUNNING` sync the running-print branch checks:
 
-The notification is fire-and-forget; if the HA API call fails, the
-error is logged and the print still records normally — just without
-filament deduction until a swap event produces a match. See
-`sendHaPersistentNotification` in `lib/ha-notifications.ts`.
+- `activeSpoolIds === []` (no spool ever bound for this print) AND
+- `Date.now() - startedAt >= MISSING_SPOOL_GRACE_MS` (5 min)
+
+→ then send the persistent notification (idempotent — same
+`notification_id = haspoolmanager_missing_spool_<print-id>` overwrites
+on each subsequent sync, so the body keeps reflecting the current age
+in minutes).
+
+If the late-bind eventually succeeds (operator inserted filament late,
+or a swap detection produced a match), the notification is dismissed
+in the same sync that bound the spool — no manual action needed.
+
+`STARTED_NO_SPOOL` is logged at print start as a diagnostic breadcrumb
+(grep-able in `ha addons logs local_haspoolmanager`) but does NOT
+notify HA. `MISSING_SPOOL` is logged when the deferred warning fires.
 
 ### Active-spool resolution + late-bind
 

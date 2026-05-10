@@ -1589,7 +1589,7 @@ describe("printer-sync integration", () => {
       await sync({ gcode_state: "IDLE" });
     }
 
-    it("H1: print starts with no slot data at all → sends HA notification", async () => {
+    it("H1: print starts with no slot data → NO immediate warning (deferred until T+5min)", async () => {
       await resetToIdle();
       const { sendHaPersistentNotification } = await import("@/lib/ha-notifications");
       vi.mocked(sendHaPersistentNotification).mockClear();
@@ -1601,13 +1601,11 @@ describe("printer-sync integration", () => {
       expect(status).toBe(200);
       expect(body.print_transition).toBe("started");
 
-      expect(sendHaPersistentNotification).toHaveBeenCalledTimes(1);
-      const call = vi.mocked(sendHaPersistentNotification).mock.calls[0];
-      expect(call[0]).toContain("Kein Spool");
-      expect(call[1]).toContain("started without a matched spool");
-      expect(call[2]).toMatch(/^haspoolmanager_missing_spool_/);
+      // Bambu's MQTT race makes empty active_slot_* the COMMON case in
+      // PREPARE — late-bind catches up 1-3 min later. Firing immediately
+      // would train the operator to ignore a notification that auto-dismisses.
+      expect(sendHaPersistentNotification).not.toHaveBeenCalled();
 
-      // Finish the print so we don't pollute the next test
       await sync({ gcode_state: "FINISH" });
     });
 
@@ -1628,6 +1626,39 @@ describe("printer-sync integration", () => {
       expect(body.print_transition).toBe("started");
 
       expect(sendHaPersistentNotification).not.toHaveBeenCalled();
+
+      await sync({ gcode_state: "FINISH" });
+    });
+
+    it("H2: print still has no spool 5min after start → fire deferred warning", async () => {
+      await resetToIdle();
+      const { db } = await import("@/lib/db");
+      const { prints } = await import("@/lib/db/schema");
+      const { eq } = await import("drizzle-orm");
+      const { sendHaPersistentNotification } = await import("@/lib/ha-notifications");
+      vi.mocked(sendHaPersistentNotification).mockClear();
+
+      // Start a print with no slot data
+      const { body: startBody } = await sync({
+        gcode_state: "RUNNING",
+        print_name: `H2-deferred-${Date.now()}`,
+      });
+      const printId = startBody.print_id as string;
+
+      // Backdate startedAt to >5 min ago so the deferred-warning gate fires
+      await db
+        .update(prints)
+        .set({ startedAt: new Date(Date.now() - 6 * 60_000) })
+        .where(eq(prints.id, printId));
+
+      // Next sync still empty → should now fire the deferred warning
+      vi.mocked(sendHaPersistentNotification).mockClear();
+      await sync({ gcode_state: "RUNNING" });
+
+      expect(sendHaPersistentNotification).toHaveBeenCalledTimes(1);
+      const call = vi.mocked(sendHaPersistentNotification).mock.calls[0];
+      expect(call[0]).toContain("Kein Spool");
+      expect(call[2]).toBe(`haspoolmanager_missing_spool_${printId}`);
 
       await sync({ gcode_state: "FINISH" });
     });
