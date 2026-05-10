@@ -14,7 +14,7 @@
 
 ![Dashboard](screenshots/light/desktop/01-dashboard.png)
 
-🎬 **[30-second walkthrough video](screenshots/walkthrough.webm)** · 📸 **[Full screenshot tour](screenshots/)** (light + dark, desktop + mobile)
+🎬 **[100-second product demo](screenshots/demo.mp4)** ([9:16 vertical](screenshots/demo-vertical.mp4)) · 📸 **[Full screenshot tour](screenshots/)** (light + dark, desktop + mobile) · 🎥 **[30-second walkthrough](screenshots/walkthrough.webm)** (live UI nav)
 
 ---
 
