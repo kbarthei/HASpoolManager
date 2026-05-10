@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## May 2026
 
+- **docs:** trim DOCS.md to install + first-run, link to GitHub for the rest (`033b5a2`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`7ab5b36`)
 - - build(addon): bundle CHANGELOG.md so HA Supervisor renders it inline (`707b9fb`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`ed42329`)
 - **fix:** defer missing-spool warning to T+5min + fix CI (`04da901`)
