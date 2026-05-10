@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## May 2026
 
+- - build(addon): bundle CHANGELOG.md so HA Supervisor renders it inline (`707b9fb`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`ed42329`)
 - **fix:** defer missing-spool warning to T+5min + fix CI (`04da901`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`59b6e1b`)
 - **fix:** late-bind active spool for HT slot + non-AMS-0 prints (`2dda08c`)
