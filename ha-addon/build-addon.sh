@@ -26,6 +26,15 @@ for f in config.yaml Dockerfile nginx.conf run.sh DOCS.md icon.png.placeholder l
   fi
 done
 
+# Pull in the auto-generated repo-root CHANGELOG.md so HA Supervisor's
+# "Änderungsprotokoll" link shows the inline changelog instead of falling
+# back to the GitHub releases page. The CHANGELOG.md is regenerated from
+# conventional commits by the GitHub Action; we use whatever is current
+# at build time.
+if [ -f "$REPO_DIR/CHANGELOG.md" ]; then
+  cp "$REPO_DIR/CHANGELOG.md" "$STAGE_DIR/haspoolmanager/CHANGELOG.md"
+fi
+
 # Copy the standalone server (includes minimal node_modules)
 mkdir -p "$STAGE_DIR/haspoolmanager/app"
 cp -R .next/standalone/. "$STAGE_DIR/haspoolmanager/app/"

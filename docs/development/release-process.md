@@ -263,10 +263,17 @@ Auto-generated from Conventional Commit prefixes (`feat:`, `fix:`, etc.)
 on every push to `main`:
 
 - GitHub Action: `.github/workflows/changelog.yml`
-- Output: `CHANGELOG.md` (committed back with `[skip ci]`)
+- Output: `CHANGELOG.md` at repo root (committed back with `[skip ci]`)
 
 Don't edit `CHANGELOG.md` by hand. Write a descriptive commit message
 with the right prefix — that's the changelog entry.
+
+**HA Supervisor inline view:** `ha-addon/build-addon.sh` copies the
+repo-root `CHANGELOG.md` into the addon staging directory at build
+time, so the "Änderungsprotokoll" / "Changelog" link in the HA addon
+UI renders the markdown inline (instead of falling back to the GitHub
+URL from `config.yaml → url`). Always built fresh on each `deploy.sh`
+run, no separate sync step.
 
 ---
 
