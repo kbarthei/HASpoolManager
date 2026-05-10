@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## May 2026
 
+- **feat:** add Beat11 Models — 3MF auto-pull showcase (`3442bd9`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`137a655`)
 - **docs:** trim DOCS.md to install + first-run, link to GitHub for the rest (`033b5a2`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`7ab5b36`)
 - - build(addon): bundle CHANGELOG.md so HA Supervisor renders it inline (`707b9fb`)
