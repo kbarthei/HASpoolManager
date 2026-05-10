@@ -8,9 +8,10 @@
 //   Inspector  960..1200
 //   Scan      1185..1485
 //   Prints    1470..1740
-//   Orders    1725..2085
-//   Analytics 2070..2340
-//   MobileCta 2325..2700
+//   Models    1725..1965
+//   Orders    1950..2310
+//   Analytics 2295..2565
+//   MobileCta 2550..3000
 
 export type Caption = {
   text: string;
@@ -31,10 +32,12 @@ export const captions: Caption[] = [
   { startFrame: 1215, endFrame: 1470, text: "Bambu RFID exact match. Third-party? CIE Delta-E fuzzy." },
   // Beat 7 — Prints
   { startFrame: 1500, endFrame: 1730, text: "Filament + energy = per-print cost, automatically." },
-  // Beat 8 — Orders
-  { startFrame: 1755, endFrame: 2080, text: "Paste an order email. Claude extracts every line item." },
-  // Beat 9 — Analytics
-  { startFrame: 2105, endFrame: 2330, text: "Per-gram price history. Per-month spend. All tracked." },
-  // Beat 10 — Mobile + CTA
-  { startFrame: 2360, endFrame: 2620, text: "Open-source Home Assistant addon. Install in two clicks." },
+  // Beat 8 — Models (new)
+  { startFrame: 1760, endFrame: 1955, text: "Every print auto-links to its sliced 3MF — cover, plan, weight." },
+  // Beat 9 — Orders (shifted +225)
+  { startFrame: 1980, endFrame: 2305, text: "Paste an order email. Claude extracts every line item." },
+  // Beat 10 — Analytics (shifted +225)
+  { startFrame: 2330, endFrame: 2555, text: "Per-gram price history. Per-month spend. All tracked." },
+  // Beat 11 — Mobile + CTA (shifted +225)
+  { startFrame: 2585, endFrame: 2845, text: "Open-source Home Assistant addon. Install in two clicks." },
 ];

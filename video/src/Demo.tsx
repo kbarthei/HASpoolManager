@@ -6,6 +6,7 @@ import { wipe } from "@remotion/transitions/wipe";
 import { AbsoluteFill } from "remotion";
 import { Beat1Hook } from "./beats/Beat1Hook";
 import { Beat10Features } from "./beats/Beat10Features";
+import { Beat11Models } from "./beats/Beat11Models";
 import { Beat2Dashboard } from "./beats/Beat2Dashboard";
 import { Beat3Inventory } from "./beats/Beat3Inventory";
 import { Beat4Inspector } from "./beats/Beat4Inspector";
@@ -22,7 +23,7 @@ import { colors } from "./theme";
 // in this file. Beat10Features was added after the 9-beat v2 plan and plays 2nd.
 
 export const TRANSITION_FRAMES = 15;
-const N_TRANSITIONS = 9;
+const N_TRANSITIONS = 10;
 
 export const BEAT_DURATIONS = {
   hook:       150,
@@ -32,6 +33,7 @@ export const BEAT_DURATIONS = {
   inspector:  240,
   scan:       300,
   prints:     270,
+  models:     240,
   orders:     360,
   analytics:  270,
   mobileCta:  450,
@@ -45,13 +47,14 @@ const BEAT_SUM =
   BEAT_DURATIONS.inspector +
   BEAT_DURATIONS.scan +
   BEAT_DURATIONS.prints +
+  BEAT_DURATIONS.models +
   BEAT_DURATIONS.orders +
   BEAT_DURATIONS.analytics +
   BEAT_DURATIONS.mobileCta;
-// 150 + 360 + 270 + 240 + 240 + 300 + 270 + 360 + 270 + 450 = 2910
+// 150 + 360 + 270 + 240 + 240 + 300 + 270 + 240 + 360 + 270 + 450 = 3150
 
 export const TOTAL_DURATION = BEAT_SUM - N_TRANSITIONS * TRANSITION_FRAMES;
-// 2910 - 135 = 2775  (= 92.5s @ 30fps)
+// 3150 - 150 = 3000  (= 100s @ 30fps)
 
 type DemoProps = {
   layout?: "horizontal" | "vertical";
@@ -112,6 +115,13 @@ export const Demo: React.FC<DemoProps> = ({ layout = "horizontal", withMusic = t
         <TransitionSeries.Transition
           timing={linearTiming({ durationInFrames: TRANSITION_FRAMES })}
           presentation={slide({ direction: "from-right" })}
+        />
+        <TransitionSeries.Sequence durationInFrames={BEAT_DURATIONS.models}>
+          <Beat11Models />
+        </TransitionSeries.Sequence>
+        <TransitionSeries.Transition
+          timing={linearTiming({ durationInFrames: TRANSITION_FRAMES })}
+          presentation={fade()}
         />
         <TransitionSeries.Sequence durationInFrames={BEAT_DURATIONS.orders}>
           <Beat7Orders />
