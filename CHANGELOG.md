@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## May 2026
 
+- **fix:** defer missing-spool warning to T+5min + fix CI (`04da901`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`59b6e1b`)
 - **fix:** late-bind active spool for HT slot + non-AMS-0 prints (`2dda08c`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`50d4a19`)
 - **test:** enforce docs coverage via auto-discovery CI scanner (`7cc8299`)
