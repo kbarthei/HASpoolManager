@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## May 2026
 
+- **chore:** three more self-healing checks (`f76a813`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`2eaa8ee`)
 - **chore:** self-healing render wrapper + capture/parse hard-fails (`c8c0e98`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`09fa9c9`)
 - **chore:** re-render demo with soundtrack — Pixabay CC0 bed (`e84c05e`)
