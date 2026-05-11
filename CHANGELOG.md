@@ -6,6 +6,9 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## May 2026
 
+- **chore:** gitignore __pycache__/ (cleanup from hook commit) (`1c55686`)
+- **feat:** LAN-reachability gate for deploy + live-admin commands (`feef0ba`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`9c381d6`)
 - **chore:** three more self-healing checks (`f76a813`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`2eaa8ee`)
 - **chore:** self-healing render wrapper + capture/parse hard-fails (`c8c0e98`)
