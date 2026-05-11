@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## May 2026
 
+- **chore:** self-healing render wrapper + capture/parse hard-fails (`c8c0e98`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`09fa9c9`)
 - **chore:** re-render demo with soundtrack — Pixabay CC0 bed (`e84c05e`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`17475a8`)
 - **chore:** publish Remotion demo to /screenshots — 16:9 + 9:16 (`4e2fafd`)
