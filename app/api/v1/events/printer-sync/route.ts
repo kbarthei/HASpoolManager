@@ -333,10 +333,12 @@ async function createPrintUsage(
     });
 
     // Collect all spool IDs used in this print
-    let spoolIds: string[] = [];
-    if (print?.activeSpoolIds) {
-      try { spoolIds = JSON.parse(print.activeSpoolIds); } catch { /* ignore */ }
-    }
+    const { safeJsonStringArray } = await import("@/lib/safe-json");
+    const spoolIds: string[] = safeJsonStringArray(print?.activeSpoolIds, {
+      table: "prints",
+      column: "active_spool_ids",
+      entityId: print?.id ?? null,
+    });
     if (spoolIds.length === 0) {
       console.log(`[printer-sync] No spool IDs stored on print, skipping usage record`);
       return;
@@ -378,9 +380,12 @@ async function createPrintUsage(
     }
 
     // Fallback: proportional distribution using remain% deltas
-    const startRemains: Record<string, number> = print?.remainSnapshot
-      ? (() => { try { return JSON.parse(print.remainSnapshot!); } catch { return {}; } })()
-      : {};
+    const { safeJsonObject } = await import("@/lib/safe-json");
+    const startRemains = safeJsonObject<number>(print?.remainSnapshot, {
+      table: "prints",
+      column: "remain_snapshot",
+      entityId: print?.id ?? null,
+    });
 
     if (!proportionalWeights && Object.keys(startRemains).length > 0 && endRemains && spoolIds.length > 1) {
       const deltas: { spoolId: string; delta: number }[] = [];
@@ -791,9 +796,12 @@ export async function POST(request: NextRequest) {
       const activeSpoolId = await resolveActiveSpoolFromSlots(
         printer_id, body, SLOT_DEFS, activeType, activeColor, activeTag, activeFilamentId,
       );
-      const existingIds: string[] = runningPrint.activeSpoolIds
-        ? (() => { try { return JSON.parse(runningPrint.activeSpoolIds); } catch { return []; } })()
-        : [];
+      const { safeJsonStringArray } = await import("@/lib/safe-json");
+      const existingIds: string[] = safeJsonStringArray(runningPrint.activeSpoolIds, {
+        table: "prints",
+        column: "active_spool_ids",
+        entityId: runningPrint.id,
+      });
       const wasEmpty = existingIds.length === 0;
 
       if (activeSpoolId) {

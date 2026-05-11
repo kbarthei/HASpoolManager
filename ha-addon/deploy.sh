@@ -58,4 +58,30 @@ fi
 echo ""
 echo "==> Live on HA:"
 ssh "$HA_HOST" 'ha apps info local_haspoolmanager 2>&1 | grep -E "^(version|state):"'
+
+# ── Post-deploy version-match guard ────────────────────────────────────────
+# Poll /api/v1/health until the running version equals the one we just
+# shipped, or fail loud after a timeout. Catches: addon failed to restart
+# after install, ha apps update silently skipped, or the install picked
+# up a stale tarball. Without this, the operator only finds out hours
+# later when something breaks unexpectedly.
+echo "==> verifying running version reports ${version}..."
+HEALTH_URL_DEFAULT="http://homeassistant:3001/api/v1/health"
+HEALTH_URL="${HASPOOLMANAGER_HEALTH_URL:-$HEALTH_URL_DEFAULT}"
+deadline=$(($(date +%s) + 60))
+seen=""
+while [ "$(date +%s)" -lt "$deadline" ]; do
+  seen=$(curl -fsS --max-time 4 "$HEALTH_URL" 2>/dev/null | sed -nE 's/.*"version":"([^"]+)".*/\1/p' || true)
+  if [ "$seen" = "$version" ]; then
+    echo "    ✓ /health reports v${version}"
+    break
+  fi
+  sleep 3
+done
+if [ "$seen" != "$version" ]; then
+  echo "==> WARNING — /health reports '${seen:-no-response}' but we just deployed v${version}." >&2
+  echo "    Addon may not have restarted, or pulled a stale tar. Check 'ha apps logs local_haspoolmanager'." >&2
+  exit 1
+fi
+
 echo "==> Deployed v${version}"

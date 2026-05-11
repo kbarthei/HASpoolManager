@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  HASpoolManager nightly backup-snapshot integrity check.
+
+  Runs `scripts/verify-backups.sh` which exits non-zero if any DB in
+  testdata/db-snapshots/ fails `PRAGMA integrity_check` — catches a
+  corrupt copy before we restore from it. Output appends to
+  testdata/db-snapshots/verify.log (gitignored).
+
+  Install with:    bash scripts/launchagent/install.sh
+  Uninstall with:  bash scripts/launchagent/uninstall.sh
+
+  Fires every day at 03:30 local — half-hour after the screenshots
+  agent so the Mac isn't doing two heavy tasks at once. If the Mac is
+  asleep it catches up on next wake (StartCalendarInterval semantics).
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.haspoolmanager.verify-backups</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>-lc</string>
+        <string>cd "__REPO_ROOT__" &amp;&amp; mkdir -p testdata/db-snapshots &amp;&amp; { echo "=== $(date -u +%Y-%m-%dT%H:%M:%SZ) ==="; bash scripts/verify-backups.sh; echo "exit=$?"; echo; } &gt;&gt; "__REPO_ROOT__/testdata/db-snapshots/verify.log" 2&gt;&amp;1</string>
+    </array>
+
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>3</integer>
+        <key>Minute</key>
+        <integer>30</integer>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <false/>
+
+    <key>StandardOutPath</key>
+    <string>__REPO_ROOT__/testdata/db-snapshots/launchagent.stdout.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>__REPO_ROOT__/testdata/db-snapshots/launchagent.stderr.log</string>
+</dict>
+</plist>

@@ -421,23 +421,19 @@ The script iterates every `*.db` in `testdata/db-snapshots/` and runs
 `PRAGMA integrity_check`. Exit 0 = all ok, 1 = at least one corrupt
 (filename printed), 2 = no snapshots present (fresh clone — fine).
 
-Wire it into a weekly `launchd` agent on the maintainer's Mac:
+A ready-to-use LaunchAgent ships in the repo — install it once on the
+maintainer's Mac:
 
-```xml
-<!-- ~/Library/LaunchAgents/de.bartheidel.haspoolmanager-verify-backups.plist -->
-<key>ProgramArguments</key>
-<array>
-  <string>/bin/bash</string>
-  <string>/Users/kbarthei/Code/smartHome/HASpoolManager/scripts/verify-backups.sh</string>
-</array>
-<key>StartCalendarInterval</key>
-<dict>
-  <key>Weekday</key><integer>0</integer>
-  <key>Hour</key><integer>4</integer>
-</dict>
+```bash
+bash scripts/launchagent/install.sh verify-backups
 ```
 
-Or — simpler — add it to your existing nightly screenshot LaunchAgent.
+Fires every night at 03:30 local (half an hour after the screenshots
+agent so the Mac isn't doing both at once). Output appends to
+`testdata/db-snapshots/verify.log` (gitignored). Re-running `install.sh`
+is idempotent; remove with `bash scripts/launchagent/uninstall.sh verify-backups`.
+
+The plist itself: [`scripts/launchagent/com.haspoolmanager.verify-backups.plist`](../../scripts/launchagent/com.haspoolmanager.verify-backups.plist).
 
 ---
 

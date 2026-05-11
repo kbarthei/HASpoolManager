@@ -199,10 +199,12 @@ export async function getPrinterStatus() {
     }
 
     // Collect all spool IDs seen during this print
-    let spoolIds: string[] = [];
-    if (runningPrint.activeSpoolIds) {
-      try { spoolIds = JSON.parse(runningPrint.activeSpoolIds); } catch { /* ignore */ }
-    }
+    const { safeJsonStringArray } = await import("./safe-json");
+    const spoolIds: string[] = safeJsonStringArray(runningPrint.activeSpoolIds, {
+      table: "prints",
+      column: "active_spool_ids",
+      entityId: runningPrint.id,
+    });
 
     if (spoolIds.length > 0) {
       const spoolRecords = await Promise.all(
