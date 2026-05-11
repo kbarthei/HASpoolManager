@@ -52,7 +52,11 @@ npm run test:e2e           # E2e tests (35 tests, Docker nginx + ingress simulat
 npm run db:push            # Push schema to local SQLite
 npm run db:studio          # Open Drizzle Studio
 ./ha-addon/deploy.sh       # Build + deploy addon to HA (bump version, scp, install)
+                           # ↳ fails fast (2s) if Mac is off-LAN; verifies /health post-deploy
+bash scripts/ha-reachable.sh  # 2s probe: returns 0 if on printer LAN + addon up
 ```
+
+**LAN gate.** Deploy and live-admin commands (`./ha-addon/deploy.sh`, `npm run screenshots`, `curl http://homeassistant…/api/v1/admin/*`) are gated by `scripts/ha-reachable.sh`. A Claude PreToolUse hook (`.claude/hooks/bash-pre-tool-use.py`) auto-runs the probe and refuses these commands with a clear message when off-LAN — so we don't burn a 90s build cycle just to discover scp can't connect. Set `HASPOOLMANAGER_SSH_HOST` + `HASPOOLMANAGER_HEALTH_URL` env vars to override if the addon lives at a non-default address.
 
 ## Local Working Directories (gitignored, never committed)
 

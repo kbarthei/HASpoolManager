@@ -2,31 +2,26 @@
 """
 PreToolUse hook for the Bash tool.
 
-Two responsibilities:
+Three responsibilities:
   1) BLOCK any command that uses `cd` as a prefix (the working directory is
-     already the project root — see CLAUDE.md). Mirrors the inline shell
-     guard but with clearer error messages.
-  2) AUTO-APPROVE complex read-only pipelines that the static
+     already the project root — see CLAUDE.md).
+  2) BLOCK addon-deploy / live-API commands when the Mac isn't on the
+     HA LAN. Calling scripts/ha-reachable.sh first means Claude finds
+     out in <2s that we're off-LAN instead of waiting for scp/curl to
+     time out 30s later (or worse, half-build a 168MB tar). Off-LAN is
+     the most common reason a deploy in this project fails.
+  3) AUTO-APPROVE complex read-only pipelines that the static
      `permissions.allow` list can't easily express.
-
-The auto-approve logic:
-  - Split the command on `|`, `&&`, `;`, `||` boundaries
-  - Each segment's *first token* must be in SAFE_READ_VERBS
-  - The full command string must NOT contain any pattern in DANGER_PATTERNS
-  - Only then we emit {"decision":"approve"}; otherwise we exit silently and
-    the normal permission flow takes over.
-
-This complements `permissions.allow` — it lets inputs like
-`find . -name "*.png" -exec ls -lh {} \; | awk '{print $5}' | sort` go
-through without prompting, even though `awk` and `sort` follow `find` via
-pipes.
 """
 
 from __future__ import annotations
 
 import json
+import os
 import re
+import subprocess
 import sys
+import time
 
 # Verbs whose output is safe to read. Stays conservative on purpose —
 # anything that mutates disk, network, or process state must NOT be here.
@@ -100,6 +95,98 @@ DANGER_PATTERNS = [
 ]
 
 
+# Commands that require the HA addon to be reachable on the LAN. Each
+# pattern is matched against a *segment's first chunk* (i.e. the executable
+# call) — anchoring this strictly is critical, otherwise the patterns
+# match substrings inside commit messages, file contents, etc., and the
+# hook would block its own commit. Saves 30+ seconds of timing out and,
+# in deploy's case, ~90s of wasted build effort.
+REQUIRES_LAN_PATTERNS = [
+    r"^\.\/ha-addon\/deploy\.sh(\s|$)",
+    r"^npm\s+(run\s+)?screenshots(\s|$)",
+    r"^bash\s+ha-addon\/deploy\.sh(\s|$)",
+]
+# Live admin queries against the addon — these only make sense on-LAN.
+# Matched against the FULL segment because the URL can appear anywhere
+# after the curl flags. Hostname must be exactly homeassistant[.local]
+# at a port (not just any string containing it) to avoid false positives.
+REQUIRES_LAN_FULL_SEGMENT = [
+    r"\bcurl\b[^']*[\"']?https?://homeassistant(\.local)?:[0-9]+/api/v1/admin/",
+]
+
+# We cache the ha-reachable result for a short window so back-to-back
+# allowed commands don't ping/curl on every call. Cache lives in /tmp.
+_REACHABLE_CACHE = "/tmp/haspoolmanager-ha-reachable.cache"
+_REACHABLE_TTL_S = 30
+
+
+def _ha_reachable_cached() -> tuple[bool, str]:
+    """Return (ok, message). Cached for _REACHABLE_TTL_S seconds."""
+    now = time.time()
+    try:
+        st = os.stat(_REACHABLE_CACHE)
+        if now - st.st_mtime < _REACHABLE_TTL_S:
+            with open(_REACHABLE_CACHE) as f:
+                line = f.read().strip()
+            if line.startswith("ok:"):
+                return True, line[3:]
+            if line.startswith("fail:"):
+                return False, line[5:]
+    except FileNotFoundError:
+        pass
+    except Exception:
+        pass
+
+    script = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+        "scripts",
+        "ha-reachable.sh",
+    )
+    try:
+        res = subprocess.run(
+            ["bash", script],
+            capture_output=True,
+            text=True,
+            timeout=8,
+        )
+        ok = res.returncode == 0
+        msg = (res.stderr or res.stdout or "").strip().splitlines()[-1] if (res.stderr or res.stdout) else ""
+    except subprocess.TimeoutExpired:
+        ok, msg = False, "ha-reachable: probe timed out (8s)"
+    except Exception as e:
+        ok, msg = False, f"ha-reachable: probe failed to run ({e})"
+
+    try:
+        with open(_REACHABLE_CACHE, "w") as f:
+            f.write(("ok:" if ok else "fail:") + msg)
+    except Exception:
+        pass
+    return ok, msg
+
+
+def _needs_lan(cmd: str) -> bool:
+    """True iff this command actually invokes a deploy / live-admin
+    operation. We only inspect the *first* command of the line — that's
+    where the real invocation lives. Substrings inside quoted commit
+    messages, sed patterns, etc. don't trigger because they only ever
+    appear after the first command.
+    """
+    head = cmd.lstrip()
+    # Trim to the first segment boundary (||, &&, |, ;), so a pipeline
+    # later in the line doesn't matter.
+    head = re.split(r"\|\||&&|\||;", head, maxsplit=1)[0].strip()
+    for pat in REQUIRES_LAN_PATTERNS:
+        if re.match(pat, head):
+            return True
+    # Live-admin curls can appear anywhere in the line; check the full
+    # command string but the pattern itself is strict (must include the
+    # exact URL scheme + port).
+    for pat in REQUIRES_LAN_FULL_SEGMENT:
+        if re.search(pat, cmd):
+            return True
+    return False
+
+
 def is_cd_prefix(cmd: str) -> bool:
     s = cmd.lstrip()
     return s.startswith("cd ") or s.startswith('cd"') or s.startswith("cd/")
@@ -149,6 +236,22 @@ def main() -> int:
             "reason": "Do not use cd prefix. The working directory is already the project root. Run commands directly.",
         }))
         return 0
+
+    if _needs_lan(cmd):
+        ok, msg = _ha_reachable_cached()
+        if not ok:
+            sys.stdout.write(json.dumps({
+                "decision": "block",
+                "reason": (
+                    f"HA addon is not reachable from this Mac right now ({msg}). "
+                    "Deploy / live-admin commands are blocked until the Mac is on the printer LAN. "
+                    "If you're sure the addon is reachable at a non-default host, set "
+                    "HASPOOLMANAGER_SSH_HOST + HASPOOLMANAGER_HEALTH_URL env vars. "
+                    "Cached result lives in /tmp/haspoolmanager-ha-reachable.cache for 30s; "
+                    "delete it to force a re-probe."
+                ),
+            }))
+            return 0
 
     if is_pure_read_only(cmd):
         sys.stdout.write(json.dumps({"decision": "approve"}))

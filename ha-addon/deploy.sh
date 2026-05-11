@@ -16,6 +16,16 @@ HA_TAR_PATH="/addons/haspoolmanager-addon.tar.gz"
 
 cd "$REPO_DIR"
 
+# ── Pre-flight: are we on the printer LAN at all? ──────────────────────────
+# Yesterday we wasted a build cycle (168MB tar, ~90s) before scp failed with
+# "Connection closed" because the Mac wasn't on the right network. Now we
+# fail in ~2 seconds instead.
+if ! bash "$REPO_DIR/scripts/ha-reachable.sh"; then
+  echo "==> deploy aborted — see message above. If you're sure the addon is reachable" >&2
+  echo "    at a different host/IP, set HASPOOLMANAGER_SSH_HOST + HASPOOLMANAGER_HEALTH_URL." >&2
+  exit 1
+fi
+
 # ── Version bump ────────────────────────────────────────────────────────────
 if [ "${1:-}" != "--no-bump" ]; then
   current=$(grep -E '^version:' "$CONFIG_YAML" | sed -E 's/.*"([^"]+)".*/\1/')
