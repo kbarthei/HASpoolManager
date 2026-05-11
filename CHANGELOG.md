@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## May 2026
 
+- **chore:** re-render demo with soundtrack — Pixabay CC0 bed (`e84c05e`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`17475a8`)
 - **chore:** publish Remotion demo to /screenshots — 16:9 + 9:16 (`4e2fafd`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`6231d04`)
 - **feat:** add Beat11 Models — 3MF auto-pull showcase (`3442bd9`)
