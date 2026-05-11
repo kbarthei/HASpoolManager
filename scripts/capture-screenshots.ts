@@ -394,10 +394,18 @@ async function navigateToPage(
   }
   const url = appPath ? `${ADDON_BASE_URL}/${appPath}` : ADDON_BASE_URL;
   await page.goto(url, { waitUntil: "domcontentloaded", timeout: 25_000 });
+  // Fail loud when the page-ready selector never appears — the previous
+  // silent fallback would screenshot whatever happened to be on screen
+  // (hydration error, 500 page, blank shell), producing a "successful"
+  // PNG of broken UI. Capture-time guard: throw and let the operator
+  // re-run after fixing the addon.
   try {
-    await page.waitForSelector(pageDef.ready, { timeout: 8_000, state: "visible" });
-  } catch {
-    await page.waitForTimeout(1500);
+    await page.waitForSelector(pageDef.ready, { timeout: 12_000, state: "visible" });
+  } catch (err) {
+    throw new Error(
+      `capture: page "${pageDef.slug}" never showed selector ${pageDef.ready} at ${url}. ` +
+        `Hydration error, 500, or wrong appPath? (${(err as Error).message})`,
+    );
   }
   if (pageDef.postLoadDelayMs) {
     await page.waitForTimeout(pageDef.postLoadDelayMs);

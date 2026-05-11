@@ -29,7 +29,8 @@
     "upgrade": "remotion upgrade",
     "lint": "eslint src && tsc",
     "setup:music": "bash scripts/fetch-music.sh",
-    "setup": "npm run setup:music"
+    "setup": "npm run setup:music",
+    "render": "bash scripts/render.sh"
   },
   "sideEffects": [
     "*.css"

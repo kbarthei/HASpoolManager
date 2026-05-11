@@ -113,7 +113,15 @@ export async function pullFromPrinterAndLink(params: PullParams): Promise<void> 
 
   // Re-check by sha256/md5 once we have the bytes — another print of the
   // same file could have raced ahead.
-  const parsed = await parseModelFile(buffer);
+  let parsed;
+  try {
+    parsed = await parseModelFile(buffer);
+  } catch (err) {
+    const msg = (err as Error).message;
+    console.error(`[ftp-pull] parse failed for ${filename}: ${msg}`);
+    await logFtpPull(printerId, null, "parse-failed", { filename, bytes: buffer.byteLength, error: msg });
+    return;
+  }
   const dedup = await db.query.modelFiles.findFirst({
     where: eq(modelFiles.sha256, parsed.sha256),
   });

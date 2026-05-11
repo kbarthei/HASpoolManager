@@ -59,15 +59,22 @@ npm run dev               # Remotion Studio
 
 ## Render
 
-```bash
-npx remotion render HASpoolManagerDemo \
-  out/haspoolmanager-demo.mp4 \
-  --codec=h264 --crf=18 --pixel-format=yuv420p --concurrency=2
+Use the wrapper script. It self-heals (auto-fetches music if missing)
+and verifies the post-render audio stream with `ffprobe` — fails hard
+if music was requested but no audio stream ended up in the MP4. The
+previous "we got a soundless demo on main for half a day" incident
+happened because the raw `remotion render` command silently produced
+silence when `music.mp3` was absent.
 
-npx remotion render HASpoolManagerDemoVertical \
-  out/haspoolmanager-demo-vertical.mp4 \
-  --codec=h264 --crf=18 --pixel-format=yuv420p --concurrency=2
+```bash
+npm run render                  # both 16:9 + 9:16 with music
+npm run render -- horizontal    # 16:9 only
+npm run render -- vertical      # 9:16 only
+npm run render -- --no-music    # skip music (silent demo)
 ```
+
+Direct `npx remotion render` still works but won't fetch music or
+verify audio — use it only when you actively want the unguarded path.
 
 GIF (palette two-pass via ffmpeg) — see `docs/superpowers/plans/`.
 
@@ -90,8 +97,10 @@ GIF (palette two-pass via ffmpeg) — see `docs/superpowers/plans/`.
   drop the callout and use a `Spotlight` to direct attention instead.
 - **Subtitles** in English; lower-third in 16:9, top banner in 9:16. Track
   in `src/data/subtitles.ts` with absolute composition frames.
-- **Music** is optional. `Soundtrack` reads `public/music.mp3` and renders
-  nothing if missing. Render with `--props='{"withMusic":false}'` to skip.
+- **Music** is optional but ON by default. Use `npm run render` (the
+  wrapper script auto-fetches `music.mp3` and post-render verifies the
+  audio stream with `ffprobe`). To explicitly skip music:
+  `npm run render -- --no-music`.
 - **Tall page-scroll screenshots** (e.g. `05-prints.png` is ~2880×14870)
   must use `ScreenshotFrame fit="top-aligned"` (uses `objectFit: cover`).
 - **One commit per logical step.** Co-Authored-By trailer per parent repo
