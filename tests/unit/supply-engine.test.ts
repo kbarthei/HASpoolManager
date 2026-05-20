@@ -10,6 +10,21 @@ import {
   type DailyConsumption,
 } from "@/lib/supply-engine";
 
+// Generate `count` consecutive ISO dates ending TODAY. Tests that pin
+// data to absolute calendar dates (`"2026-04-01"`) silently rot once
+// the calendar moves past the analysis window cutoff. Use this helper
+// for any test that calls into time-windowed logic.
+// See vault: _lessons/supply-engine-time-aging-test.md
+function recentDates(count: number): string[] {
+  const out: string[] = [];
+  for (let i = count - 1; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    out.push(d.toISOString().slice(0, 10));
+  }
+  return out;
+}
+
 // ── calculateConsumptionRate ────────────────────────────────────────────────
 
 describe("calculateConsumptionRate()", () => {
@@ -21,8 +36,11 @@ describe("calculateConsumptionRate()", () => {
   });
 
   it("calculates EMA from daily data", () => {
-    const stats: DailyConsumption[] = Array.from({ length: 14 }, (_, i) => ({
-      date: `2026-04-${String(i + 1).padStart(2, "0")}`,
+    // Use recentDates() so this test stays within the 30-day window forever.
+    // The previous hardcoded "2026-04-*" version aged out and produced 0 on
+    // 2026-05-20 — see _lessons/supply-engine-time-aging-test.md.
+    const stats: DailyConsumption[] = recentDates(14).map((date) => ({
+      date,
       weightGrams: 50,
       printCount: 1,
     }));
@@ -157,19 +175,7 @@ describe("classifyFilament()", () => {
     expect(classifyFilament([])).toBe("occasional");
   });
 
-  // Generate dates ENDING TODAY rather than hardcoded 2026-03 — otherwise
-  // calculateConsumptionRate's 56-day window filters everything out once the
-  // calendar moves past mid-2026 and the test silently degrades from "core"
-  // to "regular" (insufficient weeks remaining within the window).
-  function recentDates(count: number): string[] {
-    const out: string[] = [];
-    for (let i = count - 1; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      out.push(d.toISOString().slice(0, 10));
-    }
-    return out;
-  }
+  // recentDates() is defined at file scope — see top of file.
 
   it("classifies core filament (high daily, every week)", () => {
     const stats: DailyConsumption[] = recentDates(28).map((date) => ({
