@@ -760,6 +760,99 @@ describe("printer-sync integration", () => {
     });
   });
 
+  // ── F''. Material-swap detection on same-color filaments ─────────────────
+  //
+  // Live-observed bug: a PETG-white draft was bound to the HT slot. User
+  // swapped to ASA-white. bambu_color stayed #FFFFFFFF, ΔE = 0, swap
+  // detection didn't fire, slot kept the stale PETG-draft binding, and
+  // print_usage was about to land on the wrong spool. Fix: ALSO detect
+  // swap when bambu_type differs from the slot's previous bambu_type.
+
+  describe("F''. Material-swap detection (same color, different type)", () => {
+    beforeAll(async () => {
+      const { db } = await import("@/lib/db");
+      const { prints, spools } = await import("@/lib/db/schema");
+      await db.delete(prints);
+      await db.delete(spools);
+    });
+
+    it("F''1: PETG-white → ASA-white moves the PETG spool to workbench and unbinds the slot", async () => {
+      const { db } = await import("@/lib/db");
+      const { amsSlots, spools, vendors } = await import("@/lib/db/schema");
+      const { and, eq } = await import("drizzle-orm");
+
+      // Seed: a Bambu Lab PETG-white draft spool bound to the HT slot,
+      // with the slot's bambuType already recorded as PETG (the state
+      // before the swap happens).
+      const bambuVendor = await db.query.vendors.findFirst({
+        where: eq(vendors.name, "Bambu Lab"),
+      });
+      let vendorId = bambuVendor?.id;
+      if (!vendorId) {
+        const { makeVendor } = await import("../fixtures/seed");
+        vendorId = await makeVendor("Bambu Lab");
+      }
+      const { makeFilament, makeSpool } = await import("../fixtures/seed");
+      const petgFilId = await makeFilament(vendorId, {
+        name: "PETG",
+        material: "PETG",
+        colorHex: "FFFFFF",
+      });
+      const petgSpoolId = await makeSpool(petgFilId, {
+        location: "ams-ht",
+        remainingWeight: 1000,
+        initialWeight: 1000,
+      });
+
+      // The HT slot already exists (seeded in global beforeAll via
+      // seedStandardH2SAmsUnits). Just bind PETG draft to it and record
+      // bambu_type as PETG to set up the pre-swap state.
+      await db
+        .update(amsSlots)
+        .set({
+          spoolId: petgSpoolId,
+          bambuType: "PETG",
+          bambuColor: "#FFFFFFFF",
+          bambuTagUid: "0000000000000000",
+        })
+        .where(
+          and(
+            eq(amsSlots.printerId, testPrinterId),
+            eq(amsSlots.slotType, "ams_ht"),
+            eq(amsSlots.amsIndex, 1),
+            eq(amsSlots.trayIndex, 0),
+          ),
+        );
+
+      // Now sync: same color, NEW material (ASA)
+      await sync({
+        print_state: "IDLE",
+        slot_ht_1_type: "ASA",
+        slot_ht_1_color: "#FFFFFFFF",
+        slot_ht_1_tag: "0000000000000000",
+        slot_ht_1_filament_id: "GFB01",
+      });
+
+      // After the swap: HT slot must NOT still be bound to the PETG draft
+      const slot = await db.query.amsSlots.findFirst({
+        where: and(
+          eq(amsSlots.printerId, testPrinterId),
+          eq(amsSlots.slotType, "ams_ht"),
+          eq(amsSlots.amsIndex, 1),
+          eq(amsSlots.trayIndex, 0),
+        ),
+      });
+      expect(slot?.spoolId).not.toBe(petgSpoolId);
+
+      // PETG spool moves to workbench (the swap-detected branch sets this)
+      const petg = await db.query.spools.findFirst({ where: eq(spools.id, petgSpoolId) });
+      expect(petg?.location).toBe("workbench");
+
+      // Bambu type field on the slot now reads ASA
+      expect(slot?.bambuType).toBe("ASA");
+    });
+  });
+
   // ── G. Edge Cases ─────────────────────────────────────────────────────────
 
   describe("G. Edge Cases", () => {

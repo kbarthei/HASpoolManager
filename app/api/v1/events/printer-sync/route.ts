@@ -938,19 +938,33 @@ export async function POST(request: NextRequest) {
       const SWAP_DELTA_E_THRESHOLD = 10;
       let filamentSwapped = false;
       if (!isEmpty && existingSlot?.spoolId) {
-        const newColor6 = trayColor.slice(0, 6).toUpperCase();
-        let baselineColor6 = (existingSlot.bambuColor ?? "").replace("#", "").slice(0, 6).toUpperCase();
-        if (!baselineColor6) {
-          const linked = await db.query.spools.findFirst({
-            where: eq(spools.id, existingSlot.spoolId),
-            with: { filament: true },
-          });
-          baselineColor6 = (linked?.filament?.colorHex ?? "").slice(0, 6).toUpperCase();
+        // Tier 1: bambu_type changed. A material swap (PETG → ASA, PLA → PETG,
+        // …) is unambiguous regardless of colour. Catches the live-observed
+        // case of "PETG white → ASA white" where ΔE was 0 but the material
+        // had flipped, leaving the slot bound to a stale draft spool.
+        const newType = trayType.toUpperCase();
+        const baselineType = (existingSlot.bambuType ?? "").toUpperCase();
+        if (baselineType && newType && baselineType !== newType) {
+          filamentSwapped = true;
         }
-        if (baselineColor6 && newColor6) {
-          const de = deltaEHex(baselineColor6, newColor6);
-          if (de > SWAP_DELTA_E_THRESHOLD) {
-            filamentSwapped = true;
+
+        // Tier 2: colour drift beyond ΔE threshold. Same as before — catches
+        // colour swaps of the same material (Black PLA → Red PLA).
+        if (!filamentSwapped) {
+          const newColor6 = trayColor.slice(0, 6).toUpperCase();
+          let baselineColor6 = (existingSlot.bambuColor ?? "").replace("#", "").slice(0, 6).toUpperCase();
+          if (!baselineColor6) {
+            const linked = await db.query.spools.findFirst({
+              where: eq(spools.id, existingSlot.spoolId),
+              with: { filament: true },
+            });
+            baselineColor6 = (linked?.filament?.colorHex ?? "").slice(0, 6).toUpperCase();
+          }
+          if (baselineColor6 && newColor6) {
+            const de = deltaEHex(baselineColor6, newColor6);
+            if (de > SWAP_DELTA_E_THRESHOLD) {
+              filamentSwapped = true;
+            }
           }
         }
       }
