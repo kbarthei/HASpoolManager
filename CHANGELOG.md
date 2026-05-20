@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## May 2026
 
+- **fix:** swap detection also fires on bambu_type change (`5269160`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`f348695`)
 - **chore:** gitignore __pycache__/ (cleanup from hook commit) (`1c55686`)
 - **feat:** LAN-reachability gate for deploy + live-admin commands (`feef0ba`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`9c381d6`)
