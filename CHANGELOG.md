@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## May 2026
 
+- **fix:** supply-engine "EMA from daily data" used absolute dates (`4233604`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`304d2aa`)
 - **fix:** swap detection also fires on bambu_type change (`5269160`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`f348695`)
 - **chore:** gitignore __pycache__/ (cleanup from hook commit) (`1c55686`)
