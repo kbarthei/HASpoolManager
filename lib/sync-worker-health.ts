@@ -277,6 +277,21 @@ export function updatePrinterHealth(
   });
 }
 
+/**
+ * Patch just the sync/event timestamps of an already-registered printer.
+ * updatePrinterHealth() copies lastSyncAt at REGISTRATION time (always 0),
+ * and nothing re-called it after each successful sync — so the health cache
+ * reported lastSyncAt: 0 forever, producing a bogus "No sync for 56 years"
+ * warning even while the printer synced fine every minute. Call this after
+ * each successful sync (and flush) to keep the health snapshot honest.
+ */
+export function recordPrinterSync(deviceId: string, lastSyncAt: number, lastEventAt?: number): void {
+  const existing = printerHealthCache.get(deviceId);
+  if (!existing) return;
+  existing.lastSyncAt = lastSyncAt;
+  if (lastEventAt !== undefined) existing.lastEventAt = lastEventAt;
+}
+
 export function removePrinter(deviceId: string): void {
   printerHealthCache.delete(deviceId);
 }
@@ -316,27 +331,32 @@ export function getHealth(): SyncWorkerHealth {
   let activeCount = 0;
 
   for (const printer of printerHealthCache.values()) {
-    const timeSinceLastEvent = now - printer.lastEventAt;
-    const timeSinceLastSync = now - printer.lastSyncAt;
+    const timeSinceLastEvent = printer.lastEventAt > 0 ? now - printer.lastEventAt : 0;
+    // lastSyncAt/lastEventAt === 0 means "never happened yet" (fresh restart,
+    // no sync completed). Treat as 0 elapsed, NOT `now - 0` (= epoch millis =
+    // 56 years), which would trip the stale-sync warning on every restart
+    // before the first sync lands.
+    const hasSynced = printer.lastSyncAt > 0;
+    const timeSinceLastSync = hasSynced ? now - printer.lastSyncAt : 0;
     const printerIssues: string[] = [];
-    
+
     // Determine printer status
     let status: "healthy" | "warning" | "error" = "healthy";
-    
+
     // No events in 10 minutes (printer might be offline)
-    if (timeSinceLastEvent > 10 * 60 * 1000) {
+    if (printer.lastEventAt > 0 && timeSinceLastEvent > 10 * 60 * 1000) {
       status = "warning";
       printerIssues.push(`No events for ${Math.round(timeSinceLastEvent / 60000)} minutes`);
     }
-    
+
     // No sync in 15 minutes while active (stuck sync)
-    if (printer.isActive && timeSinceLastSync > 15 * 60 * 1000) {
+    if (printer.isActive && hasSynced && timeSinceLastSync > 15 * 60 * 1000) {
       status = "error";
       printerIssues.push(`Active print but no sync for ${Math.round(timeSinceLastSync / 60000)} minutes`);
     }
-    
+
     // No sync in 30 minutes while idle (watchdog not running?)
-    if (!printer.isActive && timeSinceLastSync > 30 * 60 * 1000) {
+    if (!printer.isActive && hasSynced && timeSinceLastSync > 30 * 60 * 1000) {
       status = "warning";
       printerIssues.push(`No sync for ${Math.round(timeSinceLastSync / 60000)} minutes`);
     }

@@ -189,7 +189,14 @@ async function callSyncEngine(
     }
     // Stamp last successful sync so the watchdog knows when to poll next.
     // Only stamp on success — a failed sync should NOT delay the next retry.
-    if (printer) printer.lastSyncAt = Date.now();
+    if (printer) {
+      printer.lastSyncAt = Date.now();
+      // Propagate into the health snapshot — without this the /health
+      // endpoint reports lastSyncAt: 0 forever after registration, showing
+      // a bogus "degraded / No sync for 56 years" while syncs run fine.
+      health.recordPrinterSync(printer.deviceId, printer.lastSyncAt, printer.lastEventAt);
+      health.flushHealth();
+    }
   } catch (error) {
     console.error("[sync-worker] sync error:", error);
   }
