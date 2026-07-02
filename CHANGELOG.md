@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## July 2026
 
+- **fix:** lastSyncAt never propagated → bogus "degraded / no sync for 56 years" (`b16f3fc`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`4c08d6c`)
 - **chore:** v1.1.43 — security audit fixes deployed + live-tested (`d1483bf`)
 - **fix:** close SSRF hole in orders/parse + harden sql helper + patch deps (`819d575`)
 
