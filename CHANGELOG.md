@@ -4,8 +4,14 @@ All notable changes to HASpoolManager are documented here.
 Generated automatically from [conventional commits](https://www.conventionalcommits.org/).
 
 
+## July 2026
+
+- **chore:** v1.1.43 — security audit fixes deployed + live-tested (`d1483bf`)
+- **fix:** close SSRF hole in orders/parse + harden sql helper + patch deps (`819d575`)
+
 ## May 2026
 
+- **docs:** regenerate CHANGELOG.md [skip ci] (`925a3b8`)
 - **fix:** supply-engine "EMA from daily data" used absolute dates (`4233604`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`304d2aa`)
 - **fix:** swap detection also fires on bambu_type change (`5269160`)
