@@ -144,25 +144,42 @@ Security is enforced at multiple layers:
 
 Two external-fetch paths carry SSRF risk:
 
+Both external-fetch paths route through the **same** `validateURL()` in
+`lib/url-validator.ts` — a single choke point so the rules can't drift
+between call sites.
+
+`validateURL()` enforces, in order:
+
+- Scheme must be `http:` / `https:` — no `file:`, `ftp:`, etc.
+- Hostname is not `localhost`, `0.0.0.0`, or a cloud-metadata endpoint
+  (`169.254.169.254`, `metadata.google.internal`)
+- Hostname is not a private / loopback / link-local IP (RFC1918,
+  `127.0.0.0/8`, `169.254.0.0/16`, IPv6 `::1`/`fe80:`/`fc00:`/`fd00:`)
+- **Hostname is on the domain allowlist** (`ALLOWED_DOMAINS`: the known
+  filament shops — bambulab, 3djake, amazon, prusa, polymaker, …).
+  This is stricter than "any public IP" — an unknown public domain is
+  rejected.
+- Non-standard ports (anything but 80/443) are blocked
+- Embedded credentials (`user:pass@host`) are stripped
+
 ### `lib/order-parser` / `/api/v1/orders/parse`
 
 User pastes an order confirmation (HTML or URL). If a URL is provided,
-we fetch it server-side. Mitigations:
+we `validateURL()` it first; on failure we do NOT fetch — we fall back
+to letting Claude parse the raw URL string. On success we fetch the
+sanitized URL with a 10s timeout, strip tags, and cap at 4000 chars.
 
-- URL scheme must be `http:` / `https:` — no `file:`, `ftp:`, etc.
-- Hostname must resolve to a public IP (not `127.0.0.1`, `::1`, private
-  RFC1918 ranges, or link-local)
-- Request timeout (10s) + size cap (1 MB)
-- Response content-type must be `text/html` or `text/plain`
-- Claude (if `ANTHROPIC_API_KEY` set) parses the content — Claude
-  itself won't execute external links
+> **History:** until 2026-07 this endpoint fetched the user URL WITHOUT
+> validation — a real SSRF hole (an attacker could hit the internal HA
+> instance or cloud metadata and exfiltrate via the AI summary). Fixed
+> by routing through `validateURL()`; regression-tested in
+> `tests/integration/orders-parse.test.ts` ("SSRF protection on URL input").
 
 ### `lib/price-crawler` / `/api/v1/prices/refresh`
 
-Scrapes per-shop filament listing pages. Same SSRF controls apply.
+Scrapes per-shop filament listing pages via the same `validateURL()`.
 Additionally:
-- Each shop URL is stored in `shops.listing_url_pattern` (admin-configured)
-- Crawler runs on a rate limit (max 1 req/sec per shop)
+- Each shop URL is admin-configured
 - Response parsed via regex (no JS execution, no innerHTML injection)
 
 ---

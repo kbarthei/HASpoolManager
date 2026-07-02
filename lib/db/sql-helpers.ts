@@ -73,9 +73,17 @@ export function sqlNowMinusSixMonths(col: SQL | object): SQL {
   return sql`${col} >= datetime('now', '-6 months')`;
 }
 
-/** datetime('now', '-N hours') — used for retention cleanups */
+/** datetime('now', '-N hours') — used for retention cleanups.
+ *  `hours` is coerced to a non-negative integer before interpolation.
+ *  sql.raw() bypasses parameter binding, so this guard is the only thing
+ *  standing between a caller and injection if a user-controlled value ever
+ *  reaches here. Today all callers pass literals, but defense-in-depth. */
 export function sqlNowMinusHours(hours: number): SQL {
-  return sql`datetime('now', '-${sql.raw(String(hours))} hours')`;
+  const safe = Math.max(0, Math.floor(Number(hours)));
+  if (!Number.isFinite(safe)) {
+    throw new Error(`sqlNowMinusHours: invalid hours value ${hours}`);
+  }
+  return sql`datetime('now', '-${sql.raw(String(safe))} hours')`;
 }
 
 /** COALESCE(SUM(cost), 0) — for recalculating print total_cost */
