@@ -177,4 +177,67 @@ describe("orders/parse integration", () => {
       expect(status).toBe(422);
     });
   });
+
+  // SSRF regression: a URL input is fetched server-side. It MUST pass the
+  // url-validator allowlist + private-IP block first. Before the fix, this
+  // endpoint fetched any user-supplied URL — an attacker could hit internal
+  // services (HA at 10.10.20.2:8123, cloud metadata at 169.254.169.254) and
+  // exfiltrate the response through the AI summary.
+  describe("SSRF protection on URL input", () => {
+    it("does NOT fetch a private-IP URL (internal HA)", async () => {
+      aiState.aiResponse = ESUN_RESPONSE;
+      const fetchSpy = vi.spyOn(globalThis, "fetch");
+      try {
+        const { status } = await callParse(
+          { text: "http://10.10.20.2:8123/api/states" },
+          false,
+        );
+        // Request still succeeds (falls back to treating the URL as text),
+        // but the private-IP URL must never have been fetched.
+        expect(status).toBe(200);
+        const fetchedInternal = fetchSpy.mock.calls.some(([arg]) =>
+          String(arg).includes("10.10.20.2"),
+        );
+        expect(fetchedInternal).toBe(false);
+      } finally {
+        fetchSpy.mockRestore();
+      }
+    });
+
+    it("does NOT fetch the cloud metadata endpoint", async () => {
+      aiState.aiResponse = ESUN_RESPONSE;
+      const fetchSpy = vi.spyOn(globalThis, "fetch");
+      try {
+        const { status } = await callParse(
+          { text: "http://169.254.169.254/latest/meta-data/" },
+          false,
+        );
+        expect(status).toBe(200);
+        const hit = fetchSpy.mock.calls.some(([arg]) =>
+          String(arg).includes("169.254.169.254"),
+        );
+        expect(hit).toBe(false);
+      } finally {
+        fetchSpy.mockRestore();
+      }
+    });
+
+    it("does NOT fetch a non-allowlisted public domain", async () => {
+      aiState.aiResponse = ESUN_RESPONSE;
+      const fetchSpy = vi.spyOn(globalThis, "fetch");
+      try {
+        const { status } = await callParse(
+          { text: "http://evil.example.com/steal" },
+          false,
+        );
+        expect(status).toBe(200);
+        const hit = fetchSpy.mock.calls.some(([arg]) =>
+          String(arg).includes("evil.example.com"),
+        );
+        expect(hit).toBe(false);
+      } finally {
+        fetchSpy.mockRestore();
+      }
+    });
+  });
 });

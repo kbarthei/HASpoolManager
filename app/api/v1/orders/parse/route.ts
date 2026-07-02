@@ -4,6 +4,7 @@ import { anthropic } from "@ai-sdk/anthropic";
 import { optionalAuth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { validateBody, orderParseSchema } from "@/lib/validations";
+import { validateURL } from "@/lib/url-validator";
 
 /** Detect whether input text is a URL, an email/order confirmation, or a plain search query. */
 export function detectInputType(text: string): "url" | "email" | "search" {
@@ -70,27 +71,39 @@ export async function POST(request: NextRequest) {
 
     let contentToParse = text;
 
-    // If URL, fetch the page content
+    // If URL, fetch the page content. SSRF guard: the URL is user-supplied,
+    // so it MUST pass the same allowlist + private-IP block that the price
+    // crawler uses. Without this an attacker could point the addon at
+    // internal services (HA at 10.10.20.2:8123, cloud metadata at
+    // 169.254.169.254, etc.) and exfiltrate the response via the AI summary.
     if (inputType === "url") {
-      try {
-        const res = await fetch(text.trim(), {
-          headers: { "User-Agent": "Mozilla/5.0 (compatible; HASpoolManager/1.0)" },
-        });
-        if (res.ok) {
-          const html = await res.text();
-          // Extract text content, strip HTML tags, limit to ~4000 chars
-          const stripped = html
-            .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
-            .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
-            .replace(/<[^>]+>/g, " ")
-            .replace(/\s+/g, " ")
-            .trim()
-            .slice(0, 4000);
-          contentToParse = `Product URL: ${text}\n\nPage content:\n${stripped}`;
-        }
-      } catch {
-        // If fetch fails, just pass the URL as text
+      const urlCheck = validateURL(text.trim());
+      if (!urlCheck.valid) {
+        // Don't fetch — fall back to treating the raw URL as text so the
+        // AI can still attempt a best-effort parse of the URL string itself.
         contentToParse = `Product URL: ${text}`;
+      } else {
+        try {
+          const res = await fetch(urlCheck.sanitizedUrl!, {
+            headers: { "User-Agent": "Mozilla/5.0 (compatible; HASpoolManager/1.0)" },
+            signal: AbortSignal.timeout(10_000),
+          });
+          if (res.ok) {
+            const html = await res.text();
+            // Extract text content, strip HTML tags, limit to ~4000 chars
+            const stripped = html
+              .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
+              .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+              .replace(/<[^>]+>/g, " ")
+              .replace(/\s+/g, " ")
+              .trim()
+              .slice(0, 4000);
+            contentToParse = `Product URL: ${text}\n\nPage content:\n${stripped}`;
+          }
+        } catch {
+          // If fetch fails, just pass the URL as text
+          contentToParse = `Product URL: ${text}`;
+        }
       }
     }
 
