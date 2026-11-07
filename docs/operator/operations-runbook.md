@@ -367,8 +367,10 @@ strict learn onto an untagged matching spool, or auto-create (see
 bindings on tagged trays heal on the next sync; archived/empty spools whose
 tag is read are reactivated with weight = remain%. If a slot stays wrong:
 
-- The learn picked the wrong untagged spool (two identical untagged spools):
-  delete the wrong `tag_mappings` row and re-link from the spool page.
+- A tag got learned onto the wrong spool (e.g. a binding left over from
+  before v1.1.46): delete that `tag_mappings` row, move the spool back to its
+  rack slot, and clear the slot's `spool_id` — the next sync re-resolves the
+  tag (learn only on a single weight-consistent candidate, else auto-create).
 - Untagged (third-party) trays still use slot memory + fuzzy scoring; fix
   the binding from the AMS card.
 

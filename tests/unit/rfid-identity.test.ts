@@ -9,7 +9,7 @@ function cand(over: Partial<LearnCandidate>): LearnCandidate {
     material: "PLA",
     colorHex: "1C1C1C",
     initialWeight: 1000,
-    remainingWeight: 1000,
+    remainingWeight: 550,
     hasTag: false,
     boundElsewhere: false,
     boundToThisSlot: false,
@@ -68,16 +68,29 @@ describe("pickLearnCandidate()", () => {
     expect(pickLearnCandidate([cand({})], { ...BLACK_MATTE, bambuIdx: undefined })).toBeNull();
   });
 
-  it("prefers the spool already bound to this slot", () => {
-    const rack = cand({ spoolId: "rack", colorHex: "000000" });
-    const slot = cand({ spoolId: "slot", boundToThisSlot: true });
-    expect(pickLearnCandidate([rack, slot], BLACK_MATTE)?.spoolId).toBe("slot");
+  it("does not treat the current slot binding as evidence", () => {
+    // Two equally good candidates; one is bound to this slot → still ambiguous
+    const rack = cand({ spoolId: "rack", remainingWeight: 550 });
+    const slot = cand({ spoolId: "slot", remainingWeight: 550, boundToThisSlot: true });
+    expect(pickLearnCandidate([rack, slot], BLACK_MATTE)).toBeNull();
   });
 
-  it("breaks colour ties by weight closest to remain%", () => {
-    const full = cand({ spoolId: "full", remainingWeight: 1000 });
-    const half = cand({ spoolId: "half", remainingWeight: 550 });
-    expect(pickLearnCandidate([full, half], BLACK_MATTE)?.spoolId).toBe("half");
+  it("rejects a full rack spool for a tray at 55% (live 2026-11-07 case)", () => {
+    expect(pickLearnCandidate([cand({ remainingWeight: 1000 })], BLACK_MATTE)).toBeNull();
+  });
+
+  it("accepts a weight within 10% of initial × remain%", () => {
+    expect(pickLearnCandidate([cand({ remainingWeight: 620 })], BLACK_MATTE)?.spoolId).toBe("s");
+  });
+
+  it("returns null when remain% is unknown", () => {
+    expect(pickLearnCandidate([cand({ remainingWeight: 550 })], { ...BLACK_MATTE, remain: -1 })).toBeNull();
+  });
+
+  it("returns null when more than one candidate fits (never guess a rack slot)", () => {
+    const a = cand({ spoolId: "a", remainingWeight: 1000 });
+    const b = cand({ spoolId: "b", remainingWeight: 1000 });
+    expect(pickLearnCandidate([a, b], { ...BLACK_MATTE, remain: 100 })).toBeNull();
   });
 });
 

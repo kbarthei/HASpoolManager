@@ -302,6 +302,45 @@ describe("printer-sync RFID identity", () => {
     expect(spool!.filament.bambuIdx).toBe("GFA06");
   });
 
+  it("K8: a full rack spool wrongly bound to the slot is NOT learned onto a tray at 55%", async () => {
+    // Live 2026-11-07: old fuzzy code bound full rack spool eecc102c to the
+    // black-Matte slot. Learning must not cement that: weight 1000 g ≠ 55 %.
+    const { db } = await import("@/lib/db");
+    const { amsSlots, spools } = await import("@/lib/db/schema");
+    const { eq } = await import("drizzle-orm");
+    const { makeFilament, makeSpool } = await import("../fixtures/seed");
+
+    const fil = await makeFilament(bambuVendorId, {
+      name: "PLA Matte K8",
+      material: "PLA",
+      colorHex: "1C1C1C",
+      bambuIdx: "GFA01",
+    });
+    const rackA = await makeSpool(fil, { location: "ams", remainingWeight: 1000 });
+    const rackB = await makeSpool(fil, { location: "rack:r1:2-9", remainingWeight: 1000 });
+    const all = await db.query.amsSlots.findMany({ where: eq(amsSlots.printerId, printerId) });
+    const slot1 = all.find((x) => x.amsIndex === 0 && x.trayIndex === 1)!;
+    await db
+      .update(amsSlots)
+      .set({ spoolId: rackA, bambuColor: "000000FF", bambuType: "PLA", isEmpty: false })
+      .where(eq(amsSlots.id, slot1.id));
+
+    await sync(
+      trayFields("slot_ams_0_1", { type: "PLA", color: "000000FF", idx: "GFA01", tag: "FFFF666600000100", remain: 55 }),
+    );
+
+    const bound = await slotSpoolId(0, 1);
+    expect(bound).not.toBe(rackA);
+    expect(bound).not.toBe(rackB);
+    expect(await tagOwner("FFFF666600000100")).toBe(bound);
+
+    const b = await db.query.spools.findFirst({ where: eq(spools.id, rackB) });
+    expect(b!.location).toBe("rack:r1:2-9");
+    expect(b!.remainingWeight).toBe(1000);
+    const a = await db.query.spools.findFirst({ where: eq(spools.id, rackA) });
+    expect(a!.remainingWeight).toBe(1000);
+  });
+
   it("K6: fuzzy (no-RFID) matching never binds a spool already bound to another slot", async () => {
     const { db } = await import("@/lib/db");
     const { amsSlots } = await import("@/lib/db/schema");

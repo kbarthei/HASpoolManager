@@ -237,7 +237,7 @@ flowchart TD
     C --> D{Found?}
     D -->|Yes| Z["MATCH: confidence=1.0\nmethod=rfid_exact\n(archived/empty spool → reactivated,\nweight = initial × remain%)"]
 
-    D -->|No| L1["Tier 1c: learn unknown tag\nUntagged active spool with exact bambu_idx\n+ material + ΔE < 15, not bound to another slot"]
+    D -->|No| L1["Tier 1c: learn unknown tag\nExactly ONE untagged active spool with exact bambu_idx\n+ material + ΔE < 15 + weight within 10% of remain%,\nnot bound to another slot"]
     L1 --> L2{Found?}
     L2 -->|Yes| ZL["MATCH: confidence=0.9\nmethod=rfid_learn\n→ sync inserts tag_mapping"]
     L2 -->|No| N
@@ -303,8 +303,8 @@ one spool to three trays. Instead:
 | Step | Rule |
 |---|---|
 | Tag known | Bind the mapped spool (`rfid_exact`). If it is `archived`/`empty`, reactivate it — the tag read proves it is loaded. |
-| Tag unknown, strict candidate | Untagged `active` spool, `bambu_idx` + material exact, ΔE < 15 (Bambu reports Matte Charcoal as `000000`, users often store `1C1C1C`, ΔE≈10). Not bound to another slot — unless it is bound to *this* slot too (a duplicate binding, so this slot's claim is as good as any). Tie-break: bound to this slot → lowest ΔE → weight closest to remain%. The sync persists the tag (`rfid_learn`). Lets order-imported spools (no tag yet) pick up their RFID on first load. |
-| Tag unknown, no candidate | No match → `autoCreateBambuSpool()` creates spool + tag mapping. |
+| Tag unknown, strict candidate | Exactly **one** untagged `active` spool with `bambu_idx` + material exact, ΔE < 15 (Bambu reports Matte Charcoal as `000000`, users often store `1C1C1C`, ΔE≈10), and weight within 10 % of `initial × remain%`. Not bound to another slot — unless bound to *this* slot too (duplicate binding). The current slot binding is not evidence. The sync persists the tag (`rfid_learn`). Lets order-imported spools (no tag yet) pick up their RFID on first load without ever guessing a rack slot. |
+| Tag unknown, no / several candidates | No match → `autoCreateBambuSpool()` creates spool + tag mapping. Rack untouched. |
 
 **Slot exclusivity:** a spool is bound to at most one slot. Fuzzy candidates
 exclude spools bound to another slot, and the "move old spool to

@@ -22,7 +22,7 @@ Per AMS slot, the sync payload carries:
 | `tray_color` | Hex color | `"RRGGBBAA"` (alpha always `FF` for Bambu) or `"RRGGBB"` |
 | `tray_sub_brands` | Product sub-brand (rare) | e.g. `"Matte"`, `"Silk"` |
 | `printer_id`, `ams_index`, `tray_index` | From the route context | Slot exclusivity + "bound to this slot" tie-break |
-| `remain` | Printer's remaining-% estimate | Weight tie-break when learning a tag |
+| `remain` | Printer's remaining-% estimate | Weight check when learning a tag (required) |
 
 ## 2. Tiers, in order
 
@@ -44,22 +44,30 @@ spool is physically loaded, and the regular weight sync never raises weight.
 
 ### Tier 1c — Learn an unknown tag
 
-The tag is a specific physical spool the DB hasn't seen. It may claim an
-existing spool only on a strict match (`pickLearnCandidate()`):
+The tag is a specific physical spool the DB hasn't seen. Learning it onto an
+existing spool relocates that spool — usually out of a rack the user manages
+by hand — so it must be unambiguous (`pickLearnCandidate()`):
 
 - spool is `active` and has **no** tag mapping
 - `filament.bambu_idx === tray_info_idx` and material equal
 - ΔE(tray colour, filament colour) `< LEARN_MAX_DELTA_E` (15). Bambu reports
   Matte Charcoal as `000000` while users often store `1C1C1C` (ΔE≈10);
   Bone White vs Ivory White is ΔE≈21 and is rejected.
+- `|remaining_weight − initial_weight × remain%| ≤ 10 %` of initial weight
+  (`LEARN_MAX_WEIGHT_GAP`). A full 1000 g rack spool never matches a tray at
+  55 %. Unknown `remain` (−1) → no learn.
 - not bound to another slot — unless also bound to this slot (duplicate
-  binding; this slot's claim is as good as any)
+  binding; all its bindings are suspect)
+- **exactly one** spool passes. Two identical full rack spools → no learn;
+  we never guess which rack slot was emptied.
 
-Tie-break: bound to this slot → lowest ΔE → weight closest to
-`initial_weight × remain%`. Returns `match_method = "rfid_learn"`,
-`confidence = 0.9`; the sync route inserts the tag mapping so the next sync is
-a Tier 1a hit. This is how order-imported spools (created without a tag) pick
-up their RFID on first load.
+The current slot binding is **not** evidence: it may come from an earlier bad
+match (live 2026-11-07: old fuzzy code bound a full rack spool to a 55 % tray,
+weight-synced it to 550 g, and a slot-preferring learn would have cemented
+it). Returns `match_method = "rfid_learn"`, `confidence = 0.9`; the sync route
+inserts the tag mapping so the next sync is a Tier 1a hit. This is how
+order-imported spools (created without a tag) pick up their RFID on first
+load.
 
 No candidate → `null`, and the sync route auto-creates (Tier 3a).
 
@@ -208,8 +216,8 @@ a spool that is physically still in the AMS while it heals.
 | Test | Layer | Scope |
 |---|---|---|
 | `tests/unit/matching-scoring.test.ts` | unit | ΔE thresholds + `normalizeColor()` |
-| `tests/unit/rfid-identity.test.ts` | unit | `isRealTag()`, `pickLearnCandidate()` (Tier 1c rules + tie-breaks), `rfidReactivation()`, `bambuProductName()` |
-| `tests/integration/printer-sync-rfid-identity.test.ts` | integration | K1–K7: duplicate-binding heal, never bind a differently-tagged spool, learn onto rack spool, auto-create on colour mismatch, reactivate archived/empty, fuzzy slot exclusivity, auto-created filament named from HA tray name |
+| `tests/unit/rfid-identity.test.ts` | unit | `isRealTag()`, `pickLearnCandidate()` (Tier 1c rules: weight, uniqueness, slot binding not evidence), `rfidReactivation()`, `bambuProductName()` |
+| `tests/integration/printer-sync-rfid-identity.test.ts` | integration | K1–K8: duplicate-binding heal, full rack spool not learned onto a partial tray, never bind a differently-tagged spool, learn onto rack spool, auto-create on colour mismatch, reactivate archived/empty, fuzzy slot exclusivity, auto-created filament named from HA tray name |
 | `tests/integration/api-match.test.ts` | integration | End-to-end POST `/api/v1/match` with real DB; covers Tier 1a + a few fuzzy cases |
 | `tests/integration/printer-sync.test.ts` sections F–H | integration | Active-slot matching, tag-mapping, auto-creation branches |
 

@@ -14,7 +14,7 @@ export interface MatchRequest {
   printer_id?: string;
   ams_index?: number;
   tray_index?: number;
-  /** Printer's remaining-% estimate; tie-breaker when learning a tag. */
+  /** Printer's remaining-% estimate; required to learn an unknown tag. */
   remain?: number;
 }
 
@@ -28,8 +28,9 @@ export interface MatchCandidate {
   confidence: number;
   /**
    * - rfid_exact: tag_uid is mapped to this spool
-   * - rfid_learn: tag_uid is unknown; this untagged spool strictly matches
-   *   (bambu_idx + material + colour). Callers that persist state should
+   * - rfid_learn: tag_uid is unknown; this is the single untagged spool that
+   *   strictly matches (bambu_idx + material + colour + weight vs remain%).
+   *   Callers that persist state should
    *   insert the tag mapping so the next sync is an rfid_exact hit.
    */
   match_method: "rfid_exact" | "rfid_learn" | "bambu_idx_exact" | "fuzzy";
@@ -190,42 +191,42 @@ export interface LearnCandidate {
   boundToThisSlot: boolean;
 }
 
+/** Max |stored weight − initial × remain%| as a fraction of initial weight.
+ *  A full 1000 g rack spool must not be learned onto a tray at 55 %. */
+export const LEARN_MAX_WEIGHT_GAP = 0.1;
+
 /**
  * Pick the untagged spool an unknown RFID tag should be learned onto, or
- * null. Requires exact bambu_idx + material and ΔE < LEARN_MAX_DELTA_E.
- * Tie-break: already bound to this slot → closest colour → weight closest
- * to the printer's remain%.
+ * null. Learning moves the spool (often out of a rack), so it must be
+ * unambiguous: exact bambu_idx + material, ΔE < LEARN_MAX_DELTA_E, weight
+ * within LEARN_MAX_WEIGHT_GAP of the printer's remain%, and exactly ONE
+ * such candidate. The current slot binding is not evidence — it may itself
+ * be the product of an earlier bad match. Null → caller auto-creates.
  */
 export function pickLearnCandidate(
   candidates: LearnCandidate[],
   tray: { bambuIdx?: string; material?: string; color?: string; remain?: number }
 ): LearnCandidate | null {
   const color = normalizeColor(tray.color);
+  const { remain } = tray;
   if (!tray.bambuIdx || !tray.material || !color) return null;
+  if (remain == null || remain < 0 || remain > 100) return null;
 
-  // A spool bound to this slot AND others is a duplicate binding (at least
-  // one is stale) — this slot's claim is as good as any, so don't exclude it.
+  // A spool bound to this slot AND others is a duplicate binding (all are
+  // suspect) — don't let the other bindings disqualify it here.
   const eligible = candidates
     .filter((c) => !c.hasTag && (c.boundToThisSlot || !c.boundElsewhere))
     .filter((c) => c.bambuIdx === tray.bambuIdx)
     .filter((c) => c.material.toLowerCase() === tray.material!.toLowerCase())
-    .filter((c) => c.colorHex)
-    .map((c) => ({ c, de: deltaEHex(color, c.colorHex!) }))
-    .filter((x) => x.de < LEARN_MAX_DELTA_E);
+    .filter((c) => c.colorHex && deltaEHex(color, c.colorHex) < LEARN_MAX_DELTA_E)
+    .filter(
+      (c) =>
+        c.initialWeight > 0 &&
+        Math.abs(c.remainingWeight - (c.initialWeight * remain) / 100) <=
+          c.initialWeight * LEARN_MAX_WEIGHT_GAP
+    );
 
-  const remain = tray.remain;
-  const weightGap = (c: LearnCandidate) =>
-    remain != null && remain >= 0 && remain <= 100
-      ? Math.abs(c.remainingWeight - (c.initialWeight * remain) / 100)
-      : 0;
-
-  eligible.sort(
-    (a, b) =>
-      Number(b.c.boundToThisSlot) - Number(a.c.boundToThisSlot) ||
-      a.de - b.de ||
-      weightGap(a.c) - weightGap(b.c)
-  );
-  return eligible[0]?.c ?? null;
+  return eligible.length === 1 ? eligible[0] : null;
 }
 
 async function matchUnknownTag(
@@ -286,7 +287,7 @@ async function matchUnknownTag(
     match_method: "rfid_learn",
     match_reasons: [
       `RFID tag ${request.tag_uid} unknown`,
-      `untagged spool matches bambu_idx ${request.tray_info_idx} + material + colour`,
+      `single untagged spool matches bambu_idx ${request.tray_info_idx} + material + colour + weight`,
     ],
   };
 }

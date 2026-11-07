@@ -840,7 +840,7 @@ Run the spool matching engine directly. Useful for debugging or manual identific
 | Value | Meaning |
 |---|---|
 | `rfid_exact` | `tag_uid` is mapped to this spool (confidence 1.0) |
-| `rfid_learn` | `tag_uid` is unknown; this untagged spool strictly matches `tray_info_idx` + material + colour (ΔE < 15). This endpoint does **not** persist the tag — only printer-sync does. |
+| `rfid_learn` | `tag_uid` is unknown; this is the **only** untagged spool matching `tray_info_idx` + material + colour (ΔE < 15) + weight (within 10 % of `initial × remain%`). Always `null` via this endpoint, which takes no `remain`; only printer-sync learns and persists tags. |
 | `bambu_idx_exact` | Untagged tray; the spool bound to the given slot has the same `bambu_idx` |
 | `fuzzy` | Untagged tray; weighted score ≥ 0.20. Up to 5 runner-ups in `candidates`. |
 
