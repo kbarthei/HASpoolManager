@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## November 2026
 
+- **fix:** stop unattended rack moves and zeroed spools (`f32e83c`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`c3b929c`)
 - **chore:** v1.1.46 — learn tier never guesses rack spools; rack restored (`0ff4896`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`51b952a`)
 - **fix:** never learn an unknown tag onto a guessed rack spool (`e1bf9e8`)
