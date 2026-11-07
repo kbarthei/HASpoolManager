@@ -1,6 +1,13 @@
 import { describe, it, expect } from "vitest";
-import { pickLearnCandidate, isRealTag, type LearnCandidate } from "@/lib/matching";
-import { rfidReactivation, bambuProductName } from "@/lib/printer-sync-helpers";
+import {
+  pickLearnCandidate,
+  isRealTag,
+  applyFuzzyGuards,
+  isRackLocation,
+  type LearnCandidate,
+  type FuzzyScored,
+} from "@/lib/matching";
+import { rfidReactivation, bambuProductName, calculateWeightSync } from "@/lib/printer-sync-helpers";
 
 function cand(over: Partial<LearnCandidate>): LearnCandidate {
   return {
@@ -129,5 +136,78 @@ describe("bambuProductName()", () => {
   it("falls back to the bambu_idx line map when name is missing or '?'", () => {
     expect(bambuProductName("", "PETG", "GFG02")).toBe("PETG HF");
     expect(bambuProductName("?", "PLA", "GFA00")).toBe("PLA Basic");
+  });
+});
+
+describe("rfidReactivation() — confirmed readings", () => {
+  it("ignores a transient 0 % reading", () => {
+    expect(rfidReactivation({ status: "empty", initialWeight: 1000, remain: 0, previousRemain: 0 })).toBeNull();
+  });
+  it("waits until the previous sync confirms the reading", () => {
+    expect(rfidReactivation({ status: "empty", initialWeight: 1000, remain: 97, previousRemain: 100 })).toBeNull();
+    expect(rfidReactivation({ status: "empty", initialWeight: 1000, remain: 97, previousRemain: 97 })?.remainingWeight).toBe(970);
+  });
+});
+
+describe("calculateWeightSync() — confirmed readings", () => {
+  const base = { initialWeight: 1000, currentWeight: 1000, tagUid: "B676E2C900000100", isIdle: true };
+  it("rejects a reading that differs from the previous sync (printer boot 100 → 0)", () => {
+    const r = calculateWeightSync({ ...base, remain: 0, previousRemain: 100 });
+    expect(r.shouldUpdate).toBe(false);
+    expect(r.reason).toBe("unconfirmed");
+  });
+  it("accepts a reading confirmed by the previous sync", () => {
+    const r = calculateWeightSync({ ...base, remain: 80, previousRemain: 80 });
+    expect(r).toEqual({ shouldUpdate: true, newWeight: 800, reason: "synced" });
+  });
+  it("treats a missing previous reading (null) as unconfirmed", () => {
+    expect(calculateWeightSync({ ...base, remain: 80, previousRemain: null }).reason).toBe("unconfirmed");
+  });
+});
+
+function fz(id: string, over: Partial<Omit<FuzzyScored, "candidate">>): FuzzyScored {
+  return {
+    de: 1,
+    materialMatch: true,
+    inRack: false,
+    ...over,
+    candidate: {
+      spool_id: id,
+      filament_name: "f",
+      vendor_name: "v",
+      material: "PLA",
+      color_hex: null,
+      remaining_weight: 1000,
+      confidence: 0.5,
+      match_method: "fuzzy",
+      match_reasons: [],
+    },
+  };
+}
+const ids = (xs: FuzzyScored[]) => xs.map((x) => x.candidate.spool_id);
+
+describe("isRackLocation()", () => {
+  it("detects rack locations", () => {
+    expect(isRackLocation("rack:abc:2-5")).toBe(true);
+    expect(isRackLocation("workbench")).toBe(false);
+    expect(isRackLocation(null)).toBe(false);
+  });
+});
+
+describe("applyFuzzyGuards()", () => {
+  it("drops material-only matches (live 2026-10-26: grey tray took Pink PLA from the rack)", () => {
+    expect(ids(applyFuzzyGuards([fz("pink", { de: 60, inRack: true }), fz("nocolor", { de: null })]))).toEqual([]);
+  });
+  it("keeps off-rack candidates with colour evidence (ΔE < 10)", () => {
+    expect(ids(applyFuzzyGuards([fz("bench", { de: 8 })]))).toEqual(["bench"]);
+  });
+  it("takes a rack spool only on material + ΔE < 5", () => {
+    expect(ids(applyFuzzyGuards([fz("r", { de: 7, inRack: true })]))).toEqual([]);
+    expect(ids(applyFuzzyGuards([fz("r", { de: 3, inRack: true, materialMatch: false })]))).toEqual([]);
+    expect(ids(applyFuzzyGuards([fz("r", { de: 3, inRack: true })]))).toEqual(["r"]);
+  });
+  it("drops all rack spools when more than one qualifies", () => {
+    const out = applyFuzzyGuards([fz("r1", { de: 1, inRack: true }), fz("r2", { de: 2, inRack: true }), fz("b", { de: 6 })]);
+    expect(ids(out)).toEqual(["b"]);
   });
 });

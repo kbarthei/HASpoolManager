@@ -267,10 +267,13 @@ describe("printer-sync RFID identity", () => {
     const petg = await makeSpool(petgFil, { status: "archived", remainingWeight: 470, location: "archive" });
     await makeTagMapping(petg, "D7C546ED00000100");
 
-    await sync({
+    const trays = {
       ...trayFields("slot_ht_1", { type: "ABS", color: "000000FF", idx: "GFB00", tag: "765746EA00000100", remain: 97 }),
       ...trayFields("slot_ams_0_2", { type: "PETG", color: "ADB1B2FF", idx: "GFG02", tag: "D7C546ED00000100", remain: 43 }),
-    });
+    };
+    // remain% must be confirmed by two consecutive readings
+    await sync(trays);
+    await sync(trays);
 
     const absRow = await db.query.spools.findFirst({ where: eq(spools.id, abs) });
     expect(absRow!.status).toBe("active");
@@ -339,6 +342,52 @@ describe("printer-sync RFID identity", () => {
     expect(b!.remainingWeight).toBe(1000);
     const a = await db.query.spools.findFirst({ where: eq(spools.id, rackA) });
     expect(a!.remainingWeight).toBe(1000);
+  });
+
+  it("K9: untagged placeholder tray (grey PLA) never pulls an unrelated spool out of the rack", async () => {
+    // Live 2026-10-26 07:46: while loading, the printer reported "PLA #898989"
+    // without a tag; material-only scoring (0.20) took PLA Basic Pink from R2-5.
+    const { db } = await import("@/lib/db");
+    const { spools } = await import("@/lib/db/schema");
+    const { eq } = await import("drizzle-orm");
+    const { makeFilament, makeSpool } = await import("../fixtures/seed");
+
+    const pinkFil = await makeFilament(bambuVendorId, { name: "PLA Basic K9", material: "PLA", colorHex: "F5A3C7" });
+    const pink = await makeSpool(pinkFil, { location: "rack:r1:2-5" });
+
+    await sync(trayFields("slot_ams_0_3", { type: "PLA", color: "898989FF", idx: "", tag: "0000000000000000", remain: -1 }));
+
+    expect(await slotSpoolId(0, 3)).not.toBe(pink);
+    const row = await db.query.spools.findFirst({ where: eq(spools.id, pink) });
+    expect(row!.location).toBe("rack:r1:2-5");
+  });
+
+  it("K10: untagged tray takes a rack spool only on a strong, unique match", async () => {
+    const { db } = await import("@/lib/db");
+    const { spools } = await import("@/lib/db/schema");
+    const { eq } = await import("drizzle-orm");
+    const { makeVendor, makeFilament, makeSpool } = await import("../fixtures/seed");
+
+    const v = await makeVendor("eSUN K10");
+    const fil = await makeFilament(v, { name: "ASA+ K10", material: "ASA", colorHex: "F2F2F2" });
+    const only = await makeSpool(fil, { location: "rack:r1:1-4" });
+
+    await sync(trayFields("slot_ams_0_2", { type: "ASA", color: "F3F3F3FF", idx: "", tag: "0000000000000000", remain: -1 }));
+    expect(await slotSpoolId(0, 2)).toBe(only);
+    expect((await db.query.spools.findFirst({ where: eq(spools.id, only) }))!.location).toBe("ams");
+
+    // A second identical rack spool makes it ambiguous → neither is taken
+    const { amsSlots } = await import("@/lib/db/schema");
+    await db.update(amsSlots).set({ spoolId: null, bambuColor: null, bambuType: null, isEmpty: true });
+    await db.update(spools).set({ location: "rack:r1:1-4" }).where(eq(spools.id, only));
+    const twin = await makeSpool(fil, { location: "rack:r1:1-5" });
+
+    await sync(trayFields("slot_ams_0_2", { type: "ASA", color: "F3F3F3FF", idx: "", tag: "0000000000000000", remain: -1 }));
+    const bound = await slotSpoolId(0, 2);
+    expect(bound).not.toBe(only);
+    expect(bound).not.toBe(twin);
+    expect((await db.query.spools.findFirst({ where: eq(spools.id, only) }))!.location).toBe("rack:r1:1-4");
+    expect((await db.query.spools.findFirst({ where: eq(spools.id, twin) }))!.location).toBe("rack:r1:1-5");
   });
 
   it("K6: fuzzy (no-RFID) matching never binds a spool already bound to another slot", async () => {

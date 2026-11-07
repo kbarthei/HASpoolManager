@@ -113,7 +113,11 @@ any manual action from you**:
    untagged spool only when exactly one fits (same product, material,
    near-identical colour, and weight matching the printer's remaining %) —
    e.g. a fresh spool from an order taken off the rack. Otherwise a new spool
-   is created automatically and your rack is left alone. Archived/empty spools whose tag is read in the AMS come
+   is created automatically and your rack is left alone. Spools without RFID
+   need a close colour match; a rack spool is only taken when it is the one
+   clear match (same material, nearly identical colour) — otherwise a draft
+   is created for you to link. Weights from the printer's remaining-% are
+   only applied once two consecutive readings agree. Archived/empty spools whose tag is read in the AMS come
    back to active with the printer's remaining-% as weight.
    Every spool seen during the print accumulates in `activeSpoolIds`.
 4. **Watchdog poll** — every 30 s the worker pulls fresh

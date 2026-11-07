@@ -248,7 +248,7 @@ flowchart TD
     F --> G{Found + idx matches?}
     G -->|Yes| Y["MATCH: confidence=0.95\nmethod=bambu_idx_exact"]
 
-    G -->|No| H["Tier 2: Fuzzy scoring\nActive spools not bound to another slot"]
+    G -->|No| H["Tier 2: Fuzzy scoring\nActive spools not bound to another slot;\ncolour ΔE < 10 required; rack spool only on\nmaterial + ΔE < 5 and unique"]
 
     E -->|No| H
 
@@ -305,6 +305,12 @@ one spool to three trays. Instead:
 | Tag known | Bind the mapped spool (`rfid_exact`). If it is `archived`/`empty`, reactivate it — the tag read proves it is loaded. |
 | Tag unknown, strict candidate | Exactly **one** untagged `active` spool with `bambu_idx` + material exact, ΔE < 15 (Bambu reports Matte Charcoal as `000000`, users often store `1C1C1C`, ΔE≈10), and weight within 10 % of `initial × remain%`. Not bound to another slot — unless bound to *this* slot too (duplicate binding). The current slot binding is not evidence. The sync persists the tag (`rfid_learn`). Lets order-imported spools (no tag yet) pick up their RFID on first load without ever guessing a rack slot. |
 | Tag unknown, no / several candidates | No match → `autoCreateBambuSpool()` creates spool + tag mapping. Rack untouched. |
+
+**Fuzzy guards (untagged trays):** a candidate needs colour evidence
+(ΔE < 10) — material or product line alone never binds (a 0.20
+material-only score once pulled a Pink PLA out of rack slot 2-5 for a grey
+placeholder tray). A rack spool is taken only on material match + ΔE < 5,
+and only if no other rack spool qualifies.
 
 **Slot exclusivity:** a spool is bound to at most one slot. Fuzzy candidates
 exclude spools bound to another slot, and the "move old spool to
@@ -475,7 +481,7 @@ sequenceDiagram
 | **Slot exclusivity** | `matchSpool()`, `isBoundToOtherSlot()` | A spool bound to another slot is never a fuzzy/learn candidate (unless bound to this slot too) and is not relocated when unbound from one of several slots. |
 | **Ambiguous state no-op** | Lifecycle classification | `OFFLINE` and `UNKNOWN` states return `"ambiguous"`, which triggers no state transitions. Prevents closing prints during connectivity drops. |
 | **Calibration filter** | Print creation guard | `isCalibrationJob()` prevents auto-calibration routines from creating spurious print records, even though they cycle through the same `RUNNING -> FINISH` states. |
-| **Weight sync guards** | `calculateWeightSync()` | Multiple guards prevent spurious weight updates: only when idle, only with valid RFID, only when weight would decrease, only when delta exceeds 5% of initial weight. |
+| **Weight sync guards** | `calculateWeightSync()` | Multiple guards prevent spurious weight updates: only when idle, only when two consecutive syncs report the same remain%, only with valid RFID, only when weight would decrease, only when delta exceeds 5% of initial weight. |
 | **Running print singleton** | Print start guard | A new print is only created when `!runningPrint && isActive`. While a print is running, no second print record can be created for the same printer. |
 
 ---
@@ -535,7 +541,10 @@ flowchart TD
     B --> C{"Printer idle?"}
     C -->|No| X1["Skip: printer_active"]
 
-    C -->|Yes| D{"Valid RFID tag?\n(not all zeros, len >= 8)"}
+    C -->|Yes| C2{"remain == previous sync's\nslot.bambu_remain?"}
+    C2 -->|No| X0["Skip: unconfirmed\n(single readings not trusted)"]
+
+    C2 -->|Yes| D{"Valid RFID tag?\n(not all zeros, len >= 8)"}
     D -->|No| X2["Skip: no_rfid"]
 
     D -->|Yes| E{"remain in 0-100 range?"}
@@ -558,7 +567,12 @@ flowchart TD
 ### Guards summary
 
 1. Only when printer is **idle** (not during active printing)
-2. Only for spools with valid **RFID tags** (Bambu spools)
-3. Never **increases** weight (remain% can fluctuate upward due to estimation)
-4. Minimum **5% delta** threshold to avoid noisy small updates
-5. `remain` must be in valid 0-100 range
+2. Only when the reading is **confirmed**: the same `remain` as the slot's
+   previous sync (`ams_slots.bambu_remain`). The printer reports a transient
+   0 % right after it comes online — on 2026-10-26 a single such reading
+   zeroed three spools at once. RFID reactivation uses the same rule and
+   additionally ignores `remain = 0`.
+3. Only for spools with valid **RFID tags** (Bambu spools)
+4. Never **increases** weight (remain% can fluctuate upward due to estimation)
+5. Minimum **5% delta** threshold to avoid noisy small updates
+6. `remain` must be in valid 0-100 range

@@ -359,10 +359,12 @@ async function fuzzyMatch(
   const maxScore = weights.bambu_idx + weights.material + weights.color + weights.vendor + weights.location;
   const requestColor = normalizeColor(request.tray_color);
 
-  const scored: MatchCandidate[] = [];
+  const scored: FuzzyScored[] = [];
 
   for (const spool of allSpools) {
     let score = 0;
+    let de: number | null = null;
+    let materialMatch = false;
     const reasons: string[] = [];
 
     // 1. Bambu filament index match (0-40 points)
@@ -381,6 +383,7 @@ async function fuzzyMatch(
     // 2. Material type match (0-20 points)
     if (request.tray_type) {
       if (spool.filament.material.toLowerCase() === request.tray_type.toLowerCase()) {
+        materialMatch = true;
         score += weights.material;
         reasons.push(`material match: ${request.tray_type}`);
       }
@@ -388,7 +391,7 @@ async function fuzzyMatch(
 
     // 3. Color distance (0-25 points)
     if (requestColor && spool.filament.colorHex) {
-      const de = deltaEHex(requestColor, spool.filament.colorHex);
+      de = deltaEHex(requestColor, spool.filament.colorHex);
       if (de < 2.3) {
         score += weights.color;
         reasons.push(`color imperceptible (ΔE=${de.toFixed(1)})`);
@@ -427,23 +430,62 @@ async function fuzzyMatch(
 
     if (confidence >= MIN_CONFIDENCE_THRESHOLD) {
       scored.push({
-        spool_id: spool.id,
-        filament_name: spool.filament.name,
-        vendor_name: spool.filament.vendor.name,
-        material: spool.filament.material,
-        color_hex: spool.filament.colorHex,
-        remaining_weight: spool.remainingWeight,
-        confidence: Math.round(confidence * 100) / 100,
-        match_method: "fuzzy",
-        match_reasons: reasons,
+        de,
+        materialMatch,
+        inRack: isRackLocation(spool.location),
+        candidate: {
+          spool_id: spool.id,
+          filament_name: spool.filament.name,
+          vendor_name: spool.filament.vendor.name,
+          material: spool.filament.material,
+          color_hex: spool.filament.colorHex,
+          remaining_weight: spool.remainingWeight,
+          confidence: Math.round(confidence * 100) / 100,
+          match_method: "fuzzy",
+          match_reasons: reasons,
+        },
       });
     }
   }
 
-  // Sort by confidence descending, then by creation date (oldest first) for ties
-  scored.sort((a, b) => b.confidence - a.confidence);
+  return applyFuzzyGuards(scored)
+    .map((x) => x.candidate)
+    .sort((a, b) => b.confidence - a.confidence);
+}
 
-  return scored;
+// ─── Fuzzy guards (untagged trays) ──────────────────────────────────────────
+
+/** Fuzzy candidates need real colour evidence; material alone never counts. */
+export const FUZZY_MAX_DELTA_E = 10;
+/** A rack spool is only taken on a strong match — the rack is user-managed. */
+export const FUZZY_RACK_MAX_DELTA_E = 5;
+
+export interface FuzzyScored {
+  candidate: MatchCandidate;
+  /** ΔE tray vs filament colour; null when either colour is unknown. */
+  de: number | null;
+  materialMatch: boolean;
+  inRack: boolean;
+}
+
+export function isRackLocation(location: string | null | undefined): boolean {
+  return !!location && location.startsWith("rack:");
+}
+
+/**
+ * Drop fuzzy candidates that would bind on weak evidence:
+ * - no colour evidence (ΔE unknown or ≥ FUZZY_MAX_DELTA_E) — a material-only
+ *   score of 0.20 once pulled a Pink PLA out of the rack for a grey tray
+ * - rack spools unless material matches, ΔE < FUZZY_RACK_MAX_DELTA_E, and
+ *   exactly one rack spool qualifies (never guess which rack slot emptied)
+ */
+export function applyFuzzyGuards(items: FuzzyScored[]): FuzzyScored[] {
+  const coloured = items.filter((x) => x.de != null && x.de < FUZZY_MAX_DELTA_E);
+  const strongRack = coloured.filter(
+    (x) => x.inRack && x.materialMatch && x.de! < FUZZY_RACK_MAX_DELTA_E
+  );
+  const rackAllowed = strongRack.length === 1 ? strongRack[0] : null;
+  return coloured.filter((x) => !x.inRack || x === rackAllowed);
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────

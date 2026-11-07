@@ -124,6 +124,7 @@ async function applyRfidIdentity(
   method: string,
   tagUid: string,
   remain: number,
+  previousRemain: number | null,
 ): Promise<void> {
   if (method === "rfid_learn") {
     await db.insert(tagMappings)
@@ -139,6 +140,7 @@ async function applyRfidIdentity(
     status: spool.status,
     initialWeight: spool.initialWeight,
     remain,
+    previousRemain,
   });
   if (!revive) return;
   await db.update(spools).set({ ...revive, updatedAt: new Date() }).where(eq(spools.id, spoolId));
@@ -1051,7 +1053,10 @@ export async function POST(request: NextRequest) {
 
         if (matchResult.match) {
           matchedSpoolId = matchResult.match.spool_id;
-          await applyRfidIdentity(matchedSpoolId, matchResult.match.match_method, tagUid, remain);
+          await applyRfidIdentity(
+            matchedSpoolId, matchResult.match.match_method, tagUid, remain,
+            existingSlot?.bambuRemain ?? null,
+          );
           const locationMap = { ams: "ams", ams_ht: "ams-ht", external: "external" } as const;
           await db.update(spools).set({
             location: locationMap[slotType as keyof typeof locationMap] || "ams",
@@ -1117,6 +1122,7 @@ export async function POST(request: NextRequest) {
             currentWeight: spool.remainingWeight,
             tagUid,
             isIdle,
+            previousRemain: existingSlot?.bambuRemain ?? null,
           });
           if (syncResult.shouldUpdate && syncResult.newWeight !== null) {
             await db.update(spools).set({

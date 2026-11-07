@@ -953,14 +953,17 @@ describe("printer-sync integration", () => {
       const { spools } = await import("@/lib/db/schema");
       const { eq } = await import("drizzle-orm");
 
-      const { body } = await sync({
+      const reading = {
         print_state: "idle",
         slot_ams_0_0_type: "PLA",
         slot_ams_0_0_color: "00FF00FF",
         slot_ams_0_0_tag: weightSyncTagUid,
         slot_ams_0_0_remain: 80,
         slot_ams_0_0_empty: false,
-      });
+      };
+      // First reading only records remain; the second (equal) one confirms it
+      await sync(reading);
+      const { body } = await sync(reading);
       const weightSyncs = body.weight_syncs as Array<{ spoolId: string; from: number; to: number; remain: number }>;
       expect(weightSyncs.length).toBeGreaterThanOrEqual(1);
 
@@ -1023,6 +1026,33 @@ describe("printer-sync integration", () => {
 
       const spool = await db.query.spools.findFirst({ where: eq(spools.id, weightSyncSpoolId) });
       expect(spool!.remainingWeight).toBe(500);
+    });
+
+    it("I4: a single transient 0 % reading (printer coming online) does not zero the spool", async () => {
+      const { db } = await import("@/lib/db");
+      const { spools } = await import("@/lib/db/schema");
+      const { eq } = await import("drizzle-orm");
+
+      const slot = (remain: number) => ({
+        print_state: "idle",
+        slot_ams_0_0_type: "PLA",
+        slot_ams_0_0_color: "00FF00FF",
+        slot_ams_0_0_tag: weightSyncTagUid,
+        slot_ams_0_0_remain: remain,
+        slot_ams_0_0_empty: false,
+      });
+      await sync(slot(50));
+      await sync(slot(50));
+      const before = await db.query.spools.findFirst({ where: eq(spools.id, weightSyncSpoolId) });
+
+      const { body } = await sync(slot(0));
+      const weightSyncs = body.weight_syncs as Array<{ spoolId: string }>;
+      expect(weightSyncs.find((w) => w.spoolId === weightSyncSpoolId)).toBeUndefined();
+      await sync(slot(50));
+
+      const after = await db.query.spools.findFirst({ where: eq(spools.id, weightSyncSpoolId) });
+      expect(after!.remainingWeight).toBe(before!.remainingWeight);
+      expect(after!.remainingWeight).toBeGreaterThan(0);
     });
   });
 

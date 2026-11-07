@@ -371,8 +371,16 @@ tag is read are reactivated with weight = remain%. If a slot stays wrong:
   before v1.1.46): delete that `tag_mappings` row, move the spool back to its
   rack slot, and clear the slot's `spool_id` — the next sync re-resolves the
   tag (learn only on a single weight-consistent candidate, else auto-create).
-- Untagged (third-party) trays still use slot memory + fuzzy scoring; fix
-  the binding from the AMS card.
+- Untagged (third-party) trays use slot memory + guarded fuzzy scoring
+  (colour ΔE < 10; rack spools only on a strong unique match). If one
+  binds wrong, fix it from the AMS card.
+
+**Rack spools moved without you touching them:** diff the live DB against
+the daily backups (`/config/haspoolmanager/backups/*.db.gz`, 14 days) to find
+when each spool left its rack slot; `sync_log` inside each backup covers the
+72 h before it and shows the tray readings that triggered the move. Restore
+with `/api/v1/admin/sql/execute` (dry-run first) and clear any `ams_slots`
+binding that still points at the spool so the next sync can't move it again.
 
 ---
 

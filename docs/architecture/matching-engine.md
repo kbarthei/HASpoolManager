@@ -93,7 +93,17 @@ but we can infer it from the slot's previous state plus an index match.
 
 Scores every active spool against the request and returns the top candidate
 (or candidates, for UI review). Spools bound to another slot are excluded
-(slot exclusivity).
+(slot exclusivity), and `applyFuzzyGuards()` drops weak candidates:
+
+- **Colour evidence required:** ΔE < `FUZZY_MAX_DELTA_E` (10). Unknown colour
+  on either side → no fuzzy match. Material (20 pts = exactly the 0.20 bar)
+  or product line alone never binds — on 2026-10-26 a grey placeholder tray
+  ("PLA #898989" while loading) took a Pink PLA out of rack slot 2-5 that
+  way.
+- **Rack spools only on a strong, unique match:** material equal and
+  ΔE < `FUZZY_RACK_MAX_DELTA_E` (5), and exactly one rack spool qualifies.
+  Otherwise the rack is left alone and the tray falls through to a draft
+  (Tier 3b). The rack is user-managed; the sync must not guess.
 
 Scoring weights:
 
@@ -216,8 +226,8 @@ a spool that is physically still in the AMS while it heals.
 | Test | Layer | Scope |
 |---|---|---|
 | `tests/unit/matching-scoring.test.ts` | unit | ΔE thresholds + `normalizeColor()` |
-| `tests/unit/rfid-identity.test.ts` | unit | `isRealTag()`, `pickLearnCandidate()` (Tier 1c rules: weight, uniqueness, slot binding not evidence), `rfidReactivation()`, `bambuProductName()` |
-| `tests/integration/printer-sync-rfid-identity.test.ts` | integration | K1–K8: duplicate-binding heal, full rack spool not learned onto a partial tray, never bind a differently-tagged spool, learn onto rack spool, auto-create on colour mismatch, reactivate archived/empty, fuzzy slot exclusivity, auto-created filament named from HA tray name |
+| `tests/unit/rfid-identity.test.ts` | unit | `isRealTag()`, `pickLearnCandidate()` (Tier 1c rules: weight, uniqueness, slot binding not evidence), `rfidReactivation()` + `calculateWeightSync()` confirmed-reading rule, `applyFuzzyGuards()`, `bambuProductName()` |
+| `tests/integration/printer-sync-rfid-identity.test.ts` | integration | K1–K10: duplicate-binding heal, full rack spool not learned onto a partial tray, grey placeholder tray never pulls a rack spool, rack spool taken only on a strong unique no-RFID match, never bind a differently-tagged spool, learn onto rack spool, auto-create on colour mismatch, reactivate archived/empty, fuzzy slot exclusivity, auto-created filament named from HA tray name |
 | `tests/integration/api-match.test.ts` | integration | End-to-end POST `/api/v1/match` with real DB; covers Tier 1a + a few fuzzy cases |
 | `tests/integration/printer-sync.test.ts` sections F–H | integration | Active-slot matching, tag-mapping, auto-creation branches |
 

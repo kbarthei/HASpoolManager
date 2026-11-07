@@ -175,10 +175,21 @@ export function calculateWeightSync(params: {
   tagUid: string;
   isIdle: boolean;
   threshold?: number;
+  /**
+   * The slot's remain% from the previous sync. When given, the new reading
+   * must equal it — a single reading is not trusted. The printer reports a
+   * transient 0 % right after it comes online; on 2026-10-26 that zeroed
+   * three spools at once.
+   */
+  previousRemain?: number | null;
 }): WeightSyncResult {
-  const { remain, initialWeight, currentWeight, tagUid, isIdle, threshold = 0.05 } = params;
+  const { remain, initialWeight, currentWeight, tagUid, isIdle, threshold = 0.05, previousRemain } = params;
 
   if (!isIdle) return { shouldUpdate: false, newWeight: null, reason: "printer_active" };
+
+  if (previousRemain !== undefined && previousRemain !== remain) {
+    return { shouldUpdate: false, newWeight: null, reason: "unconfirmed" };
+  }
 
   if (!tagUid || tagUid === "0000000000000000" || tagUid.length < 8) {
     return { shouldUpdate: false, newWeight: null, reason: "no_rfid" };
@@ -212,16 +223,20 @@ export function calculateWeightSync(params: {
  * If the DB has it as archived/empty, bring it back to active. Weight comes
  * from the printer's remain% (calculateWeightSync never raises weight, so
  * without this a wrongly-emptied spool would stay at 0 g forever).
- * Returns null when no change is needed or remain% is unknown (no guessing).
+ * Returns null when no change is needed, remain% is unknown/0, or the
+ * reading isn't confirmed by the previous sync (no guessing).
  */
 export function rfidReactivation(params: {
   status: string;
   initialWeight: number;
   remain: number;
+  /** Previous sync's remain% for the slot — must match (see calculateWeightSync). */
+  previousRemain?: number | null;
 }): { status: "active"; remainingWeight: number } | null {
-  const { status, initialWeight, remain } = params;
+  const { status, initialWeight, remain, previousRemain } = params;
   if (status !== "archived" && status !== "empty") return null;
-  if (remain < 0 || remain > 100 || initialWeight <= 0) return null;
+  if (remain <= 0 || remain > 100 || initialWeight <= 0) return null;
+  if (previousRemain !== undefined && previousRemain !== remain) return null;
   return { status: "active", remainingWeight: Math.round(initialWeight * (remain / 100)) };
 }
 
