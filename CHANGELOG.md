@@ -4,8 +4,15 @@ All notable changes to HASpoolManager are documented here.
 Generated automatically from [conventional commits](https://www.conventionalcommits.org/).
 
 
+## November 2026
+
+- **fix:** auto-detect /local_apps vs /addons on HA host (`8587f33`)
+- **feat:** name auto-created Bambu filaments from the HA tray name (`d5474d7`)
+- **fix:** RFID tag is authoritative — no fuzzy binding for tagged trays (`9de6e97`)
+
 ## July 2026
 
+- **docs:** regenerate CHANGELOG.md [skip ci] (`a91ac74`)
 - **fix:** lastSyncAt never propagated → bogus "degraded / no sync for 56 years" (`b16f3fc`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`4c08d6c`)
 - **chore:** v1.1.43 — security audit fixes deployed + live-tested (`d1483bf`)
