@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## November 2026
 
+- **chore:** v1.1.45 — RFID-authoritative spool matching deployed + live-verified (`31b9a1f`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`0357f91`)
 - **fix:** auto-detect /local_apps vs /addons on HA host (`8587f33`)
 - **feat:** name auto-created Bambu filaments from the HA tray name (`d5474d7`)
 - **fix:** RFID tag is authoritative — no fuzzy binding for tagged trays (`9de6e97`)
