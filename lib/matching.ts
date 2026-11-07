@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { spools, tagMappings, amsSlots } from "@/lib/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, isNotNull } from "drizzle-orm";
 import { deltaEHex } from "@/lib/color";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -14,6 +14,8 @@ export interface MatchRequest {
   printer_id?: string;
   ams_index?: number;
   tray_index?: number;
+  /** Printer's remaining-% estimate; tie-breaker when learning a tag. */
+  remain?: number;
 }
 
 export interface MatchCandidate {
@@ -24,7 +26,13 @@ export interface MatchCandidate {
   color_hex: string | null;
   remaining_weight: number;
   confidence: number;
-  match_method: "rfid_exact" | "bambu_idx_exact" | "fuzzy";
+  /**
+   * - rfid_exact: tag_uid is mapped to this spool
+   * - rfid_learn: tag_uid is unknown; this untagged spool strictly matches
+   *   (bambu_idx + material + colour). Callers that persist state should
+   *   insert the tag mapping so the next sync is an rfid_exact hit.
+   */
+  match_method: "rfid_exact" | "rfid_learn" | "bambu_idx_exact" | "fuzzy";
   match_reasons: string[];
 }
 
@@ -54,7 +62,6 @@ const DEFAULT_WEIGHTS: MatchWeights = {
 // ─── Constants ──────────────────────────────────────────────────────────────
 
 const NO_TAG = "0000000000000000";
-const HIGH_CONFIDENCE_THRESHOLD = 0.95;
 const MIN_CONFIDENCE_THRESHOLD = 0.2;
 
 // ─── Main Matching Function ─────────────────────────────────────────────────
@@ -63,12 +70,21 @@ export async function matchSpool(
   request: MatchRequest,
   weights: MatchWeights = DEFAULT_WEIGHTS
 ): Promise<MatchResponse> {
+  const boundElsewhere = await spoolsBoundToOtherSlots(request);
+
   // Tier 1a: RFID exact match
-  if (request.tag_uid && request.tag_uid !== NO_TAG) {
+  if (isRealTag(request.tag_uid)) {
     const rfidMatch = await matchByRfid(request.tag_uid);
     if (rfidMatch) {
       return { match: rfidMatch, candidates: [] };
     }
+    // A real tag the DB doesn't know is a strong identity signal: it is a
+    // specific physical spool. Only let it claim an untagged spool that
+    // strictly matches; otherwise return no match so the caller
+    // auto-creates. Never fall through to slot-binding or fuzzy — that is
+    // how one spool ended up bound to three different trays.
+    const learned = await matchUnknownTag(request, boundElsewhere);
+    return { match: learned, candidates: [] };
   }
 
   // Tier 1b: Bambu filament index + AMS slot exact match
@@ -84,20 +100,43 @@ export async function matchSpool(
     }
   }
 
-  // Tier 2: Fuzzy match
-  const candidates = await fuzzyMatch(request, weights);
-
-  const match = candidates.length > 0 ? candidates[0] : null;
-
-  // If top match is very high confidence, return it directly
-  if (match && match.confidence >= HIGH_CONFIDENCE_THRESHOLD) {
-    return { match, candidates: candidates.slice(1, 6) };
-  }
+  // Tier 2: Fuzzy match — a spool already loaded in another slot can't be here
+  const candidates = (await fuzzyMatch(request, weights)).filter(
+    (c) => !boundElsewhere.has(c.spool_id)
+  );
 
   return {
-    match,
+    match: candidates[0] ?? null,
     candidates: candidates.slice(1, 6),
   };
+}
+
+/** True for a real RFID tag (Bambu sends 16 zeros when there is none). */
+export function isRealTag(tagUid: string | undefined | null): tagUid is string {
+  return !!tagUid && tagUid !== NO_TAG && /[1-9A-Fa-f]/.test(tagUid);
+}
+
+/**
+ * Spool IDs bound to any slot other than the one being matched. Empty when
+ * the request carries no slot coordinates (e.g. the /match lookup API).
+ */
+async function spoolsBoundToOtherSlots(request: MatchRequest): Promise<Set<string>> {
+  if (request.printer_id == null || request.ams_index == null || request.tray_index == null) {
+    return new Set();
+  }
+  const bound = await db.query.amsSlots.findMany({
+    where: isNotNull(amsSlots.spoolId),
+    columns: { spoolId: true, printerId: true, amsIndex: true, trayIndex: true },
+  });
+  const ids = new Set<string>();
+  for (const s of bound) {
+    const isThisSlot =
+      s.printerId === request.printer_id &&
+      s.amsIndex === request.ams_index &&
+      s.trayIndex === request.tray_index;
+    if (!isThisSlot && s.spoolId) ids.add(s.spoolId);
+  }
+  return ids;
 }
 
 // ─── Tier 1a: RFID Exact Match ──────────────────────────────────────────────
@@ -129,6 +168,126 @@ async function matchByRfid(tagUid: string): Promise<MatchCandidate | null> {
     confidence: 1.0,
     match_method: "rfid_exact",
     match_reasons: [`RFID tag ${tagUid} matched`],
+  };
+}
+
+// ─── Tier 1c: Unknown RFID → learn onto a strictly-matching untagged spool ─
+
+/** Max ΔE between Bambu's tray colour and the stored filament colour for a
+ *  tag to be learned. Bambu reports Matte Charcoal as 000000 while users
+ *  often store 1C1C1C (ΔE≈10); Bone White vs Ivory White is ΔE≈21. */
+export const LEARN_MAX_DELTA_E = 15;
+
+export interface LearnCandidate {
+  spoolId: string;
+  bambuIdx: string | null;
+  material: string;
+  colorHex: string | null;
+  initialWeight: number;
+  remainingWeight: number;
+  hasTag: boolean;
+  boundElsewhere: boolean;
+  boundToThisSlot: boolean;
+}
+
+/**
+ * Pick the untagged spool an unknown RFID tag should be learned onto, or
+ * null. Requires exact bambu_idx + material and ΔE < LEARN_MAX_DELTA_E.
+ * Tie-break: already bound to this slot → closest colour → weight closest
+ * to the printer's remain%.
+ */
+export function pickLearnCandidate(
+  candidates: LearnCandidate[],
+  tray: { bambuIdx?: string; material?: string; color?: string; remain?: number }
+): LearnCandidate | null {
+  const color = normalizeColor(tray.color);
+  if (!tray.bambuIdx || !tray.material || !color) return null;
+
+  // A spool bound to this slot AND others is a duplicate binding (at least
+  // one is stale) — this slot's claim is as good as any, so don't exclude it.
+  const eligible = candidates
+    .filter((c) => !c.hasTag && (c.boundToThisSlot || !c.boundElsewhere))
+    .filter((c) => c.bambuIdx === tray.bambuIdx)
+    .filter((c) => c.material.toLowerCase() === tray.material!.toLowerCase())
+    .filter((c) => c.colorHex)
+    .map((c) => ({ c, de: deltaEHex(color, c.colorHex!) }))
+    .filter((x) => x.de < LEARN_MAX_DELTA_E);
+
+  const remain = tray.remain;
+  const weightGap = (c: LearnCandidate) =>
+    remain != null && remain >= 0 && remain <= 100
+      ? Math.abs(c.remainingWeight - (c.initialWeight * remain) / 100)
+      : 0;
+
+  eligible.sort(
+    (a, b) =>
+      Number(b.c.boundToThisSlot) - Number(a.c.boundToThisSlot) ||
+      a.de - b.de ||
+      weightGap(a.c) - weightGap(b.c)
+  );
+  return eligible[0]?.c ?? null;
+}
+
+async function matchUnknownTag(
+  request: MatchRequest,
+  boundElsewhere: Set<string>
+): Promise<MatchCandidate | null> {
+  if (!request.tray_info_idx) return null;
+
+  const [rows, tagged, thisSlot] = await Promise.all([
+    db.query.spools.findMany({
+      where: eq(spools.status, "active"),
+      with: { filament: { with: { vendor: true } } },
+    }),
+    db.query.tagMappings.findMany({ columns: { spoolId: true } }),
+    request.printer_id != null && request.ams_index != null && request.tray_index != null
+      ? db.query.amsSlots.findFirst({
+          where: and(
+            eq(amsSlots.printerId, request.printer_id),
+            eq(amsSlots.amsIndex, request.ams_index),
+            eq(amsSlots.trayIndex, request.tray_index)
+          ),
+          columns: { spoolId: true },
+        })
+      : Promise.resolve(undefined),
+  ]);
+  const taggedIds = new Set(tagged.map((t) => t.spoolId));
+
+  const picked = pickLearnCandidate(
+    rows.map((s) => ({
+      spoolId: s.id,
+      bambuIdx: s.filament.bambuIdx,
+      material: s.filament.material,
+      colorHex: s.filament.colorHex,
+      initialWeight: s.initialWeight,
+      remainingWeight: s.remainingWeight,
+      hasTag: taggedIds.has(s.id),
+      boundElsewhere: boundElsewhere.has(s.id),
+      boundToThisSlot: thisSlot?.spoolId === s.id,
+    })),
+    {
+      bambuIdx: request.tray_info_idx,
+      material: request.tray_type,
+      color: request.tray_color,
+      remain: request.remain,
+    }
+  );
+  if (!picked) return null;
+
+  const spool = rows.find((s) => s.id === picked.spoolId)!;
+  return {
+    spool_id: spool.id,
+    filament_name: spool.filament.name,
+    vendor_name: spool.filament.vendor.name,
+    material: spool.filament.material,
+    color_hex: spool.filament.colorHex,
+    remaining_weight: spool.remainingWeight,
+    confidence: 0.9,
+    match_method: "rfid_learn",
+    match_reasons: [
+      `RFID tag ${request.tag_uid} unknown`,
+      `untagged spool matches bambu_idx ${request.tray_info_idx} + material + colour`,
+    ],
   };
 }
 

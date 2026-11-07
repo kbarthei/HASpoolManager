@@ -739,7 +739,7 @@ Called when the printer switches filament mid-print. Records usage for the outgo
   "new_spool_match": {
     "spool_id": "<uuid>",
     "confidence": 1.0,
-    "method": "rfid"
+    "method": "rfid_exact"
   }
 }
 ```
@@ -782,7 +782,7 @@ Called by HA when an AMS slot sensor state changes (spool inserted, removed, or 
     "filament_name": "PLA Matte Charcoal",
     "vendor_name": "Bambu Lab",
     "confidence": 1.0,
-    "match_method": "rfid"
+    "match_method": "rfid_exact"
   },
   "candidates": []
 }
@@ -829,18 +829,25 @@ Run the spool matching engine directly. Useful for debugging or manual identific
     "filament_name": "PLA Matte Charcoal",
     "vendor_name": "Bambu Lab",
     "confidence": 1.0,
-    "match_method": "rfid"
+    "match_method": "rfid_exact"
   },
-  "candidates": [
-    {
-      "spool_id": "<uuid>",
-      "filament_name": "PLA Matte Charcoal",
-      "confidence": 0.85,
-      "match_method": "fuzzy"
-    }
-  ]
+  "candidates": []
 }
 ```
+
+`match_method` is one of:
+
+| Value | Meaning |
+|---|---|
+| `rfid_exact` | `tag_uid` is mapped to this spool (confidence 1.0) |
+| `rfid_learn` | `tag_uid` is unknown; this untagged spool strictly matches `tray_info_idx` + material + colour (ΔE < 15). This endpoint does **not** persist the tag — only printer-sync does. |
+| `bambu_idx_exact` | Untagged tray; the spool bound to the given slot has the same `bambu_idx` |
+| `fuzzy` | Untagged tray; weighted score ≥ 0.20. Up to 5 runner-ups in `candidates`. |
+
+A real `tag_uid` that matches neither `rfid_exact` nor `rfid_learn` returns
+`"match": null` — tagged trays are never fuzzy-matched. When slot coordinates
+(`printer_id`, `ams_index`, `tray_index`) are given, spools bound to another
+slot are excluded. Full rules: [`matching-engine.md`](../architecture/matching-engine.md).
 
 ```bash
 curl -X POST /api/v1/match \

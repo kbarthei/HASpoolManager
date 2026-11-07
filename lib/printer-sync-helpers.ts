@@ -196,6 +196,24 @@ export function calculateWeightSync(params: {
   return { shouldUpdate: true, newWeight: calculatedWeight, reason: "synced" };
 }
 
+/**
+ * An RFID tag read in an AMS slot proves the spool is physically loaded.
+ * If the DB has it as archived/empty, bring it back to active. Weight comes
+ * from the printer's remain% (calculateWeightSync never raises weight, so
+ * without this a wrongly-emptied spool would stay at 0 g forever).
+ * Returns null when no change is needed or remain% is unknown (no guessing).
+ */
+export function rfidReactivation(params: {
+  status: string;
+  initialWeight: number;
+  remain: number;
+}): { status: "active"; remainingWeight: number } | null {
+  const { status, initialWeight, remain } = params;
+  if (status !== "archived" && status !== "empty") return null;
+  if (remain < 0 || remain > 100 || initialWeight <= 0) return null;
+  return { status: "active", remainingWeight: Math.round(initialWeight * (remain / 100)) };
+}
+
 // ── Energy cost calculation ─────────────────────────────────────────────────
 
 /**

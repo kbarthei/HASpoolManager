@@ -235,17 +235,20 @@ flowchart TD
 
     B -->|Yes| C["Tier 1a: RFID exact match\nLookup tag_mappings by tag_uid"]
     C --> D{Found?}
-    D -->|Yes| Z["MATCH: confidence=1.0\nmethod=rfid_exact"]
+    D -->|Yes| Z["MATCH: confidence=1.0\nmethod=rfid_exact\n(archived/empty spool → reactivated,\nweight = initial × remain%)"]
 
-    D -->|No| E{"tray_info_idx present\n&& printer_id + slot known?"}
+    D -->|No| L1["Tier 1c: learn unknown tag\nUntagged active spool with exact bambu_idx\n+ material + ΔE < 15, not bound to another slot"]
+    L1 --> L2{Found?}
+    L2 -->|Yes| ZL["MATCH: confidence=0.9\nmethod=rfid_learn\n→ sync inserts tag_mapping"]
+    L2 -->|No| N
 
-    B -->|No| E
+    B -->|No| E{"tray_info_idx present\n&& printer_id + slot known?"}
 
     E -->|Yes| F["Tier 1b: Bambu index + slot match\nLookup ams_slots by printer+ams+tray\nVerify filament.bambuIdx == tray_info_idx"]
     F --> G{Found + idx matches?}
     G -->|Yes| Y["MATCH: confidence=0.95\nmethod=bambu_idx_exact"]
 
-    G -->|No| H["Tier 2: Fuzzy scoring\nAll active spools evaluated"]
+    G -->|No| H["Tier 2: Fuzzy scoring\nActive spools not bound to another slot"]
 
     E -->|No| H
 
@@ -287,7 +290,26 @@ flowchart TD
 | Location | 5 | Spool is currently in AMS or AMS-HT |
 
 Minimum confidence threshold: **0.20** (20 out of 100 points).
-High confidence threshold: **0.95** (returned without alternatives).
+
+### RFID identity rules
+
+A real RFID tag (anything but `0000000000000000`) identifies one physical
+spool, so tagged trays **never** reach Tier 1b or fuzzy scoring. Fuzzy scoring
+can clear the 0.20 bar on product line + material + location alone (a red
+Silk+ scored 0.37 against a black Matte spool), and the Tier 1b slot binding
+re-confirms whatever spool the slot already holds — together they once bound
+one spool to three trays. Instead:
+
+| Step | Rule |
+|---|---|
+| Tag known | Bind the mapped spool (`rfid_exact`). If it is `archived`/`empty`, reactivate it — the tag read proves it is loaded. |
+| Tag unknown, strict candidate | Untagged `active` spool, `bambu_idx` + material exact, ΔE < 15 (Bambu reports Matte Charcoal as `000000`, users often store `1C1C1C`, ΔE≈10). Not bound to another slot — unless it is bound to *this* slot too (a duplicate binding, so this slot's claim is as good as any). Tie-break: bound to this slot → lowest ΔE → weight closest to remain%. The sync persists the tag (`rfid_learn`). Lets order-imported spools (no tag yet) pick up their RFID on first load. |
+| Tag unknown, no candidate | No match → `autoCreateBambuSpool()` creates spool + tag mapping. |
+
+**Slot exclusivity:** a spool is bound to at most one slot. Fuzzy candidates
+exclude spools bound to another slot, and the "move old spool to
+workbench/surplus" step is skipped while another slot still holds the spool.
+A stale wrong binding on a tagged tray therefore heals on the next sync.
 
 ---
 
@@ -338,15 +360,16 @@ stateDiagram-v2
 | Slot was occupied, now empty | `surplus` | (no new spool) |
 | Slot was occupied, now different spool | `workbench` | `ams` / `ams-ht` / `external` |
 | Slot was empty, now occupied | (no old spool) | `ams` / `ams-ht` / `external` |
+| Old spool still bound to another slot | unchanged | `ams` / `ams-ht` / `external` |
 
-### Spool status values (application-level, not sync-driven)
+### Spool status values
 
 | Status | Meaning |
 |---|---|
 | `active` | In use, has remaining filament |
 | `draft` | Auto-created, needs user review |
-| `empty` | Remaining weight reached 0 after print |
-| `archived` | User manually archived |
+| `empty` | Remaining weight reached 0 after print. Sync sets it back to `active` when its RFID tag is read in a slot. |
+| `archived` | User manually archived. Sync sets it back to `active` when its RFID tag is read in a slot. |
 | `returned` | Returned to vendor |
 
 ---
@@ -398,13 +421,19 @@ sequenceDiagram
 
     loop For each of 6 slot definitions
         API->>API: Check if slot data present in payload
-        API->>Match: matchSpool(tag, idx, type, color)
+        API->>Match: matchSpool(tag, idx, type, color, slot, remain)
+        alt rfid_learn
+            API->>DB: INSERT tag_mappings (learned tag)
+        end
+        alt rfid_exact/rfid_learn + spool archived/empty
+            API->>DB: UPDATE spool status=active, weight=initial×remain%
+        end
         alt No match + RFID tag present
             API->>DB: autoCreateBambuSpool()
         else No match + no RFID + has type
             API->>DB: autoCreateDraftSpool()
         end
-        alt Old spool swapped/removed
+        alt Old spool swapped/removed + not bound to another slot
             API->>DB: UPDATE old spool location (surplus or workbench)
         end
         API->>DB: UPSERT ams_slots
@@ -442,6 +471,8 @@ sequenceDiagram
 | **Draft spool identity dedup** | `autoCreateDraftSpool()` | Before creating a draft spool, looks up any existing `status='draft'` spool with the same generated `filament_id` (vendor=Unknown, material, color). Reuses it and re-binds to the current slot location. Prevents oscillation between an active spool with a user-entered filament colour (e.g. `FFFFFF`) and Bambu's camera-observed colour (e.g. `C1C1C1`) from spawning a fresh draft on every sync. |
 | **Swap-detection bambu_color baseline** | printer-sync route, slot loop | Compares incoming `tray_color` against `existingSlot.bambu_color` (the previous Bambu reading), not the linked spool's `filament.color_hex`. Falls back to `filament.color_hex` only when the slot has no prior bambu_color (first bind). Prevents false-positive swap detection when the user-entered filament colour diverges from Bambu's camera reading on non-RFID spools. |
 | **Tag mapping race guard** | `autoCreateBambuSpool()` | Before creating a new Bambu spool, checks if a `tag_mappings` record already exists for that `tagUid`. Returns existing `spoolId` if found. |
+| **RFID identity** | `matchSpool()` tier 1a/1c | Tagged trays resolve only by tag (exact or strict learn), never by slot binding or fuzzy scoring. Re-running a sync on a wrongly bound tagged slot rebinds it correctly. |
+| **Slot exclusivity** | `matchSpool()`, `isBoundToOtherSlot()` | A spool bound to another slot is never a fuzzy/learn candidate (unless bound to this slot too) and is not relocated when unbound from one of several slots. |
 | **Ambiguous state no-op** | Lifecycle classification | `OFFLINE` and `UNKNOWN` states return `"ambiguous"`, which triggers no state transitions. Prevents closing prints during connectivity drops. |
 | **Calibration filter** | Print creation guard | `isCalibrationJob()` prevents auto-calibration routines from creating spurious print records, even though they cycle through the same `RUNNING -> FINISH` states. |
 | **Weight sync guards** | `calculateWeightSync()` | Multiple guards prevent spurious weight updates: only when idle, only with valid RFID, only when weight would decrease, only when delta exceeds 5% of initial weight. |

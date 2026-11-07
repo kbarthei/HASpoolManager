@@ -344,6 +344,36 @@ camera reports.
 
 ---
 
+## 7d. "AMS shows the wrong spool / one spool in several slots"
+
+**Symptom:** the AMS card shows a spool whose colour or product doesn't
+match what's physically loaded, often the same spool in two or more slots.
+Or a loaded Bambu spool shows as `archived` / `empty` / 0 g.
+
+**Check:** compare what the printer reads against the bindings. Tagged
+trays whose tag isn't mapped to the bound spool are wrong:
+
+```bash
+curl -s -X POST http://homeassistant.local:3001/api/v1/admin/query \
+  -H "Content-Type: application/json" \
+  -d '{"sql":"SELECT a.slot_type, a.ams_index, a.tray_index, a.bambu_type, a.bambu_color, a.bambu_tag_uid, a.spool_id, f.name, f.color_hex, s.status, s.remaining_weight, (SELECT spool_id FROM tag_mappings t WHERE t.tag_uid = a.bambu_tag_uid) AS tag_owner FROM ams_slots a LEFT JOIN spools s ON s.id = a.spool_id LEFT JOIN filaments f ON f.id = s.filament_id ORDER BY a.ams_index, a.tray_index"}' | jq -c '.rows[]'
+```
+
+`tag_owner` ≠ `spool_id` (or `tag_owner` null on a real tag) = wrong binding.
+
+**Cause / self-heal:** tagged trays resolve only by RFID — exact tag, a
+strict learn onto an untagged matching spool, or auto-create (see
+[`matching-engine.md`](../architecture/matching-engine.md) §2). Wrong
+bindings on tagged trays heal on the next sync; archived/empty spools whose
+tag is read are reactivated with weight = remain%. If a slot stays wrong:
+
+- The learn picked the wrong untagged spool (two identical untagged spools):
+  delete the wrong `tag_mappings` row and re-link from the spool page.
+- Untagged (third-party) trays still use slot memory + fuzzy scoring; fix
+  the binding from the AMS card.
+
+---
+
 ## 8. "DB is corrupted / won't open"
 
 **Symptom:** addon won't start, logs show `SQLite: database is malformed`

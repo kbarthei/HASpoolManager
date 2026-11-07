@@ -208,7 +208,7 @@ your addon version (visible in the top-left header) and any relevant
 **How is this maintained?**
 By one person (the maintainer's own H2S setup is the reference deployment).
 Releases happen when features are ready, not on a schedule. CI is green on
-every push to `main`. ~880 tests, ~50 e2e specs.
+every push to `main`. ~1100 tests, ~50 e2e specs.
 
 ---
 
@@ -242,12 +242,12 @@ node scripts/migrate-db.js
 npm run dev                                 # http://localhost:3000
 ```
 
-**Test suite — currently green at 936 tests:**
+**Test suite — currently green at ~1096 tests:**
 | Layer | Tests | Files |
 |-------|------:|------:|
-| Unit (Vitest, no DB) | 660 | 28 |
-| Integration (per-worker SQLite) | 226 | 26 |
-| E2e (Docker nginx + Playwright) | ~50 | 18 |
+| Unit (Vitest, no DB) | 698 | 33 |
+| Integration (per-worker SQLite) | 345 | 28 |
+| E2e (Docker nginx + Playwright) | ~53 | 19 |
 
 The integration tier includes an auto-discovered **browser-auth-contract**
 scanner that fails CI if any new browser-called endpoint uses `requireAuth`

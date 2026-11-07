@@ -3,14 +3,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { prints, amsSlots, spools, syncLog, printUsage, vendors, filaments, tagMappings, settings, printerAmsUnits } from "@/lib/db/schema";
-import { eq, and, sql, lt } from "drizzle-orm";
+import { eq, and, sql, lt, ne } from "drizzle-orm";
 import { requireAuth } from "@/lib/auth";
 import { matchSpool } from "@/lib/matching";
 import { deltaEHex } from "@/lib/color";
 import {
   num, bool, str,
   classifyGcodeState, isCalibrationJob,
-  buildEventId, bambuColorName, bambuFilamentName, calculateWeightSync,
+  buildEventId, bambuColorName, bambuFilamentName, calculateWeightSync, rfidReactivation,
   calculateEnergyCost,
   buildSlotDefs, type SlotDef,
 } from "@/lib/printer-sync-helpers";
@@ -104,6 +104,49 @@ async function resolveActiveSpoolFromSlots(
  * Auto-create a Bambu Lab spool for a known RFID tag that has no match.
  * Returns the new spool ID or null on failure.
  */
+/** True when the spool is bound to any AMS slot other than `slotId`. */
+async function isBoundToOtherSlot(spoolId: string, slotId: string | undefined): Promise<boolean> {
+  const other = await db.query.amsSlots.findFirst({
+    where: slotId
+      ? and(eq(amsSlots.spoolId, spoolId), ne(amsSlots.id, slotId))
+      : eq(amsSlots.spoolId, spoolId),
+    columns: { id: true },
+  });
+  return !!other;
+}
+
+/**
+ * Persist what an RFID read proves: a learned tag gets its mapping, and an
+ * archived/empty spool whose tag the printer just read is reactivated.
+ */
+async function applyRfidIdentity(
+  spoolId: string,
+  method: string,
+  tagUid: string,
+  remain: number,
+): Promise<void> {
+  if (method === "rfid_learn") {
+    await db.insert(tagMappings)
+      .values({ tagUid, spoolId, source: "bambu" })
+      .onConflictDoNothing();
+    console.log(`[printer-sync] RFID-LEARN: tag=${tagUid.slice(0, 8)}... → spool=${spoolId}`);
+  }
+  if (method !== "rfid_exact" && method !== "rfid_learn") return;
+
+  const spool = await db.query.spools.findFirst({ where: eq(spools.id, spoolId) });
+  if (!spool) return;
+  const revive = rfidReactivation({
+    status: spool.status,
+    initialWeight: spool.initialWeight,
+    remain,
+  });
+  if (!revive) return;
+  await db.update(spools).set({ ...revive, updatedAt: new Date() }).where(eq(spools.id, spoolId));
+  console.log(
+    `[printer-sync] RFID-REACTIVATE: spool=${spoolId} ${spool.status}/${spool.remainingWeight}g → active/${revive.remainingWeight}g (remain=${remain}%)`
+  );
+}
+
 async function autoCreateBambuSpool(
   tagUid: string,
   bambuIdx: string,
@@ -971,11 +1014,14 @@ export async function POST(request: NextRequest) {
 
       if (filamentSwapped && existingSlot?.spoolId) {
         // Move the old spool off the slot up-front so matchSpool below
-        // can't pick it up again by location proximity.
-        await db.update(spools).set({
-          location: "workbench",
-          updatedAt: new Date(),
-        }).where(eq(spools.id, existingSlot.spoolId));
+        // can't pick it up again by location proximity. Keep its location
+        // if another slot still holds it (heals duplicate bindings safely).
+        if (!(await isBoundToOtherSlot(existingSlot.spoolId, existingSlot.id))) {
+          await db.update(spools).set({
+            location: "workbench",
+            updatedAt: new Date(),
+          }).where(eq(spools.id, existingSlot.spoolId));
+        }
         await db.update(amsSlots).set({
           spoolId: null,
           updatedAt: new Date(),
@@ -998,10 +1044,12 @@ export async function POST(request: NextRequest) {
           printer_id,
           ams_index: def.amsIndex,
           tray_index: def.trayIndex,
+          remain,
         });
 
         if (matchResult.match) {
           matchedSpoolId = matchResult.match.spool_id;
+          await applyRfidIdentity(matchedSpoolId, matchResult.match.match_method, tagUid, remain);
           const locationMap = { ams: "ams", ams_ht: "ams-ht", external: "external" } as const;
           await db.update(spools).set({
             location: locationMap[slotType as keyof typeof locationMap] || "ams",
@@ -1021,7 +1069,11 @@ export async function POST(request: NextRequest) {
       }
 
       // Move old spool: to surplus if slot became empty (unloaded), to workbench if swapped
-      if (existingSlot?.spoolId && existingSlot.spoolId !== matchedSpoolId) {
+      if (
+        existingSlot?.spoolId &&
+        existingSlot.spoolId !== matchedSpoolId &&
+        !(await isBoundToOtherSlot(existingSlot.spoolId, existingSlot.id))
+      ) {
         const oldSpoolLocation = isEmpty ? "surplus" : "workbench";
         await db.update(spools).set({
           location: oldSpoolLocation,

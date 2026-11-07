@@ -21,23 +21,55 @@ Per AMS slot, the sync payload carries:
 | `tray_type` | Material string | e.g. `"PLA"`, `"ABS-GF"`, `"PETG"` |
 | `tray_color` | Hex color | `"RRGGBBAA"` (alpha always `FF` for Bambu) or `"RRGGBB"` |
 | `tray_sub_brands` | Product sub-brand (rare) | e.g. `"Matte"`, `"Silk"` |
-| `printer_id`, `ams_index`, `tray_index` | From the route context | For location-bonus scoring |
+| `printer_id`, `ams_index`, `tray_index` | From the route context | Slot exclusivity + "bound to this slot" tie-break |
+| `remain` | Printer's remaining-% estimate | Weight tie-break when learning a tag |
 
-## 2. Three tiers, in order
+## 2. Tiers, in order
 
-`matchSpool()` tries tiers 1a → 1b → 2 and returns the first hit.
+A **real RFID tag** (anything but `"0000000000000000"`) takes the RFID path
+only: 1a → 1c → (no match → auto-create). Trays **without** a tag take
+1b → 2. A tagged tray never reaches slot-binding or fuzzy scoring.
 
 ### Tier 1a — RFID exact match
 
-If `tag_uid !== "0000000000000000"`:
 1. Look up `tag_mappings` by `tag_uid`
-2. If a mapping exists → return its `spool_id` with `confidence = 1.0`
-3. Else → fall through
+2. If a mapping exists → return its `spool_id` with `confidence = 1.0`,
+   `match_method = "rfid_exact"`
+3. Else → Tier 1c
 
-RFID is authoritative for Bambu spools. Once the user has linked a tag (via
-scan or auto-creation), every subsequent print recognises the same spool.
+RFID is authoritative for Bambu spools. If the mapped spool is `archived` or
+`empty`, the sync route reactivates it (`rfidReactivation()`: status
+`active`, weight = `initial_weight × remain%`) — the tag read proves the
+spool is physically loaded, and the regular weight sync never raises weight.
 
-### Tier 1b — Bambu-idx + AMS slot
+### Tier 1c — Learn an unknown tag
+
+The tag is a specific physical spool the DB hasn't seen. It may claim an
+existing spool only on a strict match (`pickLearnCandidate()`):
+
+- spool is `active` and has **no** tag mapping
+- `filament.bambu_idx === tray_info_idx` and material equal
+- ΔE(tray colour, filament colour) `< LEARN_MAX_DELTA_E` (15). Bambu reports
+  Matte Charcoal as `000000` while users often store `1C1C1C` (ΔE≈10);
+  Bone White vs Ivory White is ΔE≈21 and is rejected.
+- not bound to another slot — unless also bound to this slot (duplicate
+  binding; this slot's claim is as good as any)
+
+Tie-break: bound to this slot → lowest ΔE → weight closest to
+`initial_weight × remain%`. Returns `match_method = "rfid_learn"`,
+`confidence = 0.9`; the sync route inserts the tag mapping so the next sync is
+a Tier 1a hit. This is how order-imported spools (created without a tag) pick
+up their RFID on first load.
+
+No candidate → `null`, and the sync route auto-creates (Tier 3a).
+
+**Why no fuzzy fallback for tagged trays:** fuzzy scoring clears its 0.20 bar
+on product line + material + location alone. In production a red Silk+
+(GFA06) scored 0.37 against a black Matte (GFA01) spool, and Tier 1b then
+re-confirmed the wrong binding on every sync — one spool ended up bound to
+three trays.
+
+### Tier 1b — Bambu-idx + AMS slot (untagged trays only)
 
 If `tray_info_idx` is present and we know the exact slot:
 1. Look up the current occupant of `(printer_id, ams_index, tray_index)` in
@@ -49,10 +81,11 @@ If `tray_info_idx` is present and we know the exact slot:
 This catches the case where the spool was loaded manually (no RFID scan)
 but we can infer it from the slot's previous state plus an index match.
 
-### Tier 2 — Fuzzy match
+### Tier 2 — Fuzzy match (untagged trays only)
 
 Scores every active spool against the request and returns the top candidate
-(or candidates, for UI review).
+(or candidates, for UI review). Spools bound to another slot are excluded
+(slot exclusivity).
 
 Scoring weights:
 
@@ -68,8 +101,7 @@ Scoring weights:
 Confidence = `score / maxScore`. Candidates below `MIN_CONFIDENCE_THRESHOLD = 0.20`
 are dropped; the rest are sorted by confidence descending.
 
-A result with `confidence >= 0.95` (HIGH_CONFIDENCE_THRESHOLD) is returned as
-the final match; lower-confidence results include up to 5 runner-ups in
+The top candidate is returned as `match`; up to 5 runner-ups go in
 `candidates` for the UI to surface.
 
 ### Color matching details
@@ -99,7 +131,7 @@ presence:
 Function: `autoCreateBambuSpool(tagUid, bambuIdx, trayType, trayColor, slotDef)`
 
 Triggers when the RFID tag is non-zero AND >8 chars (real Bambu UUID) AND
-no existing match.
+neither Tier 1a nor Tier 1c matched.
 
 Steps:
 1. Find-or-create `vendor` "Bambu Lab"
@@ -148,6 +180,11 @@ in the DB). To prevent that, the route clears the old spool off the slot
 first (moves it to `workbench`) and uses `skipMatchAfterSwap` to bypass
 fuzzy matching on the new tray. Auto-create path (Tier 3a or 3b) then runs.
 
+**Slot exclusivity on unbind.** When a slot drops its old spool (swap,
+rebind, or empty), the old spool is moved to `workbench` / `surplus` only if
+no other slot still holds it. This keeps a duplicate binding from relocating
+a spool that is physically still in the AMS while it heals.
+
 ---
 
 ## 5. Wish list / gotchas
@@ -168,7 +205,9 @@ fuzzy matching on the new tray. Auto-create path (Tier 3a or 3b) then runs.
 
 | Test | Layer | Scope |
 |---|---|---|
-| `tests/unit/matching-scoring.test.ts` | unit | **Anti-pattern warning** — this file re-implements the scoring inline instead of importing `fuzzyMatch()`. Marked for rewrite in the test-audit backlog. |
+| `tests/unit/matching-scoring.test.ts` | unit | ΔE thresholds + `normalizeColor()` |
+| `tests/unit/rfid-identity.test.ts` | unit | `isRealTag()`, `pickLearnCandidate()` (Tier 1c rules + tie-breaks), `rfidReactivation()` |
+| `tests/integration/printer-sync-rfid-identity.test.ts` | integration | K1–K6: duplicate-binding heal, never bind a differently-tagged spool, learn onto rack spool, auto-create on colour mismatch, reactivate archived/empty, fuzzy slot exclusivity |
 | `tests/integration/api-match.test.ts` | integration | End-to-end POST `/api/v1/match` with real DB; covers Tier 1a + a few fuzzy cases |
 | `tests/integration/printer-sync.test.ts` sections F–H | integration | Active-slot matching, tag-mapping, auto-creation branches |
 

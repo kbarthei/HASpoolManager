@@ -109,6 +109,11 @@ any manual action from you**:
    path is append-skip).
 3. **Active spool identified** — via RFID tag on the AMS tray, or
    Bambu filament-idx + slot memory, or color/material fuzzy match.
+   A Bambu spool's RFID tag is authoritative: an unknown tag is linked to a
+   matching untagged spool (same product, material and near-identical
+   colour — e.g. one imported from an order) or a new spool is created
+   automatically. Archived/empty spools whose tag is read in the AMS come
+   back to active with the printer's remaining-% as weight.
    Every spool seen during the print accumulates in `activeSpoolIds`.
 4. **Watchdog poll** — every 30 s the worker pulls fresh
    `print_progress` and `print_remaining_time` from HA so the dashboard
