@@ -6,6 +6,8 @@ Generated automatically from [conventional commits](https://www.conventionalcomm
 
 ## November 2026
 
+- **chore:** v1.1.47 — no unattended rack moves, transient remain=0 ignored; rack restored to 10-25 state (`7640356`)
+- **docs:** regenerate CHANGELOG.md [skip ci] (`9605461`)
 - **fix:** stop unattended rack moves and zeroed spools (`f32e83c`)
 - **docs:** regenerate CHANGELOG.md [skip ci] (`c3b929c`)
 - **chore:** v1.1.46 — learn tier never guesses rack spools; rack restored (`0ff4896`)
