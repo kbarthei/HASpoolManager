@@ -4,15 +4,15 @@
 #   ./ha-addon/deploy.sh          # bumps patch version, deploys
 #   ./ha-addon/deploy.sh --no-bump # use current version (for quick re-deploy after ssh issue)
 #
-# Assumes SSH key auth to root@homeassistant and that /addons/ exists on HA.
+# Assumes SSH key auth to root@homeassistant. The local-addon folder is
+# auto-detected: /local_apps (HA SSH app ≥ 10.x, after the add-on → app
+# rename) or /addons (older SSH add-on).
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 CONFIG_YAML="$REPO_DIR/ha-addon/haspoolmanager/config.yaml"
 TAR_LOCAL="/tmp/haspoolmanager-addon.tar.gz"
 HA_HOST="root@homeassistant"
-HA_ADDON_DIR="/addons/haspoolmanager"
-HA_TAR_PATH="/addons/haspoolmanager-addon.tar.gz"
 
 cd "$REPO_DIR"
 
@@ -25,6 +25,15 @@ if ! bash "$REPO_DIR/scripts/ha-reachable.sh"; then
   echo "    at a different host/IP, set HASPOOLMANAGER_SSH_HOST + HASPOOLMANAGER_HEALTH_URL." >&2
   exit 1
 fi
+
+# ── Locate the local-addon folder on HA (before the ~90s build) ─────────────
+HA_APPS_ROOT=$(ssh "$HA_HOST" 'for d in /local_apps /addons; do [ -d "$d" ] && { echo "$d"; exit 0; }; done; exit 1') || {
+  echo "==> deploy aborted — neither /local_apps nor /addons exists on $HA_HOST." >&2
+  exit 1
+}
+HA_ADDON_DIR="$HA_APPS_ROOT/haspoolmanager"
+HA_TAR_PATH="$HA_APPS_ROOT/haspoolmanager-addon.tar.gz"
+echo "==> HA local-addon folder: $HA_APPS_ROOT"
 
 # ── Version bump ────────────────────────────────────────────────────────────
 if [ "${1:-}" != "--no-bump" ]; then
@@ -49,7 +58,7 @@ scp -q "$TAR_LOCAL" "$HA_HOST:$HA_TAR_PATH"
 
 # ── Remote extract ──────────────────────────────────────────────────────────
 echo "==> extracting on HA..."
-ssh "$HA_HOST" "rm -rf $HA_ADDON_DIR && tar -xzf $HA_TAR_PATH -C /addons/ && rm -f $HA_TAR_PATH"
+ssh "$HA_HOST" "rm -rf $HA_ADDON_DIR && tar -xzf $HA_TAR_PATH -C $HA_APPS_ROOT/ && rm -f $HA_TAR_PATH"
 
 # ── Reload store + auto-update addon ────────────────────────────────────────
 echo "==> reloading HA addon store..."

@@ -23,7 +23,7 @@ see [`operations-runbook.md`](operations-runbook.md).
 | `SUPERVISOR_TOKEN not available` | Token not loaded from s6 env | `run.sh` normally loads it from `/run/s6/container_environment/`; if broken, reinstall addon |
 | `Error: sqlite: database is malformed` | Corrupted `.db` file | See runbook §8 |
 | `[migrate] Error in "..."` | A migration's `apply()` threw | Check the specific error; common: `ALTER TABLE DROP COLUMN` on SQLite <3.35 (upgrade better-sqlite3) |
-| `ENOSPC: no space left on device` | HA storage full | `df -h` on the HA host; clear old addon tarballs in `/addons/` |
+| `ENOSPC: no space left on device` | HA storage full | `df -h` on the HA host; clear old addon tarballs in `/local_apps/` (`/addons/` on older SSH add-on) |
 | `[health-check] errors=N` (N>0) | Data-integrity issue prevented startup sanity checks | Check `data_quality_log` table; usually advisory, not fatal |
 | No output after `==> starting nginx` | Next.js crashed silently | Check `/app/` exists inside the container: `docker exec addon_local_haspoolmanager ls /app/server.js` |
 

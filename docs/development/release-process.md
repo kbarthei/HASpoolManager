@@ -20,7 +20,7 @@ feature branch → PR → CI green (lint + typecheck + unit + integration)
            bump ha-addon/.../config.yaml version
            sync package.json version
            npm run build (standalone output)
-           tar + scp to HA (/addons/haspoolmanager-addon.tar.gz)
+           tar + scp to HA (/local_apps/haspoolmanager-addon.tar.gz)
            extract, ha addons reload, ha addons restart
                                 ↓
                     container boots:
@@ -64,8 +64,11 @@ What it does, in order:
 4. **Copies the Next.js standalone output** and static assets into
    `ha-addon/haspoolmanager/app/`
 5. **Tars the addon directory** to `ha-addon/dist/haspoolmanager-v<version>.tar.gz`
-6. **SCPs the tar** to `root@homeassistant:/addons/haspoolmanager-addon.tar.gz`
-7. **Extracts on HA**: `rm -rf /addons/haspoolmanager && tar -xzf ...`
+6. **SCPs the tar** to `root@homeassistant:/local_apps/haspoolmanager-addon.tar.gz`
+   (the local-addon folder is auto-detected before the build: `/local_apps`
+   on the HA SSH app ≥ 10.x, `/addons` on older versions — the manual
+   recipes below use `/local_apps`)
+7. **Extracts on HA**: `rm -rf /local_apps/haspoolmanager && tar -xzf ...`
 8. **Reloads + restarts**: `ha addons reload && ha addons restart local_haspoolmanager`
 
 Typical runtime: 60-90 seconds depending on network.
@@ -160,9 +163,9 @@ Three scenarios, three flavors of rollback:
 
 ```bash
 # Ship the previous tar (if you kept it)
-scp ha-addon/dist/haspoolmanager-v<prev>.tar.gz root@homeassistant:/addons/haspoolmanager-addon.tar.gz
-ssh root@homeassistant "rm -rf /addons/haspoolmanager && \
-  tar -xzf /addons/haspoolmanager-addon.tar.gz -C /addons/ && \
+scp ha-addon/dist/haspoolmanager-v<prev>.tar.gz root@homeassistant:/local_apps/haspoolmanager-addon.tar.gz
+ssh root@homeassistant "rm -rf /local_apps/haspoolmanager && \
+  tar -xzf /local_apps/haspoolmanager-addon.tar.gz -C /local_apps/ && \
   ha addons reload && ha addons restart local_haspoolmanager"
 ```
 
@@ -185,9 +188,9 @@ cp testdata/db-snapshots/prod-YYYY-MM-DD-pre-<change>.db     /Volumes/config/has
 cp testdata/db-snapshots/prod-YYYY-MM-DD-pre-<change>.db-wal /Volumes/config/haspoolmanager.db-wal 2>/dev/null
 cp testdata/db-snapshots/prod-YYYY-MM-DD-pre-<change>.db-shm /Volumes/config/haspoolmanager.db-shm 2>/dev/null
 
-scp ha-addon/dist/haspoolmanager-v<prev>.tar.gz root@homeassistant:/addons/haspoolmanager-addon.tar.gz
-ssh root@homeassistant "rm -rf /addons/haspoolmanager && \
-  tar -xzf /addons/haspoolmanager-addon.tar.gz -C /addons/ && \
+scp ha-addon/dist/haspoolmanager-v<prev>.tar.gz root@homeassistant:/local_apps/haspoolmanager-addon.tar.gz
+ssh root@homeassistant "rm -rf /local_apps/haspoolmanager && \
+  tar -xzf /local_apps/haspoolmanager-addon.tar.gz -C /local_apps/ && \
   ha addons reload && ha addons start local_haspoolmanager"
 ```
 
