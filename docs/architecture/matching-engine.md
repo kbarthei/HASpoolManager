@@ -136,8 +136,10 @@ neither Tier 1a nor Tier 1c matched.
 Steps:
 1. Find-or-create `vendor` "Bambu Lab"
 2. Find-or-create `filament` by `(vendor_id, name, color_hex)`
-    - Name synthesised from `bambuFilamentName(trayType, bambuIdx)` (e.g.
-      `"PLA Basic"`, `"ABS-GF Gray"`) via a static lookup table
+    - Name from the HA tray name via `bambuProductName()` (`"Bambu PLA
+      Silk+"` → `"PLA Silk+"`); falls back to `bambuFilamentName(trayType,
+      bambuIdx)` (static prefix table, e.g. `"PLA Basic"`) when the name is
+      missing — the prefix alone can't tell Basic, Matte and Silk+ apart
     - Color from the tray payload
     - `bambu_idx` field populated
 3. Create `spool` with `initialWeight = 1000`, `location = "ams"` (or
@@ -206,8 +208,8 @@ a spool that is physically still in the AMS while it heals.
 | Test | Layer | Scope |
 |---|---|---|
 | `tests/unit/matching-scoring.test.ts` | unit | ΔE thresholds + `normalizeColor()` |
-| `tests/unit/rfid-identity.test.ts` | unit | `isRealTag()`, `pickLearnCandidate()` (Tier 1c rules + tie-breaks), `rfidReactivation()` |
-| `tests/integration/printer-sync-rfid-identity.test.ts` | integration | K1–K6: duplicate-binding heal, never bind a differently-tagged spool, learn onto rack spool, auto-create on colour mismatch, reactivate archived/empty, fuzzy slot exclusivity |
+| `tests/unit/rfid-identity.test.ts` | unit | `isRealTag()`, `pickLearnCandidate()` (Tier 1c rules + tie-breaks), `rfidReactivation()`, `bambuProductName()` |
+| `tests/integration/printer-sync-rfid-identity.test.ts` | integration | K1–K7: duplicate-binding heal, never bind a differently-tagged spool, learn onto rack spool, auto-create on colour mismatch, reactivate archived/empty, fuzzy slot exclusivity, auto-created filament named from HA tray name |
 | `tests/integration/api-match.test.ts` | integration | End-to-end POST `/api/v1/match` with real DB; covers Tier 1a + a few fuzzy cases |
 | `tests/integration/printer-sync.test.ts` sections F–H | integration | Active-slot matching, tag-mapping, auto-creation branches |
 

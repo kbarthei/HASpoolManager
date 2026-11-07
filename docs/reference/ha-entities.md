@@ -67,13 +67,14 @@ Each tray entity has these attributes in its state:
 | `color` | `_color` | `RRGGBBAA` hex (alpha always `FF`) |
 | `tag_uid` | `_tag` | RFID tag ID (16 hex chars); `0000000000000000` if no RFID |
 | `filament_id` | `_filament_id` | Bambu filament code, e.g. `GFA00` |
+| `name` | `_name` | Product name, e.g. `Bambu PLA Silk+` (`?` when empty). Used as the filament name when a Bambu spool is auto-created. |
 | `remain` | `_remain` | Remaining percent, 0–100; `-1` if unknown |
 | `empty` | `_empty` | Boolean |
 
 Resulting sync payload keys (for one AMS unit + HT + external):
 
 ```
-slot_ams_0_0_type, _color, _tag, _filament_id, _remain, _empty
+slot_ams_0_0_type, _color, _tag, _filament_id, _name, _remain, _empty
 slot_ams_0_1_…
 slot_ams_0_2_…
 slot_ams_0_3_…

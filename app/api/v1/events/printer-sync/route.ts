@@ -10,7 +10,7 @@ import { deltaEHex } from "@/lib/color";
 import {
   num, bool, str,
   classifyGcodeState, isCalibrationJob,
-  buildEventId, bambuColorName, bambuFilamentName, calculateWeightSync, rfidReactivation,
+  buildEventId, bambuColorName, bambuProductName, calculateWeightSync, rfidReactivation,
   calculateEnergyCost,
   buildSlotDefs, type SlotDef,
 } from "@/lib/printer-sync-helpers";
@@ -153,6 +153,7 @@ async function autoCreateBambuSpool(
   trayType: string,
   trayColor: string,
   slotDef: SlotDef,
+  trayName: string,
 ): Promise<string | null> {
   try {
     // Guard: don't create if tag_mapping already exists (race-condition safety)
@@ -171,7 +172,7 @@ async function autoCreateBambuSpool(
 
     // 2. Find or create filament by bambu_idx + color
     const colorHex = trayColor.slice(0, 6).toUpperCase();
-    const filamentName = bambuFilamentName(trayType, bambuIdx);
+    const filamentName = bambuProductName(trayName, trayType, bambuIdx);
     const colorName = bambuColorName(colorHex);
 
     let filament = bambuIdx
@@ -953,6 +954,7 @@ export async function POST(request: NextRequest) {
       const trayColor = str(body[`${prefix}_color`]).replace("#", "").slice(0, 8);
       const tagUid = str(body[`${prefix}_tag`]);
       const filamentId = str(body[`${prefix}_filament_id`]);
+      const trayName = str(body[`${prefix}_name`]);
       const remain = num(body[`${prefix}_remain`], -1);
       const isEmpty = bool(body[`${prefix}_empty`]) || trayType === "" || trayType === "Empty";
 
@@ -1060,7 +1062,7 @@ export async function POST(request: NextRequest) {
 
       // Feature 1: Auto-create Bambu Lab spool for unmatched non-zero RFID tags
       if (!matchedSpoolId && !isEmpty && tagUid && tagUid !== "0000000000000000" && tagUid.length > 8) {
-        matchedSpoolId = await autoCreateBambuSpool(tagUid, filamentId, trayType, trayColor, def);
+        matchedSpoolId = await autoCreateBambuSpool(tagUid, filamentId, trayType, trayColor, def, trayName);
       }
 
       // Feature 2: Auto-create draft spool for unmatched slots with no RFID (third-party filament)

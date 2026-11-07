@@ -242,11 +242,11 @@ node scripts/migrate-db.js
 npm run dev                                 # http://localhost:3000
 ```
 
-**Test suite — currently green at ~1096 tests:**
+**Test suite — currently green at ~1099 tests:**
 | Layer | Tests | Files |
 |-------|------:|------:|
-| Unit (Vitest, no DB) | 698 | 33 |
-| Integration (per-worker SQLite) | 345 | 28 |
+| Unit (Vitest, no DB) | 700 | 33 |
+| Integration (per-worker SQLite) | 346 | 28 |
 | E2e (Docker nginx + Playwright) | ~53 | 19 |
 
 The integration tier includes an auto-discovered **browser-auth-contract**

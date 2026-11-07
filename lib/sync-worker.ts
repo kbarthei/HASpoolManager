@@ -136,6 +136,7 @@ async function buildSyncPayload(printer: PrinterSyncState): Promise<Record<strin
       payload[`${prefix}_color`] = state.attributes.color ?? "";
       payload[`${prefix}_tag`] = state.attributes.tag_uid ?? "";
       payload[`${prefix}_filament_id`] = state.attributes.filament_id ?? "";
+      payload[`${prefix}_name`] = state.attributes.name ?? "";
       payload[`${prefix}_remain`] = state.attributes.remain ?? -1;
       payload[`${prefix}_empty`] = state.attributes.empty ?? true;
     } else if (field === "print_weight") {

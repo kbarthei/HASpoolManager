@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { pickLearnCandidate, isRealTag, type LearnCandidate } from "@/lib/matching";
-import { rfidReactivation } from "@/lib/printer-sync-helpers";
+import { rfidReactivation, bambuProductName } from "@/lib/printer-sync-helpers";
 
 function cand(over: Partial<LearnCandidate>): LearnCandidate {
   return {
@@ -103,5 +103,18 @@ describe("rfidReactivation()", () => {
 
   it("does not touch draft spools", () => {
     expect(rfidReactivation({ status: "draft", initialWeight: 1000, remain: 50 })).toBeNull();
+  });
+});
+
+describe("bambuProductName()", () => {
+  it("strips the Bambu vendor prefix from the HA tray name", () => {
+    expect(bambuProductName("Bambu PLA Silk+", "PLA", "GFA06")).toBe("PLA Silk+");
+    expect(bambuProductName("Bambu PLA Matte", "PLA", "GFA01")).toBe("PLA Matte");
+    expect(bambuProductName("Bambu Lab PETG HF", "PETG", "GFG02")).toBe("PETG HF");
+  });
+
+  it("falls back to the bambu_idx line map when name is missing or '?'", () => {
+    expect(bambuProductName("", "PETG", "GFG02")).toBe("PETG HF");
+    expect(bambuProductName("?", "PLA", "GFA00")).toBe("PLA Basic");
   });
 });

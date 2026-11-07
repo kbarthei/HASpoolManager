@@ -283,6 +283,25 @@ describe("printer-sync RFID identity", () => {
     expect(petgRow!.location).toBe("ams");
   });
 
+  it("K7: auto-created Bambu spool takes its filament name from the HA tray name", async () => {
+    const { db } = await import("@/lib/db");
+    const { spools } = await import("@/lib/db/schema");
+    const { eq } = await import("drizzle-orm");
+
+    await sync({
+      ...trayFields("slot_ams_0_3", { type: "PLA", color: "2850E0FF", idx: "GFA06", tag: "EEEE555500000100", remain: 91 }),
+      slot_ams_0_3_name: "Bambu PLA Silk+",
+    });
+
+    const spoolId = await slotSpoolId(0, 3);
+    const spool = await db.query.spools.findFirst({
+      where: eq(spools.id, spoolId!),
+      with: { filament: true },
+    });
+    expect(spool!.filament.name).toBe("PLA Silk+");
+    expect(spool!.filament.bambuIdx).toBe("GFA06");
+  });
+
   it("K6: fuzzy (no-RFID) matching never binds a spool already bound to another slot", async () => {
     const { db } = await import("@/lib/db");
     const { amsSlots } = await import("@/lib/db/schema");

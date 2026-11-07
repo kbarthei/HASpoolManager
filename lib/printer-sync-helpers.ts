@@ -146,6 +146,17 @@ export function bambuFilamentName(trayType: string, bambuIdx: string): string {
   return lineMap[prefix] ?? (trayType || "Filament");
 }
 
+/**
+ * Filament name for an auto-created Bambu spool. Prefers the tray's product
+ * name from HA ("Bambu PLA Silk+" → "PLA Silk+") — the bambu_idx prefix
+ * alone can't tell PLA Basic, Matte and Silk+ apart (all GFA…).
+ */
+export function bambuProductName(trayName: string, trayType: string, bambuIdx: string): string {
+  const stripped = trayName.trim().replace(/^Bambu(\s+Lab)?\s+/i, "").trim();
+  if (stripped && stripped !== "?") return stripped;
+  return bambuFilamentName(trayType, bambuIdx);
+}
+
 // ── Weight sync from AMS remain ──────────────────────────────────────────────
 
 export interface WeightSyncResult {
